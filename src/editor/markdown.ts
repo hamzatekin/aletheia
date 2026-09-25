@@ -2,12 +2,12 @@ import markdownIt, { type MarkdownIt, type RendererRule } from 'markdown-it';
 
 /**
  * The single Markdown dialect used everywhere: static rendering here and
- * tiptap-markdown in the editor share these options (no raw HTML, no
- * linkify, no soft-break-to-<br>).
+ * tiptap-markdown in the editor share these options (markdown-it default
+ * preset, no raw HTML, no linkify, no soft-break-to-<br>).
  */
 export const markdownOptions = { html: false, linkify: false, breaks: false } as const;
 
-export const md: MarkdownIt = markdownIt('commonmark', markdownOptions).enable(['strikethrough']);
+export const md: MarkdownIt = markdownIt(markdownOptions);
 
 // Links open in a new tab; the editor owns clicks inside the outline.
 const defaultLinkOpen: RendererRule =

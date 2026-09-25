@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { newId } from '@/model';
 import { fixture, ok, outline } from '@/test/helpers';
+import { joinMarkdown } from './content-commands';
 
 describe('createNode', () => {
   it('appends at the end by default and can insert first / after / before', () => {
@@ -101,6 +102,16 @@ describe('splitNode', () => {
   });
 });
 
+describe('joinMarkdown', () => {
+  it('re-joins a mark split at the caret and leaves other joins alone', () => {
+    expect(joinMarkdown('a **n**', '**ew** b')).toBe('a **new** b');
+    expect(joinMarkdown('*x*', '*y*')).toBe('*xy*');
+    expect(joinMarkdown('`co`', '`de`')).toBe('`code`');
+    expect(joinMarkdown('**a**', 'b')).toBe('**a**b');
+    expect(joinMarkdown('a', '')).toBe('a');
+  });
+});
+
 describe('mergeNodes', () => {
   it('appends content, soft-deletes the source, and reports a caret at the join', () => {
     const f = fixture(['foo', 'bar']);
@@ -109,6 +120,15 @@ describe('mergeNodes', () => {
     expect(f.kids(null)).toEqual(['foobar']);
     expect(f.node('bar').deletedAt).not.toBeNull();
     expect(r.focus).toEqual({ id: f.ids.foo, offset: 3 });
+  });
+
+  it('split then merge round-trips content with a mark at the caret', () => {
+    const f = fixture(['a **new** b']);
+    const id = f.ids['a **new** b']!;
+    const nid = newId();
+    ok(f.engine.execute({ type: 'splitNode', id, newId: nid, left: 'a **n**', right: '**ew** b' }));
+    ok(f.engine.execute({ type: 'mergeNodes', sourceId: nid, targetId: id }));
+    expect(f.engine.tree.get(id)!.content).toBe('a **new** b');
   });
 
   it("moves the source's children to the end of the target's children", () => {

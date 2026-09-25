@@ -96,6 +96,20 @@ export function splitNode(ctx: CommandContext, cmd: Of<'splitNode'>): Effect | R
   };
 }
 
+const JOIN_DELIMITERS = ['***', '**', '*', '___', '__', '_', '~~', '`'];
+
+/**
+ * Concatenate two inline Markdown strings. A mark closed at the end of `left`
+ * and reopened at the start of `right` (as produced by splitting inside it)
+ * is joined back into one span: `**ne**` + `**w**` → `**new**`.
+ */
+export function joinMarkdown(left: string, right: string): string {
+  for (const d of JOIN_DELIMITERS) {
+    if (left.endsWith(d) && right.startsWith(d)) return left.slice(0, -d.length) + right.slice(d.length);
+  }
+  return left + right;
+}
+
 /**
  * Merge `source` into `target`: target.content += source.content, source's
  * children move under target, source is soft-deleted. When target is the
@@ -112,7 +126,7 @@ export function mergeNodes(ctx: CommandContext, cmd: Of<'mergeNodes'>): Effect |
 
   const cs = new ChangeSet(tree, ctx.now);
   const caret = target.content.length;
-  cs.update(target.id, { content: target.content + source.content });
+  cs.update(target.id, { content: joinMarkdown(target.content, source.content) });
 
   const kids = tree.children(source.id);
   const affected = new Set<string>([source.id, target.id, ...parentNodeIds(source.parentId)]);

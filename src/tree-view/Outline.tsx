@@ -1,6 +1,8 @@
-import { useRef } from 'react';
-import { useWindowVirtualizer } from '@tanstack/react-virtual';
+import { useCallback, useEffect, useRef } from 'react';
+import { defaultRangeExtractor, useWindowVirtualizer, type Range } from '@tanstack/react-virtual';
+import { useUiStore } from '@/store/ui-store';
 import { Row } from './Row';
+import { useOutline } from './outline-context';
 import { useVisibleRows } from './use-outline';
 
 interface Props {
@@ -9,8 +11,21 @@ interface Props {
 
 /** The virtualized list of visible rows under the zoom root. */
 export function Outline({ rootId }: Props) {
+  const { ui, actions } = useOutline();
   const rows = useVisibleRows(rootId);
   const listRef = useRef<HTMLDivElement>(null);
+
+  // Keep the focused (or selection-head) row mounted even when scrolled away.
+  const pinnedId = useUiStore(ui, (s) => s.focus?.id ?? s.selection?.head ?? null);
+  const pinned = pinnedId === null ? -1 : rows.findIndex((r) => r.id === pinnedId);
+  const rangeExtractor = useCallback(
+    (range: Range) => {
+      const indexes = defaultRangeExtractor(range);
+      if (pinned >= 0 && !indexes.includes(pinned)) indexes.push(pinned);
+      return indexes;
+    },
+    [pinned],
+  );
 
   const virtualizer = useWindowVirtualizer({
     count: rows.length,
@@ -18,7 +33,32 @@ export function Outline({ rootId }: Props) {
     overscan: 12,
     scrollMargin: listRef.current?.offsetTop ?? 0,
     getItemKey: (index) => rows[index]!.id,
+    rangeExtractor,
   });
+
+  // Bring a keyboard-selected row into view.
+  const selectionHead = useUiStore(ui, (s) => s.selection?.head ?? null);
+  useEffect(() => {
+    if (selectionHead === null) return;
+    const index = rows.findIndex((r) => r.id === selectionHead);
+    if (index >= 0) virtualizer.scrollToIndex(index, { align: 'auto' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the head changes
+  }, [selectionHead]);
+
+  if (rows.length === 0) {
+    return (
+      <div
+        className="cursor-text py-0.5 leading-6 text-neutral-400 dark:text-neutral-500"
+        data-testid="empty-outline"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          actions.createFirst();
+        }}
+      >
+        Click here or press Enter to start writing.
+      </div>
+    );
+  }
 
   return (
     <div

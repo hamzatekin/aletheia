@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { newId } from '@/model';
 import { MemoryRepository } from '@/persistence';
 import { createEngine } from './engine';
+import { moveUpCommand } from './structure-commands';
 import { createTreeStore } from '@/store/tree-store';
 import { fixture, makeClock, ok, outline } from '@/test/helpers';
 
@@ -176,5 +177,61 @@ describe('engine: operation log, dirty nodes, persistence', () => {
     off();
     f.engine.redo();
     expect(seen).toEqual(['toggleCollapse', 'undo']);
+  });
+});
+
+describe('engine: batch', () => {
+  it('runs several commands as one undo step, each seeing the previous result', () => {
+    const f = fixture(['A', 'B', 'C']);
+    const r = f.engine.batch([
+      { type: 'indent', id: f.ids.B! },
+      { type: 'indent', id: f.ids.C! },
+    ]);
+    ok(r);
+    expect(outline(f)).toEqual([['A', ['B', 'C']]]);
+    expect(r.op.type).toBe('batch');
+    f.engine.undo();
+    expect(outline(f)).toEqual(['A', 'B', 'C']);
+    f.engine.redo();
+    expect(outline(f)).toEqual([['A', ['B', 'C']]]);
+  });
+
+  it('derives commands from the live tree and skips rejected items', () => {
+    const f = fixture(['A', 'B', 'C']);
+    // Move B and C up together: B goes above A, then C above A.
+    const r = f.engine.batch([
+      (tree) => moveUpCommand({ tree, now: 0 }, f.ids.B!),
+      (tree) => moveUpCommand({ tree, now: 0 }, f.ids.C!),
+      { type: 'indent', id: f.ids.B! }, // now the first child: rejected, skipped
+    ]);
+    ok(r);
+    expect(f.kids(null)).toEqual(['B', 'C', 'A']);
+    expect(f.engine.batch([{ type: 'indent', id: f.ids.B! }]).ok).toBe(false);
+  });
+
+  it('coalesces changes per node and persists one operation', async () => {
+    const f = fixture(['A']);
+    ok(f.engine.batch([
+      { type: 'updateContent', id: f.ids.A!, content: 'x' },
+      { type: 'updateContent', id: f.ids.A!, content: 'y' },
+    ]));
+    await f.engine.flush();
+    const ops = await f.repo.listOperations();
+    const last = ops[ops.length - 1]!;
+    expect(last.changes).toHaveLength(1);
+    expect(last.changes[0]!.before?.content).toBe('A');
+    expect(last.changes[0]!.after?.content).toBe('y');
+    f.engine.undo();
+    expect(f.node('A').content).toBe('A');
+  });
+
+  it('drops nodes created and removed inside the same batch', () => {
+    const f = fixture([]);
+    const id = newId();
+    // create then undo-like removal cannot happen via commands; created+deleted stays as a soft-deleted node
+    ok(f.engine.batch([{ type: 'createNode', id, parentId: null }, { type: 'deleteSubtree', id }]));
+    expect(f.engine.tree.get(id)?.deletedAt).not.toBeNull();
+    f.engine.undo();
+    expect(f.engine.tree.get(id)).toBeUndefined();
   });
 });

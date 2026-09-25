@@ -13,6 +13,10 @@
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.13",
+    "@tiptap/core": "^3.31.3",
+    "@tiptap/pm": "^3.31.3",
+    "@tiptap/react": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3",
     "dexie": "^4.4.6",
     "dompurify": "^3.4.16",
     "fractional-indexing": "^4.0.0",
@@ -20,6 +24,7 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router": "^8.4.0",
+    "tiptap-markdown": "^0.9.0",
     "uuid": "^14.0.2",
     "zustand": "^5.0.15"
   },

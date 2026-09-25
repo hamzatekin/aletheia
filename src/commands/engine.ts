@@ -20,10 +20,18 @@ export interface EngineOptions {
  * order through a write queue, appends to the operation log, marks dirty
  * nodes, and keeps in-memory undo/redo stacks.
  */
+/** A command, or a function that derives one from the tree as it is mid-batch. */
+export type BatchItem = Command | ((tree: TreeReader) => Command | null);
+
 export interface Engine {
   readonly store: TreeStore;
   readonly tree: TreeReader;
   execute(cmd: Command): Outcome;
+  /**
+   * Run several commands as one undo step and one operation. Each item sees
+   * the tree as left by the previous one; rejected items are skipped.
+   */
+  batch(items: BatchItem[], type?: string): Outcome;
   undo(): Outcome | null;
   redo(): Outcome | null;
   canUndo(): boolean;
@@ -47,6 +55,10 @@ export function createEngine(opts: EngineOptions): Engine {
 
   function commit(op: Operation): void {
     store.getState().applyChanges(op.changes);
+    persist(op);
+  }
+
+  function persist(op: Operation): void {
     const upserts = [];
     const removals: string[] = [];
     for (const c of op.changes) {
@@ -103,6 +115,35 @@ export function createEngine(opts: EngineOptions): Engine {
       undoStack.push(op);
       redoStack.length = 0;
       return effect.focus ? { ok: true, op, focus: effect.focus } : { ok: true, op };
+    },
+
+    batch(items, type = 'batch') {
+      const at = now();
+      const merged = new Map<string, NodeChange>();
+      const affected = new Set<string>();
+      let focus: FocusHint | undefined;
+      const inputs: Command[] = [];
+      for (const item of items) {
+        const cmd = typeof item === 'function' ? item(tree) : item;
+        if (!cmd) continue;
+        const effect = computeEffect({ tree, now: at }, cmd);
+        if (isRejection(effect) || effect.changes.length === 0) continue;
+        store.getState().applyChanges(effect.changes);
+        for (const c of effect.changes) {
+          const prev = merged.get(c.id);
+          merged.set(c.id, { id: c.id, before: prev ? prev.before : c.before, after: c.after });
+        }
+        for (const id of effect.affectedNodeIds) affected.add(id);
+        if (effect.focus) focus = effect.focus;
+        inputs.push(cmd);
+      }
+      const changes = [...merged.values()].filter((c) => c.before !== null || c.after !== null);
+      if (changes.length === 0) return { ok: false, reason: 'nothing to do' };
+      const op: Operation = { id: newId(), type, input: inputs, changes, affectedNodeIds: [...affected], timestamp: at };
+      persist(op);
+      undoStack.push(op);
+      redoStack.length = 0;
+      return focus ? { ok: true, op, focus } : { ok: true, op };
     },
 
     undo() {
