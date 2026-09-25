@@ -1,8 +1,12 @@
 import { moveDownCommand, moveUpCommand, type BatchItem, type Command, type Engine, type Outcome } from '@/commands';
 import type { EditorSession } from '@/editor/session';
 import type { OutlineKey } from '@/editor/outliner-keymap';
-import { newId, nextVisible, previousVisible, visibleRows, type TreeReader } from '@/model';
+import { slashCommands } from '@/editor/slash-registry';
+import { importCommands, parseMarkdownOutline } from '@/io/import';
+import { ancestorIds, newId, nextVisible, previousVisible, visibleRows, type TreeReader } from '@/model';
+import type { SearchIndex } from '@/search';
 import type { Caret, UiStore } from '@/store/ui-store';
+import type { NavigateFunction } from 'react-router';
 
 export interface OutlineActions {
   /** Structural keys coming from the editor keymap. */
@@ -15,17 +19,26 @@ export interface OutlineActions {
   undo(): void;
   redo(): void;
   zoomOut(): void;
+  /** Zoom to the node's parent and focus it (search results, links). */
+  revealNode(id: string): void;
+  /** Run the i-th command of the open slash menu. */
+  runSlash(index: number): void;
+  /** Keep the slash query in sync with the editor; called after each transaction. */
+  syncSlash(): void;
+  /** Multi-line paste: one node per line, nested by indentation. */
+  pasteLines(text: string): boolean;
 }
 
 interface Deps {
   engine: Engine;
   ui: UiStore;
   session: EditorSession;
+  search: SearchIndex;
   rootId: string | null;
-  navigate: (to: string) => void;
+  navigate: NavigateFunction;
 }
 
-export function createOutlineActions({ engine, ui, session, rootId, navigate }: Deps): OutlineActions {
+export function createOutlineActions({ engine, ui, session, search, rootId, navigate }: Deps): OutlineActions {
   const tree: TreeReader = engine.tree;
 
   const applyFocus = (outcome: Outcome | null, fallback?: Caret): boolean => {
@@ -70,10 +83,101 @@ export function createOutlineActions({ engine, ui, session, rootId, navigate }: 
     }
   };
 
+  const revealNode = (id: string) => {
+    const node = tree.get(id);
+    if (!node || node.deletedAt !== null) return;
+    session.flush();
+    // Expand collapsed ancestors so the node is visible under its parent.
+    const collapsed = ancestorIds(tree, id).filter((a) => tree.get(a)?.collapsed);
+    if (collapsed.length > 0) engine.batch(collapsed.map((a): Command => ({ type: 'toggleCollapse', id: a, collapsed: false })), 'expand');
+    navigate(node.parentId ? `/n/${node.parentId}` : '/');
+    ui.focusNode(id, { kind: 'end' });
+  };
+
+  const closeSlash = () => ui.setSlash(null);
+
+  const syncSlash = () => {
+    const slash = ui.getState().slash;
+    if (!slash) return;
+    const text = session.textFrom(slash.from);
+    if (text === null || !text.startsWith('/')) return closeSlash();
+    const query = text.slice(1);
+    if (query !== slash.query) ui.setSlash({ from: slash.from, query, index: 0 });
+  };
+
+  const runSlash = (index: number) => {
+    const slash = ui.getState().slash;
+    const focus = ui.getState().focus;
+    if (!slash || !focus) return;
+    const item = slashCommands(slash.query)[index];
+    closeSlash();
+    if (!item) return;
+    session.deleteRange(slash.from, session.caretPos());
+    void item.run({ engine, session, ui, search, navigate, rootId, nodeId: focus.id });
+  };
+
+  const pasteLines = (text: string): boolean => {
+    const focus = ui.getState().focus;
+    if (!focus || focus.field !== 'content') return false;
+    const items = parseMarkdownOutline(text);
+    if (items.length === 0) return false;
+    const id = focus.id;
+    const node = tree.get(id);
+    if (!node) return false;
+    session.flush();
+    const commands: Command[] = [];
+    let rest = items;
+    if (session.isEmpty() && id !== rootId) {
+      // An empty node takes the first item; the rest follow as siblings.
+      const [first, ...others] = items;
+      commands.push({ type: 'updateContent', id, content: first!.content });
+      if (first!.note !== '') commands.push({ type: 'updateNote', id, note: first!.note });
+      commands.push(...importCommands(id, first!.children));
+      rest = others;
+    }
+    if (id === rootId) commands.push(...importCommands(id, rest, undefined));
+    else commands.push(...importCommands(node.parentId, rest, id));
+    const outcome = engine.batch(commands, 'paste');
+    if (outcome.ok) {
+      const lastTop = outcome.op.changes[outcome.op.changes.length - 1];
+      ui.focusNode(lastTop && lastTop.id !== id ? lastTop.id : id, { kind: 'end' });
+    }
+    return true;
+  };
+
   const handleKey = (key: OutlineKey): boolean => {
     if (key === 'undo' || key === 'redo') {
       undoRedo(key);
       return true;
+    }
+    if (key === 'search') {
+      session.flush();
+      ui.setSearchOpen(true);
+      return true;
+    }
+    const slash = ui.getState().slash;
+    if (key === 'slash') {
+      if (!slash) ui.setSlash({ from: session.caretPos(), query: '', index: 0 });
+      return false;
+    }
+    if (slash) {
+      const count = slashCommands(slash.query).length;
+      switch (key) {
+        case 'up':
+          ui.setSlash({ ...slash, index: (slash.index - 1 + Math.max(count, 1)) % Math.max(count, 1) });
+          return true;
+        case 'down':
+          ui.setSlash({ ...slash, index: (slash.index + 1) % Math.max(count, 1) });
+          return true;
+        case 'enter':
+          runSlash(Math.min(slash.index, count - 1));
+          return true;
+        case 'escape':
+          closeSlash();
+          return true;
+        default:
+          break;
+      }
     }
     const focus = ui.getState().focus;
     if (!focus || focus.field !== 'content') return false;
@@ -187,6 +291,13 @@ export function createOutlineActions({ engine, ui, session, rootId, navigate }: 
 
   const handleGlobalKey = (e: KeyboardEvent): boolean => {
     const mod = e.metaKey || e.ctrlKey;
+    if (ui.getState().searchOpen) return false;
+    if (mod && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      session.flush();
+      ui.setSearchOpen(true);
+      return true;
+    }
     if (mod && e.key.toLowerCase() === 'z') {
       e.preventDefault();
       undoRedo(e.shiftKey ? 'redo' : 'undo');
@@ -296,5 +407,9 @@ export function createOutlineActions({ engine, ui, session, rootId, navigate }: 
     undo: () => undoRedo('undo'),
     redo: () => undoRedo('redo'),
     zoomOut,
+    revealNode,
+    runSlash,
+    syncSlash,
+    pasteLines,
   };
 }

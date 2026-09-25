@@ -19,8 +19,8 @@ src/commands      Typed commands, the engine (apply → persist → op log → u
 src/editor        Markdown dialect (markdown-it) and sanitized static rendering
 src/tree-view     Virtualized outline, rows, bullets, breadcrumbs, zoom page
 src/app           Bootstrap (load + first-run seed) and the engine context
-src/search        (step 5)
-src/io            (step 5)
+src/search        MiniSearch index kept current from operations; Ctrl/⌘+K palette
+src/io            Markdown / OPML / JSON export, Markdown / OPML import, file helpers
 ```
 
 ## How a command runs
@@ -65,6 +65,33 @@ picks the depth to outdent to; `resolveInstruction` in `tree-view/dnd.ts`
 maps every hitbox instruction to a `moveNode` command and to the indicator
 line, and clamps outdent depth so the line always shows where the node will
 actually land. Dropping a node onto itself or a descendant is refused.
+
+## Search, import/export, slash menu
+
+`SearchIndex` indexes plain text of content and note for live nodes and
+applies every engine operation incrementally. `Ctrl/⌘+K` opens the palette;
+choosing a hit expands collapsed ancestors, zooms to the parent and focuses
+the node.
+
+Typing `/` in a node opens the slash menu, backed by `registerSlashCommand`
+in `editor/slash-registry.ts`. Commands receive a context (engine, session,
+UI store, search index, navigate, zoom root, current node) and are filtered
+by title and keywords. Built in: bold, italic, code, link, collapse all,
+expand all, zoom in, export as Markdown / OPML / JSON backup, import
+Markdown / OPML into the current node, restore a JSON backup. Future
+commands, including on-demand AI, plug in as registry entries.
+
+Export writes the current zoom root as nested bullets (`content` as bullet
+text, `note` as an indented paragraph beneath), as OPML with `_note`, or the
+whole node table as JSON. Import parses nested bullets or OPML into the
+current node as one undo step. Pasting multi-line text into a node creates
+one node per line, nested by indentation.
+
+`nodeContextText(tree, id)` (model/context.ts) builds the ancestor path,
+content, note and direct children as text for future on-demand AI features;
+the same bullet/note formatting is used by the Markdown export.
+`contentHash(text)` gives a stable hash for staleness checks. The Dexie
+tables `embeddings`, `summaries`, `tags`, `relations` exist and are empty.
 
 ## Scripts
 

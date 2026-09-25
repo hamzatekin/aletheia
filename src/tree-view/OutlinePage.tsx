@@ -6,6 +6,8 @@ import { renderBlock, renderInline } from '@/editor/render';
 import { NodeEditor } from '@/editor/NodeEditor';
 import { NoteEditor } from '@/editor/NoteEditor';
 import type { EditorSession } from '@/editor/session';
+import type { SearchIndex } from '@/search';
+import { SearchPalette } from '@/search/SearchPalette';
 import { useEngine } from '@/app/engine-context';
 import { useUiStore, type UiStore } from '@/store/ui-store';
 import { createOutlineActions } from './actions';
@@ -17,10 +19,11 @@ import { useNode } from './use-outline';
 interface Props {
   ui: UiStore;
   session: EditorSession;
+  search: SearchIndex;
 }
 
 /** `/` shows the top level; `/n/:id` zooms into a node. */
-export function OutlinePage({ ui, session }: Props) {
+export function OutlinePage({ ui, session, search }: Props) {
   const engine: Engine = useEngine();
   const { id } = useParams<{ id: string }>();
   const rootId = id ?? null;
@@ -29,14 +32,23 @@ export function OutlinePage({ ui, session }: Props) {
   const missing = rootId !== null && (!root || root.deletedAt !== null);
 
   const actions = useMemo(
-    () => createOutlineActions({ engine, ui, session, rootId, navigate }),
-    [engine, ui, session, rootId, navigate],
+    () => createOutlineActions({ engine, ui, session, search, rootId, navigate }),
+    [engine, ui, session, search, rootId, navigate],
   );
-  const context = useMemo(() => ({ engine, ui, session, actions, rootId }), [engine, ui, session, actions, rootId]);
+  const context = useMemo(
+    () => ({ engine, ui, session, search, actions, rootId }),
+    [engine, ui, session, search, actions, rootId],
+  );
 
   useEffect(() => {
     session.setKeyHandler(actions.handleKey);
-    return () => session.setKeyHandler(null);
+    session.pasteHandler = actions.pasteLines;
+    const off = session.onTransaction(actions.syncSlash);
+    return () => {
+      session.setKeyHandler(null);
+      session.pasteHandler = null;
+      off();
+    };
   }, [session, actions]);
 
   useEffect(() => {
@@ -113,6 +125,7 @@ export function OutlinePage({ ui, session }: Props) {
             <Outline rootId={rootId} />
           </>
         )}
+        <SearchPalette />
       </main>
     </OutlineProvider>
   );

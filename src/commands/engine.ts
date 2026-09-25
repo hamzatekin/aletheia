@@ -1,4 +1,4 @@
-import { newId, type NodeChange, type Operation, type TreeReader } from '@/model';
+import { newId, type Node, type NodeChange, type Operation, type TreeReader } from '@/model';
 import type { Repository } from '@/persistence';
 import { readerOf, type TreeStore } from '@/store/tree-store';
 import { computeEffect } from './dispatch';
@@ -40,6 +40,8 @@ export interface Engine {
   flush(): Promise<void>;
   /** Load nodes from the repository into the store. */
   load(): Promise<void>;
+  /** Replace every node (restore from backup). Not undoable; clears the stacks. */
+  replaceAll(nodes: Node[]): Promise<void>;
   /** Subscribe to committed operations (search index, etc.). Returns unsubscribe. */
   onOperation(listener: (op: Operation) => void): () => void;
 }
@@ -189,6 +191,14 @@ export function createEngine(opts: EngineOptions): Engine {
 
     async load() {
       store.getState().load(await repository.loadAllNodes());
+    },
+
+    async replaceAll(nodes) {
+      await queue;
+      await repository.replaceAllNodes(nodes);
+      undoStack.length = 0;
+      redoStack.length = 0;
+      store.getState().load(nodes);
     },
 
     onOperation(listener) {

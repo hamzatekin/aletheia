@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef } from 'react';
 import { useOutline } from '@/tree-view/outline-context';
 import { useNode } from '@/tree-view/use-outline';
 import { useUiStore } from '@/store/ui-store';
+import { SlashMenu } from './SlashMenu';
 
 interface Props {
   id: string;
@@ -32,5 +33,10 @@ export function NodeEditor({ id, className }: Props) {
     if (caret) session.placeCaret(caret);
   }, [caret, id, session]);
 
-  return <div ref={ref} className={className} data-editor="content" />;
+  return (
+    <div className="relative">
+      <div ref={ref} className={className} data-editor="content" />
+      <SlashMenu />
+    </div>
+  );
 }

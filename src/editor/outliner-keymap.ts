@@ -19,7 +19,9 @@ export type OutlineKey =
   | 'zoomOut'
   | 'escape'
   | 'undo'
-  | 'redo';
+  | 'redo'
+  | 'slash'
+  | 'search';
 
 export interface OutlinerKeymapStorage {
   /** Set by the outline; returns true when the key was consumed. */
@@ -62,6 +64,12 @@ export const OutlinerKeymap = Extension.create<Record<string, never>, OutlinerKe
       'Mod-z': send('undo'),
       'Shift-Mod-z': send('redo'),
       'Mod-y': send('redo'),
+      'Mod-k': send('search'),
+      // Open the slash menu but let the "/" be typed.
+      '/': () => {
+        this.storage.handler?.('slash');
+        return false;
+      },
     };
   },
 });

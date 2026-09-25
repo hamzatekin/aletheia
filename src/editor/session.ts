@@ -42,6 +42,8 @@ export class EditorSession {
   private loading = false;
   private mounted = false;
   private readonly unsubscribe: () => void;
+  /** Multi-line paste goes to the outline (one node per line). */
+  pasteHandler: ((text: string) => boolean) | null = null;
 
   constructor(private readonly engine: Engine) {
     // Undo/redo (or any command) may change the loaded node's content
@@ -81,6 +83,11 @@ export class EditorSession {
       ],
       editorProps: {
         attributes: { class: 'node-content outline-none', spellcheck: 'true' },
+        handlePaste: (_view, event) => {
+          const text = event.clipboardData?.getData('text/plain') ?? '';
+          if (text.includes('\n') && this.pasteHandler) return this.pasteHandler(text);
+          return false;
+        },
       },
       onUpdate: () => {
         if (this.loading) return;
@@ -99,6 +106,30 @@ export class EditorSession {
 
   setKeyHandler(handler: ((key: OutlineKey) => boolean) | null): void {
     this.keymap.handler = handler;
+  }
+
+  /** Called after every editor transaction (typing, selection). Returns unsubscribe. */
+  onTransaction(listener: () => void): () => void {
+    this.editor.on('transaction', listener);
+    return () => {
+      this.editor.off('transaction', listener);
+    };
+  }
+
+  /** Delete text between two document positions (used to remove "/query"). */
+  deleteRange(from: number, to: number): void {
+    this.editor.commands.deleteRange({ from, to });
+  }
+
+  caretPos(): number {
+    return this.editor.state.selection.from;
+  }
+
+  /** Text between a document position and the caret. */
+  textFrom(from: number): string | null {
+    const { doc, selection } = this.editor.state;
+    if (!selection.empty || selection.from < from || from < 0 || from > doc.content.size) return null;
+    return doc.textBetween(from, selection.from, '\n');
   }
 
   mount(el: HTMLElement): void {

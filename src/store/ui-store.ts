@@ -36,9 +36,18 @@ export interface DropIndicator {
   level: number;
 }
 
+/** The slash menu, open since a "/" was typed at document position `from`. */
+export interface SlashState {
+  from: number;
+  query: string;
+  index: number;
+}
+
 export interface UiState {
   focus: Focus | null;
   selection: Selection | null;
+  slash: SlashState | null;
+  searchOpen: boolean;
   dropIndicator: DropIndicator | null;
   /** Id of the node being dragged, if any. */
   dragging: string | null;
@@ -47,6 +56,8 @@ export interface UiState {
   setSelection(selection: Selection | null): void;
   setDropIndicator(indicator: DropIndicator | null): void;
   setDragging(id: string | null): void;
+  setSlash(slash: SlashState | null): void;
+  setSearchOpen(open: boolean): void;
 }
 
 /** The store plus its actions as direct methods, for non-React callers. */
@@ -56,16 +67,20 @@ export interface UiStore extends StoreApi<UiState> {
   setSelection(selection: Selection | null): void;
   setDropIndicator(indicator: DropIndicator | null): void;
   setDragging(id: string | null): void;
+  setSlash(slash: SlashState | null): void;
+  setSearchOpen(open: boolean): void;
 }
 
 export function createUiStore(): UiStore {
   const store = createStore<UiState>((set, get) => ({
     focus: null,
     selection: null,
+    slash: null,
+    searchOpen: false,
     dropIndicator: null,
     dragging: null,
-    focusNode: (id, caret = { kind: 'end' }, field = 'content') => set({ focus: { id, field, caret }, selection: null }),
-    blur: () => set({ focus: null }),
+    focusNode: (id, caret = { kind: 'end' }, field = 'content') => set({ focus: { id, field, caret }, selection: null, slash: null }),
+    blur: () => set({ focus: null, slash: null }),
     setSelection: (selection) => set({ selection }),
     setDropIndicator: (indicator) => {
       const cur = get().dropIndicator;
@@ -74,6 +89,8 @@ export function createUiStore(): UiStore {
       set({ dropIndicator: indicator });
     },
     setDragging: (dragging) => set({ dragging }),
+    setSlash: (slash) => set({ slash }),
+    setSearchOpen: (searchOpen) => set({ searchOpen }),
   }));
   return Object.assign(store, {
     focusNode: (id: string, caret?: Caret, field?: Field) => store.getState().focusNode(id, caret, field),
@@ -81,6 +98,8 @@ export function createUiStore(): UiStore {
     setSelection: (selection: Selection | null) => store.getState().setSelection(selection),
     setDropIndicator: (indicator: DropIndicator | null) => store.getState().setDropIndicator(indicator),
     setDragging: (id: string | null) => store.getState().setDragging(id),
+    setSlash: (slash: SlashState | null) => store.getState().setSlash(slash),
+    setSearchOpen: (open: boolean) => store.getState().setSearchOpen(open),
   });
 }
 
