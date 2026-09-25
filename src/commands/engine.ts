@@ -1,0 +1,185 @@
+import { newId, type NodeChange, type Operation, type TreeReader } from '@/model';
+import type { Repository } from '@/persistence';
+import { readerOf, type TreeStore } from '@/store/tree-store';
+import { computeEffect } from './dispatch';
+import { isRejection, type Command, type FocusHint } from './types';
+
+export type Outcome =
+  | { ok: true; op: Operation; focus?: FocusHint }
+  | { ok: false; reason: string };
+
+export interface EngineOptions {
+  store: TreeStore;
+  repository: Repository;
+  now?: () => number;
+  onPersistError?: (error: unknown, op: Operation) => void;
+}
+
+/**
+ * Runs commands: applies to the store synchronously (instant UI), persists in
+ * order through a write queue, appends to the operation log, marks dirty
+ * nodes, and keeps in-memory undo/redo stacks.
+ */
+export interface Engine {
+  readonly store: TreeStore;
+  readonly tree: TreeReader;
+  execute(cmd: Command): Outcome;
+  undo(): Outcome | null;
+  redo(): Outcome | null;
+  canUndo(): boolean;
+  canRedo(): boolean;
+  /** Resolves once every queued write has been persisted. */
+  flush(): Promise<void>;
+  /** Load nodes from the repository into the store. */
+  load(): Promise<void>;
+  /** Subscribe to committed operations (search index, etc.). Returns unsubscribe. */
+  onOperation(listener: (op: Operation) => void): () => void;
+}
+
+export function createEngine(opts: EngineOptions): Engine {
+  const { store, repository } = opts;
+  const now = opts.now ?? Date.now;
+  const tree = readerOf(store);
+  const undoStack: Operation[] = [];
+  const redoStack: Operation[] = [];
+  const listeners = new Set<(op: Operation) => void>();
+  let queue: Promise<void> = Promise.resolve();
+
+  function commit(op: Operation): void {
+    store.getState().applyChanges(op.changes);
+    const upserts = [];
+    const removals: string[] = [];
+    for (const c of op.changes) {
+      if (c.after) upserts.push(c.after);
+      else removals.push(c.id);
+    }
+    const batch = { upserts, removals, operation: op, dirtyNodeIds: op.affectedNodeIds };
+    // The queue never rejects: each step catches its own error so later
+    // writes still run in order.
+    queue = queue
+      .then(() => repository.commit(batch))
+      .catch((error: unknown) => {
+        (opts.onPersistError ?? ((e) => console.error('persist failed', e)))(error, op);
+      });
+    for (const l of listeners) l(op);
+  }
+
+  function invert(changes: readonly NodeChange[], at: number): NodeChange[] {
+    return changes.map((c) => ({
+      id: c.id,
+      before: c.after,
+      after: c.before ? { ...c.before, updatedAt: at } : null,
+    }));
+  }
+
+  function reapply(changes: readonly NodeChange[], at: number): NodeChange[] {
+    return changes.map((c) => ({
+      id: c.id,
+      before: c.before,
+      after: c.after ? { ...c.after, updatedAt: at } : null,
+    }));
+  }
+
+  return {
+    store,
+    tree,
+
+    execute(cmd) {
+      const at = now();
+      const effect = computeEffect({ tree, now: at }, cmd);
+      if (isRejection(effect)) return { ok: false, reason: effect.reason };
+      if (effect.changes.length === 0) {
+        return effect.focus ? { ok: true, op: noop(cmd, at), focus: effect.focus } : { ok: true, op: noop(cmd, at) };
+      }
+      const op: Operation = {
+        id: newId(),
+        type: cmd.type,
+        input: cmd,
+        changes: effect.changes,
+        affectedNodeIds: effect.affectedNodeIds,
+        timestamp: at,
+      };
+      commit(op);
+      undoStack.push(op);
+      redoStack.length = 0;
+      return effect.focus ? { ok: true, op, focus: effect.focus } : { ok: true, op };
+    },
+
+    undo() {
+      const target = undoStack.pop();
+      if (!target) return null;
+      const at = now();
+      const op: Operation = {
+        id: newId(),
+        type: 'undo',
+        input: null,
+        changes: invert(target.changes, at),
+        affectedNodeIds: target.affectedNodeIds,
+        timestamp: at,
+        targetOpId: target.id,
+      };
+      commit(op);
+      redoStack.push(target);
+      return { ok: true, op, focus: focusForUndo(target) };
+    },
+
+    redo() {
+      const target = redoStack.pop();
+      if (!target) return null;
+      const at = now();
+      const op: Operation = {
+        id: newId(),
+        type: 'redo',
+        input: null,
+        changes: reapply(target.changes, at),
+        affectedNodeIds: target.affectedNodeIds,
+        timestamp: at,
+        targetOpId: target.id,
+      };
+      commit(op);
+      undoStack.push(target);
+      return { ok: true, op, focus: focusForRedo(target) };
+    },
+
+    canUndo: () => undoStack.length > 0,
+    canRedo: () => redoStack.length > 0,
+
+    flush: () => queue,
+
+    async load() {
+      store.getState().load(await repository.loadAllNodes());
+    },
+
+    onOperation(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+}
+
+function noop(cmd: Command, at: number): Operation {
+  return { id: newId(), type: cmd.type, input: cmd, changes: [], affectedNodeIds: [], timestamp: at };
+}
+
+/** After undo, focus the first node that still exists (prefer the command's subject). */
+function focusForUndo(target: Operation): FocusHint {
+  const subject = subjectId(target);
+  const surviving = target.changes.filter((c) => c.before !== null);
+  const pick = surviving.find((c) => c.id === subject) ?? surviving[0];
+  const id = pick?.id ?? subject ?? '';
+  const content = pick?.before?.content ?? '';
+  return { id, offset: content.length };
+}
+
+function focusForRedo(target: Operation): FocusHint {
+  const subject = subjectId(target);
+  const surviving = target.changes.filter((c) => c.after !== null);
+  const pick = surviving.find((c) => c.id === subject) ?? surviving[0];
+  const id = pick?.id ?? subject ?? '';
+  return { id, offset: pick?.after?.content.length ?? 0 };
+}
+
+function subjectId(op: Operation): string | undefined {
+  const input = op.input as Partial<{ id: string; newId: string; sourceId: string; targetId: string }> | null;
+  return input?.id ?? input?.targetId ?? undefined;
+}
