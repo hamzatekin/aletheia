@@ -97,7 +97,13 @@ tables `embeddings`, `summaries`, `tags`, `relations` exist and are empty.
 
 ```
 pnpm dev        start the app
-pnpm test       run unit tests
+pnpm test       run unit tests (Vitest)
+pnpm test:e2e   run browser tests (Playwright; starts the dev server itself)
 pnpm typecheck  tsc
 pnpm build      production build
 ```
+
+The browser tests drive the app through `window.__aletheia` (engine, UI
+store, editor session, search index), which dev builds expose. Set
+`CHROMIUM_PATH` to use a preinstalled Chromium instead of the one Playwright
+downloads.

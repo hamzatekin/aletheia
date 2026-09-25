@@ -74,12 +74,22 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
     ui.focusNode(rootId, { kind: 'end' });
   };
 
+  const selectRange = (anchor: string, head: string) => {
+    const rows = visibleRows(tree, rootId).map((r) => r.id);
+    const a = rows.indexOf(anchor);
+    const h = rows.indexOf(head);
+    if (a < 0 || h < 0) return ui.setSelection(null);
+    const ids = new Set(rows.slice(Math.min(a, h), Math.max(a, h) + 1));
+    ui.setSelection({ anchor, head, ids });
+  };
+
   const undoRedo = (which: 'undo' | 'redo') => {
     session.flush();
+    const inSelectionMode = ui.getState().focus === null && ui.getState().selection !== null;
     const outcome = which === 'undo' ? engine.undo() : engine.redo();
     if (outcome?.ok && outcome.focus && tree.get(outcome.focus.id)?.deletedAt === null) {
-      ui.setSelection(null);
-      ui.focusNode(outcome.focus.id, { kind: 'offset', offset: outcome.focus.offset });
+      if (inSelectionMode) selectRange(outcome.focus.id, outcome.focus.id);
+      else ui.focusNode(outcome.focus.id, { kind: 'offset', offset: outcome.focus.offset });
     }
   };
 
@@ -279,15 +289,6 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
     visibleRows(tree, rootId)
       .map((r) => r.id)
       .filter((id) => ids.has(id) && !ids.has(tree.get(id)?.parentId ?? ''));
-
-  const selectRange = (anchor: string, head: string) => {
-    const rows = visibleRows(tree, rootId).map((r) => r.id);
-    const a = rows.indexOf(anchor);
-    const h = rows.indexOf(head);
-    if (a < 0 || h < 0) return ui.setSelection(null);
-    const ids = new Set(rows.slice(Math.min(a, h), Math.max(a, h) + 1));
-    ui.setSelection({ anchor, head, ids });
-  };
 
   const handleGlobalKey = (e: KeyboardEvent): boolean => {
     const mod = e.metaKey || e.ctrlKey;
