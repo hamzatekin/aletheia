@@ -64,3 +64,17 @@ body {
 .ProseMirror p > br.ProseMirror-trailingBreak:only-child {
   content: '';
 }
+
+/* Native drag preview for a node. */
+.drag-preview {
+  max-width: 24rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.375rem;
+  background: light-dark(#ffffff, #262626);
+  color: light-dark(#1a1a1a, #e4e4e4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  font-size: 0.9375rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

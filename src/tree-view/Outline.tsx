@@ -4,6 +4,7 @@ import { useUiStore } from '@/store/ui-store';
 import { Row } from './Row';
 import { useOutline } from './outline-context';
 import { useVisibleRows } from './use-outline';
+import { useDropMonitor } from './use-dnd';
 
 interface Props {
   rootId: string | null;
@@ -14,6 +15,7 @@ export function Outline({ rootId }: Props) {
   const { ui, actions } = useOutline();
   const rows = useVisibleRows(rootId);
   const listRef = useRef<HTMLDivElement>(null);
+  useDropMonitor();
 
   // Keep the focused (or selection-head) row mounted even when scrolled away.
   const pinnedId = useUiStore(ui, (s) => s.focus?.id ?? s.selection?.head ?? null);

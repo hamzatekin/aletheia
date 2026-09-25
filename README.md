@@ -55,6 +55,17 @@ Routes: `/` is the top level, `/n/:id` zooms into a node (its content becomes
 the title, its children the list). Breadcrumbs walk `parentId` upward.
 `Ctrl/⌘+,` zooms out one level.
 
+## Drag and drop
+
+Drag by the bullet (`@atlaskit/pragmatic-drag-and-drop` with the tree-item
+hitbox). The top quarter of a row drops above it, the bottom quarter below;
+the middle (or the whole lower part of an expanded row) drops as its first
+child. Below the last sibling of a group the horizontal pointer position
+picks the depth to outdent to; `resolveInstruction` in `tree-view/dnd.ts`
+maps every hitbox instruction to a `moveNode` command and to the indicator
+line, and clamps outdent depth so the line always shows where the node will
+actually land. Dropping a node onto itself or a descendant is refused.
+
 ## Scripts
 
 ```
