@@ -40,6 +40,21 @@ describe('tree store', () => {
     expect(store.getState().nodes.get('a')).not.toBe(a);
   });
 
+  it('structureVersion only bumps for structural changes', () => {
+    const store = createTreeStore();
+    store.getState().load([n('a', null, 'a1'), n('b', null, 'a2')]);
+    const sv = store.getState().structureVersion;
+    const a = store.getState().nodes.get('a')!;
+    store.getState().applyChanges([{ id: 'a', before: a, after: { ...a, content: 'A', note: 'x' } }]);
+    expect(store.getState().structureVersion).toBe(sv);
+    const a2 = store.getState().nodes.get('a')!;
+    store.getState().applyChanges([{ id: 'a', before: a2, after: { ...a2, collapsed: true } }]);
+    expect(store.getState().structureVersion).toBe(sv + 1);
+    const b = store.getState().nodes.get('b')!;
+    store.getState().applyChanges([{ id: 'b', before: b, after: { ...b, deletedAt: 5 } }]);
+    expect(store.getState().structureVersion).toBe(sv + 2);
+  });
+
   it('applyChanges removes nodes when after is null and drops empty buckets', () => {
     const store = createTreeStore();
     store.getState().load([n('a', null, 'a1'), n('a1', 'a', 'a0')]);

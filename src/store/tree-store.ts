@@ -18,6 +18,8 @@ export interface TreeState {
   readonly childrenByParent: ReadonlyMap<string, readonly string[]>;
   /** Increments on every change; subscribe to this for "anything changed". */
   readonly version: number;
+  /** Increments only when hierarchy, order, collapse or deletion changes. */
+  readonly structureVersion: number;
   /** Replace the whole tree (initial load). */
   load(nodes: Iterable<Node>): void;
   /** Apply a batch of node changes atomically. */
@@ -59,6 +61,16 @@ function buildIndex(nodes: ReadonlyMap<string, Node>): Map<string, string[]> {
   return index;
 }
 
+function isStructural(before: Node | null, after: Node | null): boolean {
+  if (!before || !after) return true;
+  return (
+    before.parentId !== after.parentId ||
+    before.order !== after.order ||
+    before.collapsed !== after.collapsed ||
+    before.deletedAt !== after.deletedAt
+  );
+}
+
 export type TreeStore = StoreApi<TreeState>;
 
 export function createTreeStore(): TreeStore {
@@ -66,11 +78,12 @@ export function createTreeStore(): TreeStore {
     nodes: new Map(),
     childrenByParent: new Map(),
     version: 0,
+    structureVersion: 0,
 
     load(iter) {
       const nodes = new Map<string, Node>();
       for (const n of iter) nodes.set(n.id, n);
-      set({ nodes, childrenByParent: buildIndex(nodes), version: get().version + 1 });
+      set({ nodes, childrenByParent: buildIndex(nodes), version: get().version + 1, structureVersion: get().structureVersion + 1 });
     },
 
     applyChanges(changes) {
@@ -103,7 +116,11 @@ export function createTreeStore(): TreeStore {
       for (const key of touched) {
         if (index.get(key)?.length === 0) index.delete(key);
       }
-      set({ version: get().version + 1 });
+      const structural = changes.some(({ before, after }) => isStructural(before, after));
+      set({
+        version: get().version + 1,
+        structureVersion: structural ? get().structureVersion + 1 : get().structureVersion,
+      });
     },
   }));
 }

@@ -16,8 +16,9 @@ src/model         Node type, IDs (UUIDv7), sibling order (fractional indexing),
 src/store         Zustand store: Map<id, Node> + childrenByParent index
 src/persistence   Repository interface, Dexie implementation, in-memory implementation
 src/commands      Typed commands, the engine (apply → persist → op log → undo/redo)
-src/editor        (step 3)
-src/tree-view     (step 2)
+src/editor        Markdown dialect (markdown-it) and sanitized static rendering
+src/tree-view     Virtualized outline, rows, bullets, breadcrumbs, zoom page
+src/app           Bootstrap (load + first-run seed) and the engine context
 src/search        (step 5)
 src/io            (step 5)
 ```
@@ -41,6 +42,18 @@ src/io            (step 5)
 Soft delete: `deleteSubtree` stamps the root and every live descendant with the
 same `deletedAt`. `restore` brings back exactly that set, leaving descendants
 deleted earlier in place.
+
+## Rendering
+
+`visibleRows(tree, rootId)` flattens the subtree under the zoom root, skipping
+collapsed nodes. The store keeps a `structureVersion` that only bumps on
+hierarchy, order, collapse or delete changes, so typing never recomputes the
+flattening. The list is virtualized against the window with
+`@tanstack/react-virtual`; each row subscribes to its own node only.
+
+Routes: `/` is the top level, `/n/:id` zooms into a node (its content becomes
+the title, its children the list). Breadcrumbs walk `parentId` upward.
+`Ctrl/⌘+,` zooms out one level.
 
 ## Scripts
 
