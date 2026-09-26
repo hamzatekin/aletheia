@@ -218,7 +218,8 @@ test('a note starts right under its node, and opening or leaving it moves nothin
   const listId = await page.evaluate(() => {
     const { engine } = (window as any).__aletheia;
     const node = [...engine.tree.all()].find((n: any) => n.content !== 'Plant a tree' && n.note === '' && n.content !== '');
-    engine.execute({ type: 'updateNote', id: node.id, note: '- one item\n- another item' });
+    const note = ['Intro paragraph', '', '- one item that is long enough to wrap onto a second line in the note column', '- another item', '', '## A heading', '', '| Run | Cost |', '| --- | --- |', '| First | $0.13 |', '', '> a quote', '', '1. one', '2. two', '', 'Closing paragraph'].join('\n');
+    engine.execute({ type: 'updateNote', id: node.id, note });
     return node.id as string;
   });
   const row = page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first();
@@ -229,24 +230,47 @@ test('a note starts right under its node, and opening or leaving it moves nothin
   const content = (await row.locator('.node-content').boundingBox())!;
   expect(before.y - (content.y + content.height)).toBeLessThanOrEqual(2);
   expect(Math.abs(header.y - before.y)).toBeLessThanOrEqual(2);
-  // A note with a list moves nothing either.
-  const listRow = page.locator(`[data-node-id="${listId}"]`);
-  const listBefore = (await listRow.locator('.node-note').boundingBox())!;
-  await listRow.locator('.node-note li').last().click();
-  await expect(page.locator('.ProseMirror[data-editor=note]')).toBeFocused();
-  const listAfter = (await page.locator('.ProseMirror[data-editor=note]').boundingBox())!;
-  expect(Math.abs(listAfter.y - listBefore.y)).toBeLessThanOrEqual(1);
-  expect(Math.abs(listAfter.height - listBefore.height)).toBeLessThanOrEqual(2);
-  await page.keyboard.press('Escape');
-  await page.keyboard.press('Escape');
   await viewNote.locator('p').click();
   const editNote = page.locator('.ProseMirror[data-editor=note]');
   await expect(editNote).toBeFocused();
   const after = (await editNote.boundingBox())!;
   const headerAfter = (await row.locator('.note-header').boundingBox())!;
-  expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(1);
+  // Measured from the node's text, in case the click scrolled the page.
+  const contentAfter = (await row.locator('.node-content').boundingBox())!;
+  expect(Math.abs(after.y - contentAfter.y - (before.y - content.y))).toBeLessThanOrEqual(1);
   expect(Math.abs(after.height - before.height)).toBeLessThanOrEqual(2);
-  expect(Math.abs(headerAfter.y - header.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(headerAfter.y - contentAfter.y - (header.y - content.y))).toBeLessThanOrEqual(1);
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+
+  // A note with lists, a heading, a table and a quote moves nothing either: every block
+  // keeps its place, and the ▾ caret stays where it was.
+  const listRow = page.locator(`[data-node-id="${listId}"]`);
+  const blocks = (root: string) =>
+    listRow.evaluate((el, root) => {
+      const note = el.querySelector(root)!;
+      const top = note.getBoundingClientRect().top;
+      return [...note.querySelectorAll(':scope > *, li, tr')].map((b) => {
+        const r = b.getBoundingClientRect();
+        return [Math.round(r.top - top), Math.round(r.height)];
+      });
+    }, root);
+  await listRow.locator('.node-note').scrollIntoViewIfNeeded();
+  await listRow.hover();
+  const listBefore = (await listRow.locator('.node-note').boundingBox())!;
+  const caretBefore = (await listRow.getByTestId('note-toggle').boundingBox())!;
+  const listContent = (await listRow.locator('.node-content').boundingBox())!;
+  const blocksBefore = await blocks('.node-note');
+  await listRow.locator('.node-note li').last().click();
+  await expect(page.locator('.ProseMirror[data-editor=note]')).toBeFocused();
+  const listAfter = (await page.locator('.ProseMirror[data-editor=note]').boundingBox())!;
+  const shift = (await listRow.locator('.node-content').boundingBox())!.y - listContent.y;
+  expect(Math.abs(listAfter.y - shift - listBefore.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(listAfter.height - listBefore.height)).toBeLessThanOrEqual(2);
+  expect(await blocks('.ProseMirror[data-editor=note]')).toEqual(blocksBefore);
+  const caretAfter = (await listRow.getByTestId('note-toggle').boundingBox())!;
+  expect(caretAfter).toEqual({ ...caretBefore, y: caretBefore.y + shift });
+  expect(await listRow.getByTestId('note-toggle').evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
 });
 
 test('opening a long note or switching its mode never scrolls the page', async ({ page }) => {
