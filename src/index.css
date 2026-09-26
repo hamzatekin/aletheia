@@ -275,6 +275,8 @@ body {
 
 /* The rendered note editor keeps the spacing of a rendered note. */
 .ProseMirror.prose-note p { margin: 0.25rem 0; }
+/* List items hold a paragraph in the editor but not in a rendered tight list: same spacing either way. */
+.prose-note li > p, .ProseMirror.prose-note li > p { margin: 0; }
 .ProseMirror.prose-note > :first-child { margin-top: 0; }
 .ProseMirror.prose-note > :last-child { margin-bottom: 0; }
 .ProseMirror.prose-note > p:only-child:has(> br:only-child)::before {

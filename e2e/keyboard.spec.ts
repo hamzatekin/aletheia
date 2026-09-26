@@ -205,7 +205,7 @@ test('a note collapses to its first line and expands again', async ({ page }) =>
   await expect(page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first().locator('.node-note p')).toHaveCount(2);
 });
 
-test('opening and leaving a note moves nothing: the note header is there either way', async ({ page }) => {
+test('a note starts right under its node, and opening or leaving it moves nothing', async ({ page }) => {
   await edit(page, 'Plant a tree');
   await page.keyboard.press('Shift+Enter');
   await page.keyboard.type('first paragraph');
@@ -215,10 +215,30 @@ test('opening and leaving a note moves nothing: the note header is there either 
   await page.keyboard.type('some code');
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
+  const listId = await page.evaluate(() => {
+    const { engine } = (window as any).__aletheia;
+    const node = [...engine.tree.all()].find((n: any) => n.content !== 'Plant a tree' && n.note === '' && n.content !== '');
+    engine.execute({ type: 'updateNote', id: node.id, note: '- one item\n- another item' });
+    return node.id as string;
+  });
   const row = page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first();
   const viewNote = row.locator('.node-note');
   const before = (await viewNote.boundingBox())!;
   const header = (await row.locator('.note-header').boundingBox())!;
+  // The note starts right under its node's text, level with the mode icon.
+  const content = (await row.locator('.node-content').boundingBox())!;
+  expect(before.y - (content.y + content.height)).toBeLessThanOrEqual(2);
+  expect(Math.abs(header.y - before.y)).toBeLessThanOrEqual(2);
+  // A note with a list moves nothing either.
+  const listRow = page.locator(`[data-node-id="${listId}"]`);
+  const listBefore = (await listRow.locator('.node-note').boundingBox())!;
+  await listRow.locator('.node-note li').last().click();
+  await expect(page.locator('.ProseMirror[data-editor=note]')).toBeFocused();
+  const listAfter = (await page.locator('.ProseMirror[data-editor=note]').boundingBox())!;
+  expect(Math.abs(listAfter.y - listBefore.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(listAfter.height - listBefore.height)).toBeLessThanOrEqual(2);
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
   await viewNote.locator('p').click();
   const editNote = page.locator('.ProseMirror[data-editor=note]');
   await expect(editNote).toBeFocused();
