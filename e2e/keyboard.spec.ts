@@ -187,6 +187,35 @@ test('the note toggle switches between rendered and raw Markdown', async ({ page
   await expect(page.locator('.ProseMirror[data-editor=note]')).toBeFocused();
 });
 
+test('notes start collapsed, open when you edit them, and the default is a setting', async ({ page }) => {
+  // The app's own default (the other tests start with notes expanded).
+  await page.evaluate(() => localStorage.setItem('aletheia:notes', JSON.stringify({ collapsedByDefault: true })));
+  await gotoHome(page, { collapsedNotes: true });
+  await page.evaluate(() => {
+    const { engine } = (window as any).__aletheia;
+    const node = [...engine.tree.all()].find((n: any) => n.content === 'Plant a tree');
+    engine.execute({ type: 'updateNote', id: node.id, note: 'first line\n\nsecond line' });
+  });
+  const row = page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first();
+  await expect(row.locator('.node-note')).toHaveText('first line …');
+
+  // Clicking in expands it for editing, and it stays open afterwards.
+  await row.locator('.node-note').click();
+  await expect(page.locator('.ProseMirror[data-editor=note]')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await expect(row.locator('.node-note p')).toHaveCount(2);
+  await page.reload();
+  await expect(page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first().locator('.node-note p')).toHaveCount(2);
+
+  // Turning the setting off expands the other notes.
+  const welcome = page.locator('[data-node-id]').filter({ has: page.locator('.node-note[data-collapsed]') }).first();
+  const welcomeId = await welcome.getAttribute('data-node-id');
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByLabel('Notes start collapsed').uncheck();
+  await expect(page.locator(`[data-node-id="${welcomeId}"] .node-note`)).not.toHaveAttribute('data-collapsed', 'true');
+});
+
 test('a note collapses to its first line and expands again', async ({ page }) => {
   await edit(page, 'Plant a tree');
   await page.keyboard.press('Shift+Enter');

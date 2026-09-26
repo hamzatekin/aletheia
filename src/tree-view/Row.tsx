@@ -3,7 +3,7 @@ import { renderBlock, renderInline } from '@/editor/render';
 import { NodeEditor } from '@/editor/NodeEditor';
 import { NoteEditor, NoteHeader, useNoteMode } from '@/editor/NoteEditor';
 import { useUiStore } from '@/store/ui-store';
-import { notePrefs, useNotePrefs } from '@/store/note-prefs';
+import { isNoteCollapsed, notePrefs, useNotePrefs } from '@/store/note-prefs';
 import { plainText } from '@/editor/markdown';
 import { Bullet } from './Bullet';
 import { CollapseToggle } from './CollapseToggle';
@@ -35,7 +35,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
   const selected = useUiStore(ui, (s) => s.selection?.ids.has(id) ?? false);
   const dragging = useUiStore(ui, (s) => s.dragging === id);
   const menuOpen = useUiStore(ui, (s) => s.menu === id);
-  const noteCollapsed = useNotePrefs((s) => s.collapsed.has(id));
+  const noteCollapsed = useNotePrefs((s) => isNoteCollapsed(s, id));
   const noteMode = useNoteMode();
   const indicator = useUiStore(ui, (s) => (s.dropIndicator?.targetId === id ? s.dropIndicator : null));
   const rowRef = useRef<HTMLDivElement>(null);

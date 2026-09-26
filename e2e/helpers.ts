@@ -3,7 +3,16 @@ import { expect, type Locator, type Page } from '@playwright/test';
 /** Nested outline of live nodes as content strings, e.g. ["A", ["B", ["B1"]]]. */
 export type Spec = string | [string, Spec[]];
 
-export async function gotoHome(page: Page): Promise<void> {
+/**
+ * Open the app. Most tests look inside notes, so they start with notes
+ * expanded unless `collapsedNotes` asks for the app's default (collapsed).
+ */
+export async function gotoHome(page: Page, { collapsedNotes = false } = {}): Promise<void> {
+  if (!collapsedNotes) {
+    await page.addInitScript(() => {
+      if (localStorage.getItem('aletheia:notes') === null) localStorage.setItem('aletheia:notes', JSON.stringify({ collapsedByDefault: false }));
+    });
+  }
   await page.goto('/');
   await page.locator('[data-testid=outline]').waitFor();
   // Text rewraps when the web font arrives, which moves rows; measure after that.
