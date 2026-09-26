@@ -93,6 +93,20 @@ body {
   line-height: 1.2;
 }
 
+/* Bullets scale with the text: about 7px at 18px, like Dynalist. */
+.bullet-dot {
+  width: calc(var(--font-size) * 0.4);
+  height: calc(var(--font-size) * 0.4);
+}
+/* A halo marks collapsed parents; hovering any bullet shows a softer one. */
+.group\/bullet:hover .bullet-dot {
+  box-shadow: 0 0 0 calc(var(--font-size) * 0.26) var(--halo-soft);
+}
+.bullet-dot.bullet-collapsed,
+.group\/bullet:hover .bullet-dot.bullet-collapsed {
+  box-shadow: 0 0 0 calc(var(--font-size) * 0.26) var(--halo);
+}
+
 /* The text column. In book mode it is a sheet of paper resting on the desk. */
 .book-page {
   box-sizing: border-box;
