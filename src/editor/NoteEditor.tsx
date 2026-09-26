@@ -4,31 +4,23 @@ import { useNode } from '@/tree-view/use-outline';
 import { notePrefs, useNotePrefs } from '@/store/note-prefs';
 import { RichNoteEditor } from './RichNoteEditor';
 import { keepCaretAcrossSwitch } from './caret-handoff';
+import { isTerminalPaste, terminalToMarkdown } from '@/io/terminal';
 
 interface Props {
   id: string;
 }
 
-/** A Markdown table: a row of cells followed by a |---| delimiter row. */
-const TABLE = /^.*\|.*\n\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/m;
-
-/**
- * Which way a note is edited: the device preference, except that notes with a
- * table are always raw (the rendered editor has no tables and would flatten them).
- */
-export function useNoteMode(note: string): { raw: boolean; locked: boolean } {
-  const prefersRaw = useNotePrefs((s) => s.raw);
-  const locked = TABLE.test(note);
-  return { raw: prefersRaw || locked, locked };
+/** Which way notes are edited on this device: rendered (default) or raw Markdown. */
+export function useNoteMode(): { raw: boolean } {
+  return { raw: useNotePrefs((s) => s.raw) };
 }
 
 /** Edits a note, rendered (default) or as raw Markdown, under the note header. */
 export function NoteEditor({ id }: Props) {
-  const { engine } = useOutline();
-  const { raw, locked } = useNoteMode(engine.tree.get(id)?.note ?? '');
+  const { raw } = useNoteMode();
   return (
     <div className="note-box">
-      <NoteHeader raw={raw} locked={locked} />
+      <NoteHeader raw={raw} />
       {raw ? <RawNoteEditor id={id} /> : <RichNoteEditor id={id} />}
     </div>
   );
@@ -52,12 +44,8 @@ const MarkdownIcon = () => (
  * rendered, <> for Markdown); clicking it switches. `quiet` hides it until
  * the row is hovered.
  */
-export function NoteHeader({ raw, locked, quiet = false }: { raw: boolean; locked: boolean; quiet?: boolean }) {
-  const tip = locked
-    ? 'Notes with tables are edited as Markdown'
-    : raw
-      ? 'Markdown. Click to edit rendered'
-      : 'Rendered. Click to edit as Markdown';
+export function NoteHeader({ raw, quiet = false }: { raw: boolean; quiet?: boolean }) {
+  const tip = raw ? 'Markdown. Click to edit rendered' : 'Rendered. Click to edit as Markdown';
   return (
     <div className="note-header flex h-5 justify-end" data-testid="note-mode">
       <button
@@ -66,17 +54,15 @@ export function NoteHeader({ raw, locked, quiet = false }: { raw: boolean; locke
         title={tip}
         aria-label={tip}
         aria-pressed={raw}
-        disabled={locked}
         data-testid="note-mode-toggle"
         className={
-          'flex h-5 w-5 items-center justify-center rounded text-faint transition-opacity hover:bg-hover hover:text-muted disabled:hover:bg-transparent ' +
+          'flex h-5 w-5 items-center justify-center rounded text-faint transition-opacity hover:bg-hover hover:text-muted ' +
           (quiet ? 'opacity-0 group-hover:opacity-100' : '')
         }
         // Keep focus where it is; an open editor being replaced saves as it unmounts.
         onMouseDown={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (locked) return;
           keepCaretAcrossSwitch();
           // Hold the note's height while one editor replaces the other, so the
           // page (and the virtual list's scroll anchoring) never sees it shrink.
@@ -96,7 +82,6 @@ export function NoteHeader({ raw, locked, quiet = false }: { raw: boolean; locke
 
 /** The note's Markdown source in an auto-growing textarea. */
 function RawNoteEditor({ id }: Props) {
-  console.log('render raw', window.scrollY);
   const { engine, ui, actions } = useOutline();
   const node = useNode(id);
   const stored = node?.note ?? '';
@@ -122,7 +107,7 @@ function RawNoteEditor({ id }: Props) {
     const el = ref.current!;
     // Measuring collapses the textarea for a moment, which can shorten the page
     // and pull the scroll position up; put it back so nothing jumps.
-    const { scrollX, scrollY } = window; console.log('LE start', scrollY, el.offsetHeight);
+    const { scrollX, scrollY } = window;
     el.style.height = '0px';
     el.style.height = `${el.scrollHeight}px`;
     if (window.scrollY !== scrollY) window.scrollTo(scrollX, scrollY);
@@ -133,8 +118,8 @@ function RawNoteEditor({ id }: Props) {
     // Never scroll the page to show the note: it is already on screen where
     // it was clicked or opened.
     // (Selecting before focusing: on a focused textarea Chrome scrolls to the new caret.)
-    console.log('E start', window.scrollY); el.setSelectionRange(el.value.length, el.value.length); console.log('E sel', window.scrollY);
-    el.focus({ preventScroll: true }); console.log('E focus', window.scrollY);
+    el.setSelectionRange(el.value.length, el.value.length);
+    el.focus({ preventScroll: true });
     return () => save(textRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount/unmount only
   }, [id]);
@@ -179,6 +164,15 @@ function RawNoteEditor({ id }: Props) {
       placeholder="Note"
       className="prose-note row-note block w-full resize-none font-mono overflow-hidden bg-transparent text-muted outline-none placeholder:text-faint"
       onChange={(e) => setText(e.target.value)}
+      onPaste={(e) => {
+        // Terminal output (box tables, Claude Code answers) pastes as the Markdown it was.
+        const pasted = e.clipboardData.getData('text/plain');
+        if (!isTerminalPaste(pasted)) return;
+        e.preventDefault();
+        const el = e.currentTarget;
+        el.setRangeText(terminalToMarkdown(pasted), el.selectionStart, el.selectionEnd, 'end');
+        setText(el.value);
+      }}
       onBlur={(e) => save(e.target.value)}
       onKeyDown={onKeyDown}
     />

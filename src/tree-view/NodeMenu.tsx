@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { moveDownCommand, moveUpCommand, type Command } from '@/commands';
 import { importItems, type OutlineItem } from '@/io';
+import { formatTerminalContent, formatTerminalNote } from '@/io/terminal';
 import type { TreeReader } from '@/model';
 import { notePrefs, useNotePrefs } from '@/store/note-prefs';
 import { useOutline } from './outline-context';
@@ -23,6 +24,18 @@ function subtreeItems(tree: TreeReader, parentId: string): OutlineItem[] {
     const n = tree.get(id)!;
     return { content: n.content, note: n.note, children: subtreeItems(tree, id) };
   });
+}
+
+/** updateContent/updateNote commands that clean up terminal output pasted into the node and its descendants. */
+function terminalFixes(tree: TreeReader, id: string): Command[] {
+  const n = tree.get(id)!;
+  const content = formatTerminalContent(n.content);
+  const note = formatTerminalNote(n.note);
+  return [
+    ...(content !== n.content ? [{ type: 'updateContent' as const, id, content }] : []),
+    ...(note !== n.note ? [{ type: 'updateNote' as const, id, note }] : []),
+    ...tree.children(id).flatMap((c) => terminalFixes(tree, c)),
+  ];
 }
 
 /** Dropdown under a row's ≡ grip with the actions for that node. */
@@ -60,6 +73,7 @@ export function NodeMenu({ id, hasChildren, collapsed }: { id: string; hasChildr
     if (cmd) engine.execute(cmd);
   };
   const canOutdent = node.parentId !== rootId;
+  const fixes = terminalFixes(tree, id);
 
   const items: Item[] = [
     { id: 'zoom', label: 'Zoom in', hint: `${MOD}.`, run: () => (session.flush(), navigate(`/n/${id}`)) },
@@ -83,6 +97,9 @@ export function NodeMenu({ id, hasChildren, collapsed }: { id: string; hasChildr
         importItems(engine, copy.parentId, [{ content: copy.content, note: copy.note, children: subtreeItems(tree, id) }], id);
       },
     },
+    ...(fixes.length > 0
+      ? [{ id: 'terminal', label: 'Format terminal output', run: () => (session.flush(), engine.batch(terminalFixes(tree, id), 'format')) }]
+      : []),
     {
       id: 'link',
       label: 'Copy link',

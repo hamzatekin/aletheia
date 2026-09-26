@@ -36,7 +36,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
   const dragging = useUiStore(ui, (s) => s.dragging === id);
   const menuOpen = useUiStore(ui, (s) => s.menu === id);
   const noteCollapsed = useNotePrefs((s) => s.collapsed.has(id));
-  const noteMode = useNoteMode(node?.note ?? '');
+  const noteMode = useNoteMode();
   const indicator = useUiStore(ui, (s) => (s.dropIndicator?.targetId === id ? s.dropIndicator : null));
   const rowRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLAnchorElement>(null);
@@ -160,7 +160,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
                 </div>
               ) : (
                 <>
-                  <NoteHeader raw={noteMode.raw} locked={noteMode.locked} quiet />
+                  <NoteHeader raw={noteMode.raw} quiet />
                   <div
                     className="node-note prose-note row-note cursor-text pb-0.5 text-muted"
                     onMouseDown={onNoteMouseDown}

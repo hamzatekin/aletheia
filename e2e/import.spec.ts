@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { edit, gotoHome, outline } from './helpers';
 
 test.beforeEach(async ({ page }) => gotoHome(page));
@@ -45,34 +45,108 @@ test('a WorkFlowy code block becomes a code block in the note', async ({ page })
   await imported.screenshot({ path: 'test-results/workflowy-code-block.png' });
 });
 
-test('a WorkFlowy ``` code block with a box table keeps its lines', async ({ page }) => {
-  const table = ['┌───────┬───────┬───────┐', '│ Run   │ Cost  │ Turns │', '├───────┼───────┼───────┤', '│ First │ $0.13 │ 4     │', '└───────┴───────┴───────┘'];
-  const text = ['Run results', '```', ...table, '```'].join('&#10;');
-  const opml = `<opml version="2.0"><head><ownerEmail>me@example.com</ownerEmail></head><body><outline text="${text}" /></body></opml>`;
+async function importOpml(page: Page, opml: string) {
   await edit(page, 'Plant a tree');
   const chooser = page.waitForEvent('filechooser');
   await page.keyboard.type('/workflowy');
   await page.keyboard.press('Enter');
   await (await chooser).setFiles({ name: 'w.opml', mimeType: 'text/xml', buffer: Buffer.from(opml) });
-  const imported = page.locator('[data-node-id]', { hasText: 'Run results' }).last();
-  await expect(imported.locator('.node-content')).toHaveText('Run results');
-  await expect(imported.locator('.node-note pre code')).toHaveText(table.join('\n'));
+}
+
+const answer = [
+  '⏺ Here is how the options compare, from the easiest to the most work.',
+  '',
+  '  ┌──────────────┬───────────────────────────────────────┬────────────┐',
+  '  │ Option       │ What it means                         │ Effort     │',
+  '  ├──────────────┼───────────────────────────────────────┼────────────┤',
+  '  │ Wider page   │ Raise the page width in Settings so   │ None       │',
+  '  │              │ long lines have room                  │            │',
+  '  ├──────────────┼───────────────────────────────────────┼────────────┤',
+  '  │ Real tables  │ Terminal tables become Markdown       │ Small      │',
+  '  │              │ tables whose cells wrap to fit        │            │',
+  '  └──────────────┴───────────────────────────────────────┴────────────┘',
+  '',
+  '  1. Tables stay readable at any page width and never scroll sideways.',
+  '  2. Paragraphs reflow instead of keeping the terminal line breaks.',
+];
+
+test('Claude Code output pasted into a WorkFlowy code block imports as readable Markdown', async ({ page }) => {
+  const text = ['Compare options', '```', ...answer, '```'].join('&#10;');
+  await importOpml(page, `<opml version="2.0"><head><ownerEmail>me@example.com</ownerEmail></head><body><outline text="${text}" /></body></opml>`);
+  const imported = page.locator('[data-node-id]', { hasText: 'Compare options' }).last();
+  await expect(imported.locator('.node-content')).toHaveText('Compare options');
+  const note = imported.locator('.node-note');
+  await expect(note.locator('pre')).toHaveCount(0);
+  await expect(note.locator('table th')).toHaveText(['Option', 'What it means', 'Effort']);
+  await expect(note.locator('table td').nth(1)).toHaveText('Raise the page width in Settings so long lines have room');
+  await expect(note.locator('ol li')).toHaveCount(2);
+  const table = note.locator('table');
+  expect(await table.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  expect(await note.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   await page.mouse.click(5, 650);
-  await imported.screenshot({ path: 'test-results/workflowy-fence-table.png' });
+  await imported.screenshot({ path: 'test-results/terminal-output-note.png' });
+
+  // The rendered editor shows the same table, and editing a cell keeps it a Markdown table.
+  const cell = note.locator('table td').first();
+  const box = (await cell.boundingBox())!;
+  await page.mouse.click(box.x + box.width - 4, box.y + box.height / 2);
+  const editor = page.locator('.ProseMirror[data-editor=note]');
+  await expect(editor).toBeFocused();
+  await expect(editor.locator('table th')).toHaveText(['Option', 'What it means', 'Effort']);
+  expect(await editor.locator('table').evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  await page.keyboard.press('End');
+  await page.keyboard.type(' | wide');
+  await page.keyboard.press('Escape');
+  await expect
+    .poll(() => page.evaluate(() => [...(window as any).__aletheia.engine.tree.all()].find((n: any) => n.content === 'Compare options')?.note))
+    .toContain('| Wider page \\| wide | Raise the page width in Settings so long lines have room | None |');
 });
 
-test('long, indented terminal output wraps inside its code block instead of scrolling sideways', async ({ page }) => {
-  const long = 'Money and messages (most serious) 1. Firms with no saved settings are treated as OFF, so the client gets no receipt and the firm is left out of billing.';
-  const text = ['```', `  ${long}`, `    - ${long}`, '  last line', '```'].join('&#10;');
-  const opml = `<opml version="2.0"><head><ownerEmail>me@example.com</ownerEmail></head><body><outline text="${text}" /></body></opml>`;
+test('terminal output pasted into a note turns into Markdown', async ({ page }) => {
   await edit(page, 'Plant a tree');
-  const chooser = page.waitForEvent('filechooser');
-  await page.keyboard.type('/workflowy');
-  await page.keyboard.press('Enter');
-  await (await chooser).setFiles({ name: 'w.opml', mimeType: 'text/xml', buffer: Buffer.from(opml) });
+  await page.keyboard.press('Shift+Enter');
+  const editor = page.locator('.ProseMirror[data-editor=note]');
+  await expect(editor).toBeFocused();
+  await page.evaluate((text) => {
+    const data = new DataTransfer();
+    data.setData('text/plain', text);
+    document.activeElement!.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  }, answer.join('\n'));
+  await expect(editor.locator('table th')).toHaveText(['Option', 'What it means', 'Effort']);
+  await expect(editor.locator('p').first()).toHaveText('Here is how the options compare, from the easiest to the most work.');
+  await page.keyboard.press('Escape');
+  await expect
+    .poll(() => page.evaluate(() => [...(window as any).__aletheia.engine.tree.all()].find((n: any) => n.content === 'Plant a tree')?.note))
+    .toContain('| Option | What it means | Effort |\n| --- | --- | --- |');
+});
+
+test('Format terminal output fixes notes imported before', async ({ page }) => {
+  await edit(page, 'Plant a tree');
+  const id = await page.evaluate((block) => {
+    const { engine } = (window as any).__aletheia;
+    const node = [...engine.tree.all()].find((n: any) => n.content === 'Plant a tree');
+    engine.execute({ type: 'updateNote', id: node.id, note: block });
+    return node.id;
+  }, ['```', ...answer, '```'].join('\n'));
+  const row = page.locator(`[data-node-id="${id}"]`);
+  await expect(row.locator('.node-note pre')).toHaveCount(1);
+  await row.hover();
+  await row.getByTestId('drag-grip').click();
+  await page.getByTestId('node-menu-terminal').click();
+  await expect(row.locator('.node-note table th')).toHaveText(['Option', 'What it means', 'Effort']);
+  await expect(row.locator('.node-note pre')).toHaveCount(0);
+  await row.hover();
+  await row.getByTestId('drag-grip').click();
+  await expect(page.getByTestId('node-menu-terminal')).toHaveCount(0);
+});
+
+test('long, indented code wraps inside its code block instead of scrolling sideways', async ({ page }) => {
+  const long = 'Money and messages (most serious) 1. Firms with no saved settings are treated as OFF, so the client gets no receipt and the firm is left out of billing.';
+  const text = ['```', `  const message = &quot;${long}&quot;;`, `    return message; // ${long}`, '  }', '```'].join('&#10;');
+  await importOpml(page, `<opml version="2.0"><head><ownerEmail>me@example.com</ownerEmail></head><body><outline text="${text}" /></body></opml>`);
   const imported = page.locator('[data-node-id]', { hasText: 'Money and messages' }).last();
   const pre = imported.locator('.node-note pre');
-  await expect(pre.locator('code')).toHaveText(`${long}\n  - ${long}\nlast line`);
+  await expect(pre.locator('code')).toHaveText(`const message = "${long}";\n  return message; // ${long}\n}`);
   expect(await pre.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
   await page.mouse.click(5, 650);
   await imported.screenshot({ path: 'test-results/workflowy-long-code.png' });

@@ -1,5 +1,6 @@
 import type { Command, Engine, Outcome } from '@/commands';
 import { newId } from '@/model';
+import { looksLikeTerminalProse, terminalToMarkdown } from './terminal';
 import type { OutlineItem } from './types';
 import { codeTitle, extractFencedBlocks, extractWorkflowyCodeBlocks, fencedBlock, looksLikeWorkflowyHtml, workflowyHtmlToMarkdown } from './workflowy';
 
@@ -59,6 +60,14 @@ export function parseMarkdownOutline(text: string): OutlineItem[] {
   return roots;
 }
 
+/**
+ * A code block moved into a note. Terminal answers pasted into a code block
+ * just to keep their line breaks come back as the Markdown they were.
+ */
+export function noteBlock(code: string): string {
+  return looksLikeTerminalProse(code) ? terminalToMarkdown(code) : fencedBlock(code);
+}
+
 /** An OPML `<outline>` as read from the file, before any conversion. */
 export interface RawOutline {
   text: string;
@@ -81,7 +90,7 @@ export function opmlItems(outlines: RawOutline[], fromWorkflowy = false): Outlin
       // Plain OPML text is taken as is, except that a ``` fence can't stay in single-line content.
       const text = extractFencedBlocks(o.text);
       const content = text.html.replace(/\s+/g, ' ').trim() || (text.blocks[0] ? codeTitle(text.blocks[0]) : '');
-      const note = [...text.blocks.map(fencedBlock), ...(o.note === '' ? [] : [o.note])].join('\n\n');
+      const note = [...text.blocks.map(noteBlock), ...(o.note === '' ? [] : [o.note])].join('\n\n');
       return text.blocks.length > 0 ? { content, note, children: o.children.map(convert) } : { content: o.text, note: o.note, children: o.children.map(convert) };
     }
     // Multi-line code can't live in a node's single-line content: it moves to the note.
@@ -91,11 +100,11 @@ export function opmlItems(outlines: RawOutline[], fromWorkflowy = false): Outlin
     if (content === '' && text.blocks.length > 0) content = codeTitle(text.blocks[0]!);
     if (o.complete && content !== '') content = `~~${content}~~`;
     // Code blocks in the note stay where they were, as their own paragraphs.
-    const parts = text.blocks.map(fencedBlock);
+    const parts = text.blocks.map(noteBlock);
     workflowyHtmlToMarkdown(note.html, true)
       .split('\u0000')
       .forEach((segment, i) => {
-        if (i > 0) parts.push(fencedBlock(note.blocks[i - 1]!));
+        if (i > 0) parts.push(noteBlock(note.blocks[i - 1]!));
         if (segment.trim() !== '') parts.push(segment.trim());
       });
     return { content, note: parts.join('\n\n'), children: o.children.map(convert) };

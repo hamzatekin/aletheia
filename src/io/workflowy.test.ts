@@ -64,10 +64,17 @@ describe('opmlItems', () => {
 
 describe('WorkFlowy code blocks', () => {
   it('moves a multi-line code block out of the content into a fenced block in the note', () => {
-    const code = '<code>Your local main is out of date.\n\n1. Firms with no settings\n- The `send` check</code>';
+    const code = '<code>git fetch origin\ngit rebase origin/main</code>';
     const [item] = opmlItems([raw(code, { note: 'my note' })], true);
-    expect(item!.content).toBe('Your local main is out of date.');
-    expect(item!.note).toBe('```\nYour local main is out of date.\n\n1. Firms with no settings\n- The `send` check\n```\n\nmy note');
+    expect(item!.content).toBe('git fetch origin');
+    expect(item!.note).toBe('```\ngit fetch origin\ngit rebase origin/main\n```\n\nmy note');
+  });
+
+  it('turns terminal prose pasted into a code block back into Markdown', () => {
+    const code = '<code>⏺ Your local main is out of date with the remote.\n\n  1. Firms with no settings saved yet\n  - The `send` check still runs first</code>';
+    const [item] = opmlItems([raw(code)], true);
+    expect(item!.content).toBe('Your local main is out of date with the remote.');
+    expect(item!.note).toBe('Your local main is out of date with the remote.\n\n1. Firms with no settings saved yet\n- The `send` check still runs first');
   });
 
   it('keeps the text around a code block as the title and <br> as line breaks', () => {
@@ -89,11 +96,11 @@ describe('WorkFlowy code blocks', () => {
 });
 
 describe('WorkFlowy ``` code blocks', () => {
-  it('moves a fenced block out of the content, keeping box-drawing tables intact', () => {
-    const table = '┌─────┬──────┐\n│ Run │ Cost │\n└─────┴──────┘';
+  it('moves a fenced block out of the content, turning box-drawn tables into tables', () => {
+    const table = '┌─────┬──────┐\n│ Run │ Cost │\n├─────┼──────┤\n│ a   │ 1    │\n└─────┴──────┘';
     const [item] = opmlItems([raw('Run results\n```\n' + table + '\n```')], true);
     expect(item!.content).toBe('Run results');
-    expect(item!.note).toBe('```\n' + table + '\n```');
+    expect(item!.note).toBe('| Run | Cost |\n| --- | --- |\n| a | 1 |');
   });
 
   it('uses the first code line as the title for a node that is only a fence', () => {
