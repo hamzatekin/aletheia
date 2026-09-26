@@ -110,7 +110,7 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
     const slash = ui.getState().slash;
     if (!slash) return;
     const text = session.textFrom(slash.from);
-    if (text === null || !text.startsWith('/')) return closeSlash();
+    if (text === null || !text.startsWith('/') || text.includes('/', 1)) return closeSlash();
     const query = text.slice(1);
     if (query !== slash.query) ui.setSlash({ from: slash.from, query, index: 0 });
   };
@@ -167,7 +167,10 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
     }
     const slash = ui.getState().slash;
     if (key === 'slash') {
-      if (!slash) ui.setSlash({ from: session.caretPos(), query: '', index: 0 });
+      // A "/" right after ":" or "/" is part of a URL or path, not a command.
+      const from = session.caretPos();
+      const before = from > 1 ? session.editor.state.doc.textBetween(from - 1, from) : '';
+      if (!slash && before !== ':' && before !== '/') ui.setSlash({ from, query: '', index: 0 });
       return false;
     }
     if (slash) {
@@ -180,6 +183,11 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
           ui.setSlash({ ...slash, index: (slash.index + 1) % Math.max(count, 1) });
           return true;
         case 'enter':
+          if (count === 0) {
+            // Nothing to run: close the menu and let Enter split the node as usual.
+            closeSlash();
+            break;
+          }
           runSlash(Math.min(slash.index, count - 1));
           return true;
         case 'escape':
