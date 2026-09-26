@@ -28,8 +28,9 @@
   --surface: var(--page);
   --sidebar: color-mix(in srgb, var(--page) 55%, var(--desk));
   --selection: color-mix(in srgb, var(--accent) 18%, transparent);
-  --halo: color-mix(in srgb, var(--ink) 16%, var(--page));
-  --halo-soft: color-mix(in srgb, var(--ink) 8%, var(--page));
+  /* Translucent, so the halo still shows on the focused row's band. */
+  --halo: color-mix(in srgb, var(--ink) 18%, transparent);
+  --halo-hover: color-mix(in srgb, var(--ink) 24%, transparent);
   --scroll-thumb: color-mix(in srgb, var(--ink) 22%, transparent);
   --scroll-thumb-hover: color-mix(in srgb, var(--ink) 36%, transparent);
 }
@@ -48,7 +49,6 @@
   --color-accent: var(--accent);
   --color-selection: var(--selection);
   --color-halo: var(--halo);
-  --color-halo-soft: var(--halo-soft);
 }
 
 /* Scrollbars follow the theme too. */
@@ -100,11 +100,13 @@ body {
 }
 /* A halo marks collapsed parents; hovering any bullet shows a softer one. */
 .group\/bullet:hover .bullet-dot {
-  box-shadow: 0 0 0 calc(var(--font-size) * 0.26) var(--halo-soft);
+  box-shadow: 0 0 0 calc(var(--font-size) * 0.26) var(--halo-hover);
 }
-.bullet-dot.bullet-collapsed,
-.group\/bullet:hover .bullet-dot.bullet-collapsed {
+.bullet-dot.bullet-collapsed {
   box-shadow: 0 0 0 calc(var(--font-size) * 0.26) var(--halo);
+}
+.group\/bullet:hover .bullet-dot.bullet-collapsed {
+  box-shadow: 0 0 0 calc(var(--font-size) * 0.26) var(--halo-hover);
 }
 
 /* The text column. In book mode it is a sheet of paper resting on the desk. */
