@@ -3,6 +3,8 @@ import { renderBlock, renderInline } from '@/editor/render';
 import { NodeEditor } from '@/editor/NodeEditor';
 import { NoteEditor } from '@/editor/NoteEditor';
 import { useUiStore } from '@/store/ui-store';
+import { notePrefs, useNotePrefs } from '@/store/note-prefs';
+import { plainText } from '@/editor/markdown';
 import { Bullet } from './Bullet';
 import { CollapseToggle } from './CollapseToggle';
 import { NodeMenu } from './NodeMenu';
@@ -11,6 +13,13 @@ import { useHasChildren, useNode } from './use-outline';
 import { useRowDnd } from './use-dnd';
 
 export const INDENT_PX = 24;
+
+/** One line standing in for a collapsed note: its first line of text, marked as cut. */
+function noteSummary(note: string): string {
+  const lines = note.split('\n').filter((l) => l.trim() !== '' && !/^\s*(`{3,}|~{3,})/.test(l));
+  const first = plainText((lines[0] ?? '').replace(/^\s*(#{1,6}\s+|[-*+]\s+|\d+[.)]\s+|>\s*)/, '')).trim();
+  return lines.length > 1 || first === '' ? `${first} …`.trim() : first;
+}
 
 interface Props {
   id: string;
@@ -26,6 +35,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
   const selected = useUiStore(ui, (s) => s.selection?.ids.has(id) ?? false);
   const dragging = useUiStore(ui, (s) => s.dragging === id);
   const menuOpen = useUiStore(ui, (s) => s.menu === id);
+  const noteCollapsed = useNotePrefs((s) => s.collapsed.has(id));
   const indicator = useUiStore(ui, (s) => (s.dropIndicator?.targetId === id ? s.dropIndicator : null));
   const rowRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLAnchorElement>(null);
@@ -121,11 +131,40 @@ export const Row = memo(function Row({ id, depth }: Props) {
           <NoteEditor id={id} />
         ) : (
           node.note !== '' && (
-            <div
-              className="node-note prose-note row-note cursor-text pb-0.5 text-muted"
-              onMouseDown={onNoteMouseDown}
-              dangerouslySetInnerHTML={{ __html: renderBlock(node.note) }}
-            />
+            <div className="relative">
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-label={noteCollapsed ? 'Expand note' : 'Collapse note'}
+                aria-expanded={!noteCollapsed}
+                data-testid="note-toggle"
+                className={
+                  'note-toggle absolute top-0 -left-6 flex h-5 w-5 items-center justify-center rounded-full text-faint hover:bg-hover hover:text-muted ' +
+                  (noteCollapsed ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
+                }
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => notePrefs.getState().toggleCollapsed(id)}
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" className={noteCollapsed ? '-rotate-90' : ''}>
+                  <path d="M1.5 3.2 5 6.8l3.5-3.6z" />
+                </svg>
+              </button>
+              {noteCollapsed ? (
+                <div
+                  className="node-note row-note cursor-text truncate pb-0.5 text-muted"
+                  data-collapsed="true"
+                  onMouseDown={onNoteMouseDown}
+                >
+                  {noteSummary(node.note)}
+                </div>
+              ) : (
+                <div
+                  className="node-note prose-note row-note cursor-text pb-0.5 text-muted"
+                  onMouseDown={onNoteMouseDown}
+                  dangerouslySetInnerHTML={{ __html: renderBlock(node.note) }}
+                />
+              )}
+            </div>
           )
         )}
       </div>

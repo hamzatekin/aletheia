@@ -235,3 +235,15 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* The rendered note editor keeps the spacing of a rendered note. */
+.ProseMirror.prose-note p { margin: 0.25rem 0; }
+.ProseMirror.prose-note > :first-child { margin-top: 0; }
+.ProseMirror.prose-note > :last-child { margin-bottom: 0; }
+.ProseMirror.prose-note > p:only-child:has(> br:only-child)::before {
+  content: 'Note';
+  float: left;
+  height: 0;
+  color: var(--faint);
+  pointer-events: none;
+}
