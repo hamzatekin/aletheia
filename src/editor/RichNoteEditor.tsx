@@ -90,7 +90,7 @@ export function RichNoteEditor({ id }: { id: string }) {
       content: known.current,
       editorProps: {
         attributes: {
-          class: 'prose-note row-note pr-20 text-muted outline-none',
+          class: 'prose-note row-note text-muted outline-none',
           'data-editor': 'note',
           'aria-label': 'Note',
           spellcheck: 'true',
@@ -106,7 +106,10 @@ export function RichNoteEditor({ id }: { id: string }) {
     loaded.current = markdownOf(editor);
     // A click on the rendered note puts the caret where it landed; otherwise at the end.
     const caret = ui.getState().focus?.caret;
-    const hit = caret?.kind === 'point' ? editor.view.posAtCoords({ left: caret.x, top: caret.y }) : null;
+    // The rendered note sat where the editor's wrapper now starts; anything
+    // above the editor inside it (the mode header) shifts the click down.
+    const shift = host.current!.getBoundingClientRect().top - (host.current!.parentElement?.getBoundingClientRect().top ?? 0);
+    const hit = caret?.kind === 'point' ? editor.view.posAtCoords({ left: caret.x, top: caret.y + shift }) : null;
     if (hit) editor.chain().setTextSelection(hit.pos).focus(undefined, { scrollIntoView: false }).run();
     else {
       editor.commands.focus('end');
