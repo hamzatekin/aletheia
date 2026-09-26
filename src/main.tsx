@@ -33,7 +33,12 @@ watchBrowser(sync);
 const saved = loadSettings();
 const settings = createSettingsStore({ ...saved, sidebarOpen: saved.sidebarOpen && window.innerWidth >= 1024 });
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
-const apply = () => applySettings(settings.getState(), document.documentElement, darkQuery.matches);
+const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+const apply = () => {
+  applySettings(settings.getState(), document.documentElement, darkQuery.matches);
+  // The phone's status bar (installed app) matches the page's background.
+  if (themeColor) themeColor.content = getComputedStyle(document.body).backgroundColor;
+};
 apply();
 settings.subscribe(apply);
 darkQuery.addEventListener('change', apply);
@@ -46,3 +51,7 @@ createRoot(document.getElementById('root')!).render(
     <App engine={engine} ui={ui} session={session} search={search} settings={settings} sync={sync} />
   </StrictMode>,
 );
+// Installed app (PWA): lets it open offline. See pwa/sw.js.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  void navigator.serviceWorker.register('/sw.js');
+}
