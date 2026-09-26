@@ -76,7 +76,7 @@ export class EditorSession {
           gapcursor: false,
           trailingNode: false,
           underline: false,
-          link: { openOnClick: false, autolink: false, linkOnPaste: true },
+          link: { openOnClick: false, autolink: false, linkOnPaste: true, markdownLinks: true },
         }),
         Markdown.configure({ ...markdownOptions, transformPastedText: false, transformCopiedText: true }),
         OutlinerKeymap,

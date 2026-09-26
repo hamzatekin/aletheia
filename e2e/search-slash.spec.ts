@@ -51,3 +51,28 @@ test('multi-line paste creates nested nodes as one undo step', async ({ page }) 
   await page.keyboard.press('Control+z');
   await expect.poll(() => outline(page, 'Someday')).toEqual(['Learn to juggle', 'Plant a tree']);
 });
+
+test('typing a URL does not open the slash menu and Enter still splits', async ({ page }) => {
+  await edit(page, 'Plant a tree');
+  await page.keyboard.type(' see https://example.com/a/b');
+  await expect(page.locator('[data-testid=slash-menu]')).toHaveCount(0);
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('next');
+  await expect.poll(() => outline(page, 'Someday')).toEqual(['Learn to juggle', 'Plant a tree see https://example.com/a/b', 'next']);
+});
+
+test('Enter with an unmatched slash query splits instead of doing nothing', async ({ page }) => {
+  await edit(page, 'Plant a tree');
+  await page.keyboard.type(' 1/2');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('next');
+  await expect.poll(() => outline(page, 'Someday')).toEqual(['Learn to juggle', 'Plant a tree 1/2', 'next']);
+});
+
+test('typed Markdown link syntax becomes a link', async ({ page }) => {
+  await edit(page, 'Plant a tree');
+  await page.keyboard.type(' [docs](https://example.com)');
+  await expect(page.locator('.ProseMirror a[href="https://example.com"]')).toHaveText('docs');
+  await page.keyboard.press('Escape');
+  await expect.poll(() => outline(page, 'Someday')).toEqual(['Learn to juggle', 'Plant a tree [docs](https://example.com)']);
+});
