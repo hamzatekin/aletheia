@@ -19,6 +19,9 @@ export function Outline({ rootId }: Props) {
 
   // Keep the focused (or selection-head) row mounted even when scrolled away.
   const pinnedId = useUiStore(ui, (s) => s.focus?.id ?? s.selection?.head ?? null);
+  // Rows are separate stacking contexts (transform), so the row showing a
+  // popup (slash menu under the editor, grip menu) must sit above the rest.
+  const raisedId = useUiStore(ui, (s) => s.menu ?? s.focus?.id ?? null);
   const pinned = pinnedId === null ? -1 : rows.findIndex((r) => r.id === pinnedId);
   const rangeExtractor = useCallback(
     (range: Range) => {
@@ -77,7 +80,7 @@ export function Outline({ rootId }: Props) {
             key={item.key}
             data-index={item.index}
             ref={virtualizer.measureElement}
-            className="absolute top-0 left-0 w-full"
+            className={'absolute top-0 left-0 w-full' + (row.id === raisedId ? ' z-10' : '')}
             style={{ transform: `translateY(${item.start - virtualizer.options.scrollMargin}px)` }}
           >
             <Row id={row.id} depth={row.depth} />

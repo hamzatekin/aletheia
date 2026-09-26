@@ -52,6 +52,8 @@ export interface UiState {
   dropIndicator: DropIndicator | null;
   /** Id of the node being dragged, if any. */
   dragging: string | null;
+  /** Id of the node whose grip menu is open, if any. */
+  menu: string | null;
   focusNode(id: string, caret?: Caret, field?: Field): void;
   blur(): void;
   setSelection(selection: Selection | null): void;
@@ -60,6 +62,7 @@ export interface UiState {
   setSlash(slash: SlashState | null): void;
   setSearchOpen(open: boolean): void;
   setHelpOpen(open: boolean): void;
+  setMenu(id: string | null): void;
 }
 
 /** The store plus its actions as direct methods, for non-React callers. */
@@ -72,6 +75,7 @@ export interface UiStore extends StoreApi<UiState> {
   setSlash(slash: SlashState | null): void;
   setSearchOpen(open: boolean): void;
   setHelpOpen(open: boolean): void;
+  setMenu(id: string | null): void;
 }
 
 export function createUiStore(): UiStore {
@@ -83,6 +87,7 @@ export function createUiStore(): UiStore {
     helpOpen: false,
     dropIndicator: null,
     dragging: null,
+    menu: null,
     focusNode: (id, caret = { kind: 'end' }, field = 'content') => set({ focus: { id, field, caret }, selection: null, slash: null }),
     blur: () => set({ focus: null, slash: null }),
     setSelection: (selection) => set({ selection }),
@@ -96,6 +101,7 @@ export function createUiStore(): UiStore {
     setSlash: (slash) => set({ slash }),
     setSearchOpen: (searchOpen) => set({ searchOpen }),
     setHelpOpen: (helpOpen) => set({ helpOpen }),
+    setMenu: (menu) => set({ menu }),
   }));
   return Object.assign(store, {
     focusNode: (id: string, caret?: Caret, field?: Field) => store.getState().focusNode(id, caret, field),
@@ -106,6 +112,7 @@ export function createUiStore(): UiStore {
     setSlash: (slash: SlashState | null) => store.getState().setSlash(slash),
     setSearchOpen: (open: boolean) => store.getState().setSearchOpen(open),
     setHelpOpen: (open: boolean) => store.getState().setHelpOpen(open),
+    setMenu: (id: string | null) => store.getState().setMenu(id),
   });
 }
 

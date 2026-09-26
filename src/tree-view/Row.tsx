@@ -5,6 +5,7 @@ import { NoteEditor } from '@/editor/NoteEditor';
 import { useUiStore } from '@/store/ui-store';
 import { Bullet } from './Bullet';
 import { CollapseToggle } from './CollapseToggle';
+import { NodeMenu } from './NodeMenu';
 import { useOutline } from './outline-context';
 import { useHasChildren, useNode } from './use-outline';
 import { useRowDnd } from './use-dnd';
@@ -24,10 +25,11 @@ export const Row = memo(function Row({ id, depth }: Props) {
   const focusField = useUiStore(ui, (s) => (s.focus?.id === id ? s.focus.field : null));
   const selected = useUiStore(ui, (s) => s.selection?.ids.has(id) ?? false);
   const dragging = useUiStore(ui, (s) => s.dragging === id);
+  const menuOpen = useUiStore(ui, (s) => s.menu === id);
   const indicator = useUiStore(ui, (s) => (s.dropIndicator?.targetId === id ? s.dropIndicator : null));
   const rowRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLAnchorElement>(null);
-  const gripRef = useRef<HTMLSpanElement>(null);
+  const gripRef = useRef<HTMLButtonElement>(null);
   useRowDnd(id, depth, rowRef, handleRef, gripRef);
   if (!node) return null;
 
@@ -70,22 +72,33 @@ export const Row = memo(function Row({ id, depth }: Props) {
           <div className="absolute -top-[3px] -left-[3px] h-2 w-2 rounded-full border-2 border-accent bg-surface" />
         </div>
       )}
-      <span
+      <button
         ref={gripRef}
-        aria-hidden="true"
+        type="button"
+        aria-label="Node menu"
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        tabIndex={-1}
         className={
-          'absolute top-px flex h-(--row-lh) w-4 cursor-grab items-center justify-center text-faint transition-opacity active:cursor-grabbing ' +
-          (focusField ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
+          'grip absolute flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-faint transition-[opacity,background-color] ' +
+          (focusField || menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
         }
-        style={{ left: depth * INDENT_PX - 64 }}
+        style={{ left: depth * INDENT_PX - 68, top: 'calc((var(--row-lh) - 1.5rem) / 2 + 1px)' }}
         data-testid="drag-grip"
+        data-menu-for={id}
+        onClick={() => ui.setMenu(menuOpen ? null : id)}
       >
         <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor">
           <rect y="0" width="14" height="1.25" rx="0.6" />
           <rect y="4.4" width="14" height="1.25" rx="0.6" />
           <rect y="8.75" width="14" height="1.25" rx="0.6" />
         </svg>
-      </span>
+      </button>
+      {menuOpen && (
+        <div className="absolute" style={{ left: depth * INDENT_PX - 68, top: 'var(--row-lh)' }}>
+          <NodeMenu id={id} hasChildren={hasChildren} collapsed={node.collapsed} />
+        </div>
+      )}
       <div className="-ml-11.5 flex w-11.5 shrink-0 items-start pr-1.5">
         {hasChildren ? (
           <CollapseToggle collapsed={node.collapsed} onToggle={() => engine.execute({ type: 'toggleCollapse', id })} />

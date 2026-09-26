@@ -27,6 +27,7 @@
   --subtle: color-mix(in srgb, var(--ink) 7%, transparent);
   --surface: var(--page);
   --sidebar: color-mix(in srgb, var(--page) 55%, var(--desk));
+  --danger: light-dark(#dc2626, #f87171);
   --selection: color-mix(in srgb, var(--accent) 18%, transparent);
   /* Translucent, so the halo still shows on the focused row's band. */
   --halo: color-mix(in srgb, var(--ink) 18%, transparent);
@@ -47,6 +48,7 @@
   --color-page: var(--page);
   --color-desk: var(--desk);
   --color-accent: var(--accent);
+  --color-danger: var(--danger);
   --color-selection: var(--selection);
   --color-halo: var(--halo);
 }
@@ -104,6 +106,10 @@ body {
 }
 .bullet-dot.bullet-collapsed {
   box-shadow: 0 0 0 calc(var(--font-size) * 0.26) var(--halo);
+}
+.grip:hover, .grip[aria-expanded='true'] {
+  background: var(--halo-hover);
+  color: var(--muted);
 }
 .group\/bullet:hover .bullet-dot.bullet-collapsed {
   box-shadow: 0 0 0 calc(var(--font-size) * 0.26) var(--halo-hover);
@@ -202,11 +208,16 @@ body {
   content: '';
 }
 
-/* The focused row gets a faint band that runs the full width of the window. */
-.row-focused {
+/* The focused row gets a faint band that runs the full width of the window.
+   Drawn behind the row (not by clipping the row) so the slash and grip menus
+   can hang below it. */
+.row-focused::before {
+  content: '';
+  position: absolute;
+  inset: 0 -100vmax;
+  z-index: -1;
   background: var(--row-focus);
-  box-shadow: 0 0 0 100vmax var(--row-focus);
-  clip-path: inset(0 -100vmax);
+  pointer-events: none;
 }
 
 /* Native drag preview for a node. */
