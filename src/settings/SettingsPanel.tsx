@@ -9,9 +9,12 @@ import {
   type SettingsStore,
   type ThemeId,
 } from '@/store/settings-store';
+import type { SyncService } from '@/sync/service';
+import { SyncSection } from './SyncSection';
 
 interface Props {
   settings: SettingsStore;
+  sync?: SyncService | undefined;
 }
 
 const THEME_OPTIONS: { id: ThemeId; label: string }[] = [
@@ -21,8 +24,18 @@ const THEME_OPTIONS: { id: ThemeId; label: string }[] = [
 ];
 
 /** Gear button plus a drawer with every look-and-feel setting. Changes apply live. */
-export function SettingsPanel({ settings }: Props) {
+export function SettingsPanel({ settings, sync }: Props) {
   const [open, setOpen] = useState(false);
+
+  // Opening a sync link shows the join prompt here.
+  useEffect(() => {
+    if (!sync) return;
+    const check = () => {
+      if (sync.state.getState().pendingJoinKey) setOpen(true);
+    };
+    check();
+    return sync.state.subscribe(check);
+  }, [sync]);
   const s = useSettings(settings, (st) => st);
   const panelRef = useRef<HTMLDivElement>(null);
   const update = (patch: Partial<Settings>) => s.update(patch);
@@ -72,6 +85,7 @@ export function SettingsPanel({ settings }: Props) {
           data-testid="settings-panel"
           className="fixed top-14 right-3 z-40 max-h-[calc(100vh-4.5rem)] w-80 max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-lg border border-line bg-surface p-4 text-sm text-ink shadow-2xl"
         >
+          {sync && <SyncSection sync={sync} />}
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-semibold">Appearance</h2>
             <button type="button" onClick={() => s.reset()} className="text-xs text-muted underline-offset-2 hover:underline">
@@ -164,7 +178,7 @@ export function SettingsPanel({ settings }: Props) {
           <Toggle label="Outline sidebar" hint="Ctrl+\ toggles it" checked={s.sidebarOpen} onChange={(v) => update({ sidebarOpen: v })} />
           <Slider label="Outline levels shown" value={s.outlineDepth} format={(v) => String(v)} limits={LIMITS.outlineDepth} onChange={(v) => update({ outlineDepth: v })} />
 
-          <p className="mt-3 text-xs text-muted">Saved in this browser only.</p>
+          <p className="mt-3 text-xs text-muted">Appearance is saved in this browser only.</p>
         </div>
       )}
     </>

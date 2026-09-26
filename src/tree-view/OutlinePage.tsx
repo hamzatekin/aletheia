@@ -11,6 +11,7 @@ import { SearchPalette } from '@/search/SearchPalette';
 import { useEngine } from '@/app/engine-context';
 import { TutorialDialog } from '@/help/TutorialDialog';
 import { SettingsPanel } from '@/settings/SettingsPanel';
+import type { SyncService } from '@/sync/service';
 import { useSettings, type SettingsStore } from '@/store/settings-store';
 import { useUiStore, type UiStore } from '@/store/ui-store';
 import { createOutlineActions } from './actions';
@@ -26,10 +27,11 @@ interface Props {
   session: EditorSession;
   search: SearchIndex;
   settings: SettingsStore;
+  sync?: SyncService | undefined;
 }
 
 /** `/` shows the top level; `/n/:id` zooms into a node. */
-export function OutlinePage({ ui, session, search, settings }: Props) {
+export function OutlinePage({ ui, session, search, settings, sync }: Props) {
   const engine: Engine = useEngine();
   const { id } = useParams<{ id: string }>();
   const rootId = id ?? null;
@@ -128,7 +130,7 @@ export function OutlinePage({ ui, session, search, settings }: Props) {
         >
           ?
         </button>
-        <SettingsPanel settings={settings} />
+        <SettingsPanel settings={settings} sync={sync} />
         <TutorialDialog ui={ui} />
         <div className="desk min-h-screen" onMouseDown={onBackgroundMouseDown}>
           <main className="book-page" onMouseDown={onBackgroundMouseDown}>

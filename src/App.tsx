@@ -4,6 +4,7 @@ import { EngineProvider } from '@/app/engine-context';
 import type { EditorSession } from '@/editor/session';
 import type { SearchIndex } from '@/search';
 import type { SettingsStore } from '@/store/settings-store';
+import type { SyncService } from '@/sync/service';
 import type { UiStore } from '@/store/ui-store';
 import { OutlinePage } from '@/tree-view/OutlinePage';
 
@@ -13,10 +14,11 @@ interface Props {
   session: EditorSession;
   search: SearchIndex;
   settings: SettingsStore;
+  sync?: SyncService;
 }
 
-export function App({ engine, ui, session, search, settings }: Props) {
-  const page = <OutlinePage ui={ui} session={session} search={search} settings={settings} />;
+export function App({ engine, ui, session, search, settings, sync }: Props) {
+  const page = <OutlinePage ui={ui} session={session} search={search} settings={settings} sync={sync} />;
   return (
     <EngineProvider value={engine}>
       <BrowserRouter>

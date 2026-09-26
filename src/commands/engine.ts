@@ -42,6 +42,12 @@ export interface Engine {
   load(): Promise<void>;
   /** Replace every node (restore from backup). Not undoable; clears the stacks. */
   replaceAll(nodes: Node[]): Promise<void>;
+  /**
+   * Write node versions that came from outside this device's commands (sync
+   * pulls, tree repairs). Not undoable. Nodes identical to the current ones
+   * are skipped; returns the operation, or null when nothing changed.
+   */
+  applyExternal(nodes: readonly Node[], type: string): Operation | null;
   /** Subscribe to committed operations (search index, etc.). Returns unsubscribe. */
   onOperation(listener: (op: Operation) => void): () => void;
 }
@@ -201,11 +207,37 @@ export function createEngine(opts: EngineOptions): Engine {
       store.getState().load(nodes);
     },
 
+    applyExternal(nodes, type) {
+      const changes: NodeChange[] = [];
+      for (const after of nodes) {
+        const before = tree.get(after.id) ?? null;
+        if (before && sameNode(before, after)) continue;
+        changes.push({ id: after.id, before, after });
+      }
+      if (changes.length === 0) return null;
+      const ids = changes.map((c) => c.id);
+      const op: Operation = { id: newId(), type, input: null, changes, affectedNodeIds: ids, timestamp: now() };
+      commit(op);
+      return op;
+    },
+
     onOperation(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
   };
+}
+
+function sameNode(a: Node, b: Node): boolean {
+  return (
+    a.parentId === b.parentId &&
+    a.order === b.order &&
+    a.content === b.content &&
+    a.note === b.note &&
+    a.collapsed === b.collapsed &&
+    a.deletedAt === b.deletedAt &&
+    a.createdAt === b.createdAt
+  );
 }
 
 function noop(cmd: Command, at: number): Operation {

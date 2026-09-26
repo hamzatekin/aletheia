@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
+import type { OutboxEntry } from '@/sync/outbox';
 import type {
   DirtyNode,
   EmbeddingRow,
@@ -18,6 +19,10 @@ export class AletheiaDB extends Dexie {
   summaries!: EntityTable<SummaryRow, 'nodeId'>;
   tags!: Dexie.Table<TagRow, [string, string]>;
   relations!: Dexie.Table<RelationRow, [string, string, string]>;
+  /** Sync: node changes not yet uploaded. */
+  outbox!: EntityTable<OutboxEntry, 'nodeId'>;
+  /** Sync: key, cursor. */
+  meta!: Dexie.Table<{ key: string; value: unknown }, string>;
 
   constructor(name = 'aletheia') {
     super(name);
@@ -29,6 +34,10 @@ export class AletheiaDB extends Dexie {
       summaries: 'nodeId, model',
       tags: '[nodeId+tag], nodeId, tag',
       relations: '[sourceId+targetId+kind], sourceId, targetId',
+    });
+    this.version(2).stores({
+      outbox: 'nodeId',
+      meta: 'key',
     });
   }
 }

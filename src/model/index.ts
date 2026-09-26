@@ -7,3 +7,4 @@ export * from './ai-tables';
 export * from './seed';
 export * from './hash';
 export * from './context';
+export * from './repair';
