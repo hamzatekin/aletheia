@@ -1,7 +1,7 @@
 import type { Command, Engine, Outcome } from '@/commands';
 import { newId } from '@/model';
 import type { OutlineItem } from './types';
-import { codeTitle, extractWorkflowyCodeBlocks, fencedBlock, looksLikeWorkflowyHtml, workflowyHtmlToMarkdown } from './workflowy';
+import { codeTitle, extractFencedBlocks, extractWorkflowyCodeBlocks, fencedBlock, looksLikeWorkflowyHtml, workflowyHtmlToMarkdown } from './workflowy';
 
 const BULLET = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
 
@@ -77,7 +77,13 @@ export function opmlItems(outlines: RawOutline[], fromWorkflowy = false): Outlin
     list.some((o) => o.complete || looksLikeWorkflowyHtml(o.text) || looksLikeWorkflowyHtml(o.note) || any(o.children));
   const html = fromWorkflowy || any(outlines);
   const convert = (o: RawOutline): OutlineItem => {
-    if (!html) return { content: o.text, note: o.note, children: o.children.map(convert) };
+    if (!html) {
+      // Plain OPML text is taken as is, except that a ``` fence can't stay in single-line content.
+      const text = extractFencedBlocks(o.text);
+      const content = text.html.replace(/\s+/g, ' ').trim() || (text.blocks[0] ? codeTitle(text.blocks[0]) : '');
+      const note = [...text.blocks.map(fencedBlock), ...(o.note === '' ? [] : [o.note])].join('\n\n');
+      return text.blocks.length > 0 ? { content, note, children: o.children.map(convert) } : { content: o.text, note: o.note, children: o.children.map(convert) };
+    }
     // Multi-line code can't live in a node's single-line content: it moves to the note.
     const text = extractWorkflowyCodeBlocks(o.text);
     const note = extractWorkflowyCodeBlocks(o.note, '\u0000');

@@ -185,6 +185,8 @@ body {
   border-radius: 0.375rem;
   overflow-x: auto;
   background: var(--subtle);
+  /* Tight enough that box-drawing tables join up. */
+  line-height: 1.2;
 }
 .prose-note pre code { padding: 0; background: none; }
 .prose-note blockquote {

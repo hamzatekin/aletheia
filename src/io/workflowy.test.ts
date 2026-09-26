@@ -87,3 +87,31 @@ describe('WorkFlowy code blocks', () => {
     expect(item!.note).toBe('````\n```js\nx\n```\n````');
   });
 });
+
+describe('WorkFlowy ``` code blocks', () => {
+  it('moves a fenced block out of the content, keeping box-drawing tables intact', () => {
+    const table = '┌─────┬──────┐\n│ Run │ Cost │\n└─────┴──────┘';
+    const [item] = opmlItems([raw('Run results\n```\n' + table + '\n```')], true);
+    expect(item!.content).toBe('Run results');
+    expect(item!.note).toBe('```\n' + table + '\n```');
+  });
+
+  it('uses the first code line as the title for a node that is only a fence', () => {
+    const [item] = opmlItems([raw('```bash\n  pnpm build\n  pnpm test\n```')], true);
+    expect(item!.content).toBe('pnpm build');
+    expect(item!.note).toBe('```\n  pnpm build\n  pnpm test\n```');
+  });
+
+  it('decodes entities inside fences and handles several blocks in order', () => {
+    const [item] = opmlItems([raw('a\n```\nx &lt; y\n```\nb\n```\nsecond\n```')], true);
+    expect(item!.content).toBe('a b');
+    expect(item!.note).toBe('```\nx < y\n```\n\n```\nsecond\n```');
+  });
+});
+
+describe('fences in plain OPML', () => {
+  it('moves them to the note without touching the code', () => {
+    const [item] = opmlItems([raw('Log\n```\n<b> &amp; x\n```', { note: 'n' })]);
+    expect(item).toEqual({ content: 'Log', note: '```\n<b> &amp; x\n```\n\nn', children: [] });
+  });
+});

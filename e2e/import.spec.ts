@@ -44,3 +44,19 @@ test('a WorkFlowy code block becomes a code block in the note', async ({ page })
   await page.mouse.click(5, 650);
   await imported.screenshot({ path: 'test-results/workflowy-code-block.png' });
 });
+
+test('a WorkFlowy ``` code block with a box table keeps its lines', async ({ page }) => {
+  const table = ['┌───────┬───────┬───────┐', '│ Run   │ Cost  │ Turns │', '├───────┼───────┼───────┤', '│ First │ $0.13 │ 4     │', '└───────┴───────┴───────┘'];
+  const text = ['Run results', '```', ...table, '```'].join('&#10;');
+  const opml = `<opml version="2.0"><head><ownerEmail>me@example.com</ownerEmail></head><body><outline text="${text}" /></body></opml>`;
+  await edit(page, 'Plant a tree');
+  const chooser = page.waitForEvent('filechooser');
+  await page.keyboard.type('/workflowy');
+  await page.keyboard.press('Enter');
+  await (await chooser).setFiles({ name: 'w.opml', mimeType: 'text/xml', buffer: Buffer.from(opml) });
+  const imported = page.locator('[data-node-id]', { hasText: 'Run results' }).last();
+  await expect(imported.locator('.node-content')).toHaveText('Run results');
+  await expect(imported.locator('.node-note pre code')).toHaveText(table.join('\n'));
+  await page.mouse.click(5, 650);
+  await imported.screenshot({ path: 'test-results/workflowy-fence-table.png' });
+});
