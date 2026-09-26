@@ -235,6 +235,8 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
           }
           return applyFocus(outcome);
         }
+        // An empty parent stays: merging it away would re-home its children.
+        if (session.isEmpty()) return true;
         const prev = prevOf(id);
         if (prev === null) return true;
         session.flush();
