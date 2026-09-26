@@ -317,3 +317,8 @@ body {
 .crumbs-scroll[data-overflow-left='true'] {
   mask-image: linear-gradient(to right, transparent, #000 1.5rem);
 }
+
+/* Vertical lines tying children to their parent's bullet. */
+.indent-guide {
+  background: var(--line);
+}
