@@ -5,6 +5,7 @@ import { Markdown, type MarkdownStorage } from 'tiptap-markdown';
 import { useOutline } from '@/tree-view/outline-context';
 import { useNode } from '@/tree-view/use-outline';
 import { markdownOptions } from './markdown';
+import { takeCaretHandoff } from './caret-handoff';
 
 const SAVE_DELAY_MS = 400;
 
@@ -111,13 +112,17 @@ export function RichNoteEditor({ id }: { id: string }) {
     });
     editorRef.current = editor;
     loaded.current = markdownOf(editor);
-    // A click on the rendered note puts the caret where it landed; otherwise at the end.
+    // The caret goes where the note was clicked (or where it was before a
+    // mode switch), else at the end. The page never jumps to show the note:
+    // at most the caret itself is scrolled into view, and only from the keyboard.
     const caret = ui.getState().focus?.caret;
-    const hit = caret?.kind === 'point' ? editor.view.posAtCoords({ left: caret.x, top: caret.y }) : null;
+    const point = takeCaretHandoff(id) ?? (caret?.kind === 'point' ? caret : null);
+    const hit = point ? editor.view.posAtCoords({ left: point.x, top: point.y }) : null;
     if (hit) editor.chain().setTextSelection(hit.pos).focus(undefined, { scrollIntoView: false }).run();
+    else if (point) editor.commands.focus('end', { scrollIntoView: false });
     else {
-      editor.commands.focus('end');
-      editor.view.dom.scrollIntoView({ block: 'nearest' });
+      editor.commands.focus('end', { scrollIntoView: false });
+      editor.commands.scrollIntoView();
     }
     return () => {
       save();

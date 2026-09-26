@@ -3,6 +3,7 @@ import { useOutline } from '@/tree-view/outline-context';
 import { useNode } from '@/tree-view/use-outline';
 import { notePrefs, useNotePrefs } from '@/store/note-prefs';
 import { RichNoteEditor } from './RichNoteEditor';
+import { keepCaretAcrossSwitch } from './caret-handoff';
 
 interface Props {
   id: string;
@@ -26,7 +27,7 @@ export function NoteEditor({ id }: Props) {
   const { engine } = useOutline();
   const { raw, locked } = useNoteMode(engine.tree.get(id)?.note ?? '');
   return (
-    <div>
+    <div className="note-box">
       <NoteHeader raw={raw} locked={locked} />
       {raw ? <RawNoteEditor id={id} /> : <RichNoteEditor id={id} />}
     </div>
@@ -75,7 +76,16 @@ export function NoteHeader({ raw, locked, quiet = false }: { raw: boolean; locke
         onMouseDown={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (!locked) notePrefs.getState().setRaw(!raw);
+          if (locked) return;
+          keepCaretAcrossSwitch();
+          // Hold the note's height while one editor replaces the other, so the
+          // page (and the virtual list's scroll anchoring) never sees it shrink.
+          const box = e.currentTarget.closest<HTMLElement>('.note-box');
+          if (box) {
+            box.style.minHeight = `${box.getBoundingClientRect().height}px`;
+            requestAnimationFrame(() => requestAnimationFrame(() => (box.style.minHeight = '')));
+          }
+          notePrefs.getState().setRaw(!raw);
         }}
       >
         {raw ? <MarkdownIcon /> : <RenderedIcon />}
@@ -86,6 +96,7 @@ export function NoteHeader({ raw, locked, quiet = false }: { raw: boolean; locke
 
 /** The note's Markdown source in an auto-growing textarea. */
 function RawNoteEditor({ id }: Props) {
+  console.log('render raw', window.scrollY);
   const { engine, ui, actions } = useOutline();
   const node = useNode(id);
   const stored = node?.note ?? '';
@@ -109,15 +120,21 @@ function RawNoteEditor({ id }: Props) {
 
   useLayoutEffect(() => {
     const el = ref.current!;
+    // Measuring collapses the textarea for a moment, which can shorten the page
+    // and pull the scroll position up; put it back so nothing jumps.
+    const { scrollX, scrollY } = window; console.log('LE start', scrollY, el.offsetHeight);
     el.style.height = '0px';
     el.style.height = `${el.scrollHeight}px`;
+    if (window.scrollY !== scrollY) window.scrollTo(scrollX, scrollY);
   }, [text]);
 
   useEffect(() => {
     const el = ref.current!;
-    el.focus();
-    el.setSelectionRange(el.value.length, el.value.length);
-    el.scrollIntoView({ block: 'nearest' });
+    // Never scroll the page to show the note: it is already on screen where
+    // it was clicked or opened.
+    // (Selecting before focusing: on a focused textarea Chrome scrolls to the new caret.)
+    console.log('E start', window.scrollY); el.setSelectionRange(el.value.length, el.value.length); console.log('E sel', window.scrollY);
+    el.focus({ preventScroll: true }); console.log('E focus', window.scrollY);
     return () => save(textRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount/unmount only
   }, [id]);

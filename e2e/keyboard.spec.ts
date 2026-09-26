@@ -228,3 +228,33 @@ test('opening and leaving a note moves nothing: the note header is there either 
   expect(Math.abs(after.height - before.height)).toBeLessThanOrEqual(2);
   expect(Math.abs(headerAfter.y - header.y)).toBeLessThanOrEqual(1);
 });
+
+test('opening a long note or switching its mode never scrolls the page', async ({ page }) => {
+  const long = Array.from({ length: 60 }, (_, i) => `line ${i + 1}`).join('\n\n');
+  await page.evaluate((note) => {
+    const { engine } = (window as any).__aletheia;
+    const node = [...engine.tree.all()].find((n: any) => n.content === 'Learn to juggle');
+    engine.execute({ type: 'updateNote', id: node.id, note });
+  }, long);
+  const row = page.locator('[data-node-id]', { hasText: 'Learn to juggle' }).first();
+  // Header in view at the top, the rest of the long note running off the bottom.
+  await row.locator('.note-header').evaluate((el) => el.scrollIntoView({ block: 'start' }));
+  const line = row.locator('.node-note p', { hasText: /^line 8$/ });
+  const before = await page.evaluate(() => window.scrollY);
+  await line.click();
+  await expect(page.locator('.ProseMirror[data-editor=note]')).toBeFocused();
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => window.scrollY)).toBe(before);
+  // The caret landed on the clicked line, not at the end of the note.
+  expect(await page.evaluate(() => window.getSelection()!.anchorNode!.textContent)).toBe('line 8');
+
+  const toggle = row.locator('[data-testid=note-mode-toggle]');
+  await toggle.click();
+  await expect(page.locator('textarea[data-editor=note]')).toBeFocused();
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => window.scrollY)).toBe(before);
+  await toggle.click();
+  await expect(page.locator('.ProseMirror[data-editor=note]')).toBeFocused();
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => window.scrollY)).toBe(before);
+});
