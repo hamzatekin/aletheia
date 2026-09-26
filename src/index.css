@@ -198,6 +198,32 @@ body {
   border-left: 2px solid var(--line);
 }
 .prose-note h1, .prose-note h2, .prose-note h3 { font-weight: 600; margin: 0.5rem 0 0.25rem; }
+.prose-note hr { margin: 0.75rem 0; border: 0; border-top: 1px solid var(--line); }
+/*
+ * Tables (terminal output included) fit the note: as wide as their content up
+ * to the note's width, where cells wrap. Only a table that can't fit even
+ * wrapped (many columns, long words) scrolls, and only itself.
+ */
+.prose-note table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+  border-collapse: collapse;
+  font-size: 0.9em;
+  line-height: 1.45;
+}
+.prose-note th, .prose-note td {
+  min-width: 4rem;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.prose-note th { font-weight: 600; color: var(--ink); background: var(--subtle); }
+.prose-note :is(th, td) p, .ProseMirror.prose-note :is(th, td) p { margin: 0; }
+.prose-note .selectedCell { background: var(--selection); }
 
 /* The single Tiptap editor, styled exactly like static content. */
 .ProseMirror {

@@ -156,6 +156,7 @@ export function extractFencedBlocks(text: string): { html: string; blocks: strin
 
 /** A short title for a node that was only a code block: its first line. */
 export function codeTitle(code: string): string {
-  const line = code.split('\n').find((l) => l.trim() !== '')?.trim() ?? '';
+  // Claude Code starts its answers with a "⏺" marker; it isn't part of the title.
+  const line = code.split('\n').find((l) => l.trim() !== '')?.trim().replace(/^⏺\s*/, '') ?? '';
   return line.length > 80 ? `${line.slice(0, 79).trimEnd()}…` : line;
 }

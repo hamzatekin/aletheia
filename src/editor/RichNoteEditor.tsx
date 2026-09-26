@@ -1,11 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { Editor, Extension } from '@tiptap/core';
+import { Selection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown, type MarkdownStorage } from 'tiptap-markdown';
 import { useOutline } from '@/tree-view/outline-context';
 import { useNode } from '@/tree-view/use-outline';
 import { markdownOptions } from './markdown';
 import { takeCaretHandoff } from './caret-handoff';
+import { noteTableExtensions } from './note-table';
+import { isTerminalPaste, terminalToMarkdown } from '@/io/terminal';
 
 const SAVE_DELAY_MS = 400;
 
@@ -93,6 +96,7 @@ export function RichNoteEditor({ id }: { id: string }) {
           link: { openOnClick: false, autolink: false, linkOnPaste: true },
         }),
         Markdown.configure({ ...markdownOptions, tightLists: true, transformPastedText: true, transformCopiedText: true }),
+        ...noteTableExtensions,
         NoteKeys,
       ],
       content: known.current,
@@ -102,6 +106,13 @@ export function RichNoteEditor({ id }: { id: string }) {
           'data-editor': 'note',
           'aria-label': 'Note',
           spellcheck: 'true',
+        },
+        // Terminal output (box tables, Claude Code answers) pastes as the Markdown it was.
+        handlePaste: (_view, event) => {
+          const text = event.clipboardData?.getData('text/plain') ?? '';
+          if (editor.isActive('codeBlock') || !isTerminalPaste(text)) return false;
+          editor.commands.insertContent(terminalToMarkdown(text));
+          return true;
         },
       },
       onUpdate: () => {
@@ -118,7 +129,11 @@ export function RichNoteEditor({ id }: { id: string }) {
     const caret = ui.getState().focus?.caret;
     const point = takeCaretHandoff(id) ?? (caret?.kind === 'point' ? caret : null);
     const hit = point ? editor.view.posAtCoords({ left: point.x, top: point.y }) : null;
-    if (hit) editor.chain().setTextSelection(hit.pos).focus(undefined, { scrollIntoView: false }).run();
+    if (hit) {
+      // Snap to the nearest text before it: a click right of a table cell's text lands between blocks.
+      editor.view.dispatch(editor.state.tr.setSelection(Selection.near(editor.state.doc.resolve(hit.pos), -1)));
+      editor.commands.focus(undefined, { scrollIntoView: false });
+    }
     else if (point) editor.commands.focus('end', { scrollIntoView: false });
     else {
       editor.commands.focus('end', { scrollIntoView: false });
