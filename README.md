@@ -103,6 +103,19 @@ pnpm typecheck  tsc
 pnpm build      production build
 ```
 
+## Deploy (Cloudflare)
+
+The app is a static single-page app; all data stays in the browser
+(IndexedDB), so there is no backend to deploy.
+
+- **Workers (static assets)**: `pnpm build && npx wrangler deploy` using the
+  included `wrangler.jsonc`, or connect the repository in the Cloudflare
+  dashboard (Workers & Pages → Create → connect Git) with build command
+  `pnpm build` and deploy command `npx wrangler deploy`.
+- **Pages**: build command `pnpm build`, output directory `dist`.
+  `public/_redirects` routes every path to `index.html` so `/n/:id` links
+  work on reload.
+
 The browser tests drive the app through `window.__aletheia` (engine, UI
 store, editor session, search index), which dev builds expose. Set
 `CHROMIUM_PATH` to use a preinstalled Chromium instead of the one Playwright
