@@ -10,6 +10,7 @@ test('a WorkFlowy OPML export imports with formatting, notes and completed items
     '<outline text="&lt;b&gt;Reading&lt;/b&gt; list" _note="from R&amp;amp;D">',
     '<outline text="Dune" _complete="true" />',
     '<outline text="see &lt;a href=&quot;https://example.com&quot;&gt;site&lt;/a&gt;" />',
+    '<outline text="&lt;code&gt;Review summary&#10;&#10;1. Firms with no settings&#10;- The send check&lt;/code&gt;" />',
     '</outline>',
     '</body></opml>',
   ].join('\n');
@@ -19,7 +20,7 @@ test('a WorkFlowy OPML export imports with formatting, notes and completed items
   await page.keyboard.press('Enter');
   await (await chooser).setFiles({ name: 'workflowy.opml', mimeType: 'text/xml', buffer: Buffer.from(opml) });
   await expect.poll(() => outline(page, 'Plant a tree')).toEqual([
-    ['**Reading** list', ['~~Dune~~', 'see [site](https://example.com)']],
+    ['**Reading** list', ['~~Dune~~', 'see [site](https://example.com)', 'Review summary']],
   ]);
   const note = await page.evaluate(() => {
     const { engine } = (window as any).__aletheia;
@@ -27,4 +28,19 @@ test('a WorkFlowy OPML export imports with formatting, notes and completed items
   });
   expect(note).toBe('from R&D');
   await expect(page.locator('[data-node-id]', { hasText: 'Reading list' }).locator('strong').first()).toHaveText('Reading');
+});
+
+test('a WorkFlowy code block becomes a code block in the note', async ({ page }) => {
+  const opml = '<opml version="2.0"><head><ownerEmail>me@example.com</ownerEmail></head><body>'
+    + '<outline text="&lt;code&gt;Review summary&#10;&#10;1. Firms with no settings&#10;- The send check&lt;/code&gt;" />'
+    + '</body></opml>';
+  await edit(page, 'Plant a tree');
+  const chooser = page.waitForEvent('filechooser');
+  await page.keyboard.type('/workflowy');
+  await page.keyboard.press('Enter');
+  await (await chooser).setFiles({ name: 'w.opml', mimeType: 'text/xml', buffer: Buffer.from(opml) });
+  const imported = page.locator('[data-node-id]', { hasText: 'Review summary' }).last();
+  await expect(imported.locator('.node-note pre code')).toHaveText('Review summary\n\n1. Firms with no settings\n- The send check');
+  await page.mouse.click(5, 650);
+  await imported.screenshot({ path: 'test-results/workflowy-code-block.png' });
 });
