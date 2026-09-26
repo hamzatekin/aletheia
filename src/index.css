@@ -152,6 +152,12 @@ body {
 @media (max-width: 639px) {
   :root[data-book='true'] .book-page { margin: 0 auto; border-radius: 0; min-height: 100vh; }
 }
+/* Phones: use the whole width. The gutter holds only the bullet there (the
+   collapse arrow sits at the right end of the line), so the margins can be thin. */
+@media (max-width: 639px) and (pointer: coarse) {
+  .book-page,
+  :root[data-book='true'] .book-page { padding: 3.25rem 0.75rem 6rem 1.75rem; }
+}
 
 /* Leave room for the outline sidebar on wide screens. */
 @media (min-width: 1024px) {
@@ -299,4 +305,15 @@ body {
   .group\/bullet {
     -webkit-touch-callout: none;
   }
+}
+
+/* Breadcrumbs on phones: one line that scrolls sideways, with no visible
+   scrollbar; a fade on the left shows when earlier crumbs are out of view. */
+.crumbs-scroll {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.crumbs-scroll::-webkit-scrollbar { display: none; }
+.crumbs-scroll[data-overflow-left='true'] {
+  mask-image: linear-gradient(to right, transparent, #000 1.5rem);
 }
