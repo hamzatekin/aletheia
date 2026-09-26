@@ -59,8 +59,12 @@ export function RichNoteEditor({ id }: { id: string }) {
           Escape: leave(toContent),
           'Shift-Enter': leave(toContent),
           ArrowUp: ({ editor: e }) => (inFirstBlock() && e.view.endOfTextblock('up') ? leave(toContent)() : false),
+          // At the end of a closing code block, ArrowDown first steps out of it
+          // into a new paragraph (the code block's own rule), then leaves the note.
           ArrowDown: ({ editor: e }) =>
-            inLastBlock() && e.view.endOfTextblock('down') ? leave(() => actions.focusNext(id, { kind: 'start' }))() : false,
+            inLastBlock() && e.view.endOfTextblock('down') && !e.isActive('codeBlock')
+              ? leave(() => actions.focusNext(id, { kind: 'start' }))()
+              : false,
           Backspace: ({ editor: e }) => (e.isEmpty ? leave(toContent)() : false),
           // Undo/redo belong to the outline: save first, then let the key reach it.
           'Mod-z': () => (save(), false),
@@ -79,6 +83,9 @@ export function RichNoteEditor({ id }: { id: string }) {
       extensions: [
         StarterKit.configure({
           undoRedo: false,
+          // No forced empty paragraph after a closing code block: the editor must
+          // lay out exactly like the rendered note so nothing moves on click.
+          trailingNode: false,
           dropcursor: false,
           gapcursor: false,
           heading: { levels: [1, 2, 3] },
@@ -90,7 +97,7 @@ export function RichNoteEditor({ id }: { id: string }) {
       content: known.current,
       editorProps: {
         attributes: {
-          class: 'prose-note row-note text-muted outline-none',
+          class: 'prose-note row-note pb-0.5 text-muted outline-none',
           'data-editor': 'note',
           'aria-label': 'Note',
           spellcheck: 'true',
@@ -106,10 +113,7 @@ export function RichNoteEditor({ id }: { id: string }) {
     loaded.current = markdownOf(editor);
     // A click on the rendered note puts the caret where it landed; otherwise at the end.
     const caret = ui.getState().focus?.caret;
-    // The rendered note sat where the editor's wrapper now starts; anything
-    // above the editor inside it (the mode header) shifts the click down.
-    const shift = host.current!.getBoundingClientRect().top - (host.current!.parentElement?.getBoundingClientRect().top ?? 0);
-    const hit = caret?.kind === 'point' ? editor.view.posAtCoords({ left: caret.x, top: caret.y + shift }) : null;
+    const hit = caret?.kind === 'point' ? editor.view.posAtCoords({ left: caret.x, top: caret.y }) : null;
     if (hit) editor.chain().setTextSelection(hit.pos).focus(undefined, { scrollIntoView: false }).run();
     else {
       editor.commands.focus('end');
