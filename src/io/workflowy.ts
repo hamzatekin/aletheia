@@ -101,19 +101,44 @@ export function fencedBlock(code: string): string {
   return `${fence}\n${code.replace(/^\n+|\s+$/g, '')}\n${fence}`;
 }
 
+// A ``` fence with its (optional) language, the code, and the closing fence.
+const FENCE = /(`{3,})([^\n`]*)\n([^]*?)\n?[ \t]*\1(?!`)/g;
+
 /**
- * WorkFlowy code blocks are <code>/<pre> spans with line breaks inside. Inline
- * Markdown can't hold those, so they are cut out of `html` and returned as
- * fenced blocks for the note, leaving `placeholder` where each was. Single-line
- * code stays inline.
+ * WorkFlowy code blocks come as ``` fences (its /code block) or as <code>/<pre>
+ * spans with line breaks inside. Inline Markdown can't hold those, so they are
+ * cut out of `html` and returned as fenced blocks for the note, leaving
+ * `placeholder` where each was. Single-line code stays inline.
  */
 export function extractWorkflowyCodeBlocks(html: string, placeholder = ' '): { html: string; blocks: string[] } {
   const blocks: string[] = [];
-  const rest = html.replace(CODE_SPAN, (whole, _tag: string, inner: string) => {
-    const code = codeText(inner);
-    if (!code.trim().includes('\n')) return whole;
-    blocks.push(code);
-    return placeholder;
+  const found: string[] = [];
+  // Blocks come out in document order, whichever form they came in. <code>
+  // spans go first so a fence written inside one stays part of its code.
+  const rest = html
+    .replace(CODE_SPAN, (whole, _tag: string, inner: string) => {
+      const code = codeText(inner);
+      if (!code.trim().includes('\n')) return whole;
+      found.push(code);
+      return `\u0001${found.length - 1}\u0001`;
+    })
+    .replace(FENCE, (_whole, _fence: string, _lang: string, inner: string) => {
+      found.push(codeText(inner));
+      return `\u0001${found.length - 1}\u0001`;
+    })
+    .replace(/\u0001(\d+)\u0001/g, (_m, i: string) => {
+      blocks.push(found[Number(i)]!);
+      return placeholder;
+    });
+  return { html: rest, blocks };
+}
+
+/** Only the ``` fences of plain (non-HTML) text, with the code kept verbatim. */
+export function extractFencedBlocks(text: string): { html: string; blocks: string[] } {
+  const blocks: string[] = [];
+  const rest = text.replace(FENCE, (_whole, _fence: string, _lang: string, inner: string) => {
+    blocks.push(inner);
+    return ' ';
   });
   return { html: rest, blocks };
 }
