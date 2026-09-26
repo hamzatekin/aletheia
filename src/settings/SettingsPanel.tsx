@@ -9,6 +9,7 @@ import {
   type SettingsStore,
   type ThemeId,
 } from '@/store/settings-store';
+import { notePrefs, useNotePrefs } from '@/store/note-prefs';
 import type { SyncService } from '@/sync/service';
 import { SyncSection } from './SyncSection';
 
@@ -39,6 +40,7 @@ export function SettingsPanel({ settings, sync }: Props) {
   const s = useSettings(settings, (st) => st);
   const panelRef = useRef<HTMLDivElement>(null);
   const update = (patch: Partial<Settings>) => s.update(patch);
+  const notesCollapsed = useNotePrefs((n) => n.collapsedByDefault);
 
   useEffect(() => {
     if (!open) return;
@@ -177,6 +179,13 @@ export function SettingsPanel({ settings, sync }: Props) {
           <Toggle label="Book page" hint="Show the text on a sheet of paper" checked={s.bookPage} onChange={(v) => update({ bookPage: v })} />
           <Toggle label="Outline sidebar" hint="Ctrl+\ toggles it" checked={s.sidebarOpen} onChange={(v) => update({ sidebarOpen: v })} />
           <Slider label="Outline levels shown" value={s.outlineDepth} format={(v) => String(v)} limits={LIMITS.outlineDepth} onChange={(v) => update({ outlineDepth: v })} />
+
+          <Toggle
+            label="Notes start collapsed"
+            hint="Show only a note's first line until you open it"
+            checked={notesCollapsed}
+            onChange={(v) => notePrefs.getState().setCollapsedByDefault(v)}
+          />
 
           <p className="mt-3 text-xs text-muted">Appearance is saved in this browser only.</p>
         </div>

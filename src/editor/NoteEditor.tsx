@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useOutline } from '@/tree-view/outline-context';
 import { useNode } from '@/tree-view/use-outline';
-import { notePrefs, useNotePrefs } from '@/store/note-prefs';
+import { isNoteCollapsed, notePrefs, useNotePrefs } from '@/store/note-prefs';
 import { RichNoteEditor } from './RichNoteEditor';
 import { keepCaretAcrossSwitch } from './caret-handoff';
 import { isTerminalPaste, terminalToMarkdown } from '@/io/terminal';
@@ -17,6 +17,10 @@ export function useNoteMode(): { raw: boolean } {
 
 /** Edits a note, rendered (default) or as raw Markdown, under the note header. */
 export function NoteEditor({ id }: Props) {
+  // Opening a note to edit it unfolds it, and it stays open afterwards.
+  useEffect(() => {
+    if (isNoteCollapsed(notePrefs.getState(), id)) notePrefs.getState().toggleCollapsed(id, false);
+  }, [id]);
   const { raw } = useNoteMode();
   return (
     <div className="note-box relative flow-root">
