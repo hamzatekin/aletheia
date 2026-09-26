@@ -1,16 +1,47 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useOutline } from '@/tree-view/outline-context';
 import { useNode } from '@/tree-view/use-outline';
+import { notePrefs, useNotePrefs } from '@/store/note-prefs';
+import { RichNoteEditor } from './RichNoteEditor';
 
 interface Props {
   id: string;
 }
 
-/**
- * Notes are edited as Markdown source in an auto-growing textarea, so the
- * single Tiptap instance stays reserved for node content.
- */
+/** A Markdown table: a row of cells followed by a |---| delimiter row. */
+const TABLE = /^.*\|.*\n\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/m;
+
+/** Edits a note, rendered (default) or as raw Markdown, with a toggle between the two. */
 export function NoteEditor({ id }: Props) {
+  const prefersRaw = useNotePrefs((s) => s.raw);
+  const { engine } = useOutline();
+  // The rendered editor has no tables; editing one there would flatten it.
+  const hasTable = TABLE.test(engine.tree.get(id)?.note ?? '');
+  const raw = prefersRaw || hasTable;
+  return (
+    <div className="relative">
+      {raw ? <RawNoteEditor id={id} /> : <RichNoteEditor id={id} />}
+      <button
+        type="button"
+        tabIndex={-1}
+        data-testid="note-mode"
+        disabled={hasTable}
+        title={hasTable ? 'Notes with tables are edited as Markdown' : raw ? 'Show the note rendered' : 'Edit the note as raw Markdown'}
+        className={'absolute -top-0.5 right-0 rounded px-1.5 py-0.5 text-xs text-faint hover:bg-hover hover:text-muted' + (hasTable ? ' hidden' : '')}
+        // Keep focus in the note; the editor being replaced saves as it unmounts.
+        onMouseDown={(e) => {
+          e.preventDefault();
+          notePrefs.getState().setRaw(!raw);
+        }}
+      >
+        {raw ? 'Rendered' : 'Markdown'}
+      </button>
+    </div>
+  );
+}
+
+/** The note's Markdown source in an auto-growing textarea. */
+function RawNoteEditor({ id }: Props) {
   const { engine, ui, actions } = useOutline();
   const node = useNode(id);
   const stored = node?.note ?? '';
@@ -85,7 +116,7 @@ export function NoteEditor({ id }: Props) {
       data-editor="note"
       aria-label="Note"
       placeholder="Note"
-      className="prose-note row-note block w-full resize-none overflow-hidden bg-transparent text-muted outline-none placeholder:text-faint"
+      className="prose-note row-note block w-full resize-none pr-20 font-mono overflow-hidden bg-transparent text-muted outline-none placeholder:text-faint"
       onChange={(e) => setText(e.target.value)}
       onBlur={(e) => save(e.target.value)}
       onKeyDown={onKeyDown}

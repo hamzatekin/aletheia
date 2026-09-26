@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { moveDownCommand, moveUpCommand, type Command } from '@/commands';
 import { importItems, type OutlineItem } from '@/io';
 import type { TreeReader } from '@/model';
+import { notePrefs, useNotePrefs } from '@/store/note-prefs';
 import { useOutline } from './outline-context';
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -30,6 +31,7 @@ export function NodeMenu({ id, hasChildren, collapsed }: { id: string; hasChildr
   const navigate = useNavigate();
   const ref = useRef<HTMLDivElement>(null);
   const close = () => ui.setMenu(null);
+  const noteCollapsed = useNotePrefs((s) => s.collapsed.has(id));
 
   useEffect(() => {
     const onDown = (e: PointerEvent) => {
@@ -62,6 +64,9 @@ export function NodeMenu({ id, hasChildren, collapsed }: { id: string; hasChildr
   const items: Item[] = [
     { id: 'zoom', label: 'Zoom in', hint: `${MOD}.`, run: () => (session.flush(), navigate(`/n/${id}`)) },
     { id: 'note', label: node.note === '' ? 'Add note' : 'Edit note', hint: 'Shift+Enter', run: () => ui.focusNode(id, { kind: 'end' }, 'note') },
+    ...(node.note !== ''
+      ? [{ id: 'note-collapse', label: noteCollapsed ? 'Expand note' : 'Collapse note', run: () => notePrefs.getState().toggleCollapsed(id) }]
+      : []),
     ...(hasChildren
       ? [{ id: 'collapse', label: collapsed ? 'Expand' : 'Collapse', hint: collapsed ? `${MOD}↓` : `${MOD}↑`, run: () => exec({ type: 'toggleCollapse', id }) }]
       : []),

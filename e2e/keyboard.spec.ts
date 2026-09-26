@@ -143,3 +143,59 @@ test('Escape selects the row; Shift+Down extends; Tab, Backspace and undo act on
   await page.keyboard.press('Enter'); // edit the selection head
   await expect.poll(() => focused(page)).toBe('Plant a tree:content');
 });
+
+test('notes are edited rendered: Markdown shortcuts format as you type and save as Markdown', async ({ page }) => {
+  await edit(page, 'Plant a tree');
+  await page.keyboard.press('Shift+Enter');
+  const note = page.locator('[data-editor=note]');
+  await expect(note).toBeFocused();
+  await page.keyboard.type('## Plan');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('- dig a **hole** ');
+  await expect(note.locator('h2')).toHaveText('Plan');
+  await expect(note.locator('li strong')).toHaveText('hole');
+  await page.keyboard.press('Escape');
+  await expect.poll(() => focused(page)).toBe('Plant a tree:content');
+  const stored = await page.evaluate(() => {
+    const { engine } = (window as any).__aletheia;
+    return [...engine.tree.all()].find((n: any) => n.content === 'Plant a tree')?.note;
+  });
+  expect(stored).toBe('## Plan\n\n- dig a **hole**');
+});
+
+test('the note toggle switches between rendered and raw Markdown', async ({ page }) => {
+  await edit(page, 'Plant a tree');
+  await page.keyboard.press('Shift+Enter');
+  await page.keyboard.type('some **bold**');
+  await page.locator('[data-testid=note-mode]').click();
+  const raw = page.locator('textarea[data-editor=note]');
+  await expect(raw).toBeFocused();
+  await expect(raw).toHaveValue('some **bold**');
+  await page.keyboard.type(' and *more*');
+  await page.locator('[data-testid=note-mode]').click();
+  const rich = page.locator('.ProseMirror[data-editor=note]');
+  await expect(rich.locator('em')).toHaveText('more');
+  // The choice sticks for the next note.
+  await page.keyboard.press('Escape');
+  await edit(page, 'Learn to juggle');
+  await page.keyboard.press('Shift+Enter');
+  await expect(page.locator('.ProseMirror[data-editor=note]')).toBeFocused();
+});
+
+test('a note collapses to its first line and expands again', async ({ page }) => {
+  await edit(page, 'Plant a tree');
+  await page.keyboard.press('Shift+Enter');
+  await page.keyboard.type('first line');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('second line');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  const row = page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first();
+  await row.hover();
+  await row.locator('[data-testid=note-toggle]').click();
+  await expect(row.locator('.node-note')).toHaveText('first line …');
+  await page.reload();
+  await expect(page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first().locator('.node-note')).toHaveText('first line …');
+  await page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first().locator('[data-testid=note-toggle]').click();
+  await expect(page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first().locator('.node-note p')).toHaveCount(2);
+});
