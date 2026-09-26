@@ -21,6 +21,8 @@ src/tree-view     Virtualized outline, rows, bullets, breadcrumbs, zoom page
 src/app           Bootstrap (load + first-run seed) and the engine context
 src/search        MiniSearch index kept current from operations; Ctrl/⌘+K palette
 src/io            Markdown / OPML / JSON export, Markdown / OPML import, file helpers
+src/sync          Opt-in sync: wire format, outbox, sync service, browser triggers
+worker            Cloudflare Worker: the sync API on D1 (only `/api/*` runs it)
 ```
 
 ## How a command runs
@@ -93,6 +95,40 @@ the same bullet/note formatting is used by the Markdown export.
 `contentHash(text)` gives a stable hash for staleness checks. The Dexie
 tables `embeddings`, `summaries`, `tags`, `relations` exist and are empty.
 
+## Sync (opt-in)
+
+Off by default; notes stay in the browser. Settings → Sync → **Turn on sync**
+creates a random sync key, uploads this browser's notes, and shows a link
+(`https://host/#sync=KEY`). Opening the link on another device offers to use
+the synced notes (replacing that browser's notes) or merge its notes in. The
+key sits in the URL fragment, which browsers never send to a server; the
+server stores only its SHA-256. Anyone with the link can read and edit the
+notes.
+
+- **Local-first.** Edits apply and persist locally as before. While sync is
+  on, `DexieRepository.commit` also records which field groups of which nodes
+  changed in an `outbox` table, in the same transaction.
+- **Sync run** (on start, 2s after edits, when the tab is shown or hidden,
+  when back online, every 30s while visible): upload the outbox, download
+  everything changed since the saved cursor in pages, merge, repair.
+- **Merge.** Each node is merged in field groups (text, note, position,
+  collapsed, deleted), each with its own last-changed time; the newest change
+  per group wins, on the server (`worker/sync.ts`, one SQL upsert) and on
+  download (local changes not yet uploaded are kept). Moving a node on one
+  device and editing it on another both survive; editing the same text on
+  both keeps the later edit.
+- **Repair** (`model/repair.ts`) after each download: a live node under a
+  deleted parent brings the parent back; crossed moves that form a cycle move
+  the cycle's smallest id to the top level; nodes with a missing parent move
+  to the top level. Siblings with equal order keys sort by id.
+- **Server.** `SYNC_MAX_SPACES` (default 1) caps how many sync keys the
+  deployment accepts, so the first device to turn sync on owns a personal
+  deployment. The Worker creates its tables on first use.
+
+Local development: `pnpm build && npx wrangler dev` serves the app and the
+API with a local D1 on :8787 (`pnpm dev` proxies `/api` to it). Reset local
+sync data with `npx wrangler d1 execute aletheia-sync --local --command "DELETE FROM spaces; DELETE FROM nodes;"`.
+
 ## Scripts
 
 ```
@@ -105,8 +141,12 @@ pnpm build      production build
 
 ## Deploy (Cloudflare)
 
-The app is a static single-page app; all data stays in the browser
-(IndexedDB), so there is no backend to deploy.
+The app is a static single-page app with its data in the browser
+(IndexedDB). The only server code is the opt-in sync API in `worker/`, which
+runs for `/api/*` only; everything else is served as static assets, which
+don't count toward Worker request limits. Its D1 database (`aletheia-sync`)
+has no `database_id` in `wrangler.jsonc`, so `wrangler deploy` creates it on
+the first deploy.
 
 - **Workers (static assets)**: `pnpm build && npx wrangler deploy` using the
   included `wrangler.jsonc`, or connect the repository in the Cloudflare

@@ -28,13 +28,23 @@ export interface TreeState {
 
 const EMPTY: readonly string[] = Object.freeze([]);
 
+/**
+ * Sibling order: by `order`, then by id. Two devices can mint the same order
+ * key for different nodes; the id tiebreak keeps every device's order identical.
+ */
+function compareSiblings(a: string, b: string, nodes: ReadonlyMap<string, Node>): number {
+  const oa = nodes.get(a)!.order;
+  const ob = nodes.get(b)!.order;
+  if (oa !== ob) return oa < ob ? -1 : 1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 function insertSorted(list: readonly string[], id: string, nodes: ReadonlyMap<string, Node>): string[] {
-  const order = nodes.get(id)!.order;
   let lo = 0;
   let hi = list.length;
   while (lo < hi) {
     const mid = (lo + hi) >>> 1;
-    if (nodes.get(list[mid]!)!.order < order) lo = mid + 1;
+    if (compareSiblings(list[mid]!, id, nodes) < 0) lo = mid + 1;
     else hi = mid;
   }
   const out = list.slice();
@@ -52,11 +62,7 @@ function buildIndex(nodes: ReadonlyMap<string, Node>): Map<string, string[]> {
     list.push(node.id);
   }
   for (const list of index.values()) {
-    list.sort((a, b) => {
-      const oa = nodes.get(a)!.order;
-      const ob = nodes.get(b)!.order;
-      return oa < ob ? -1 : oa > ob ? 1 : 0;
-    });
+    list.sort((a, b) => compareSiblings(a, b, nodes));
   }
   return index;
 }
@@ -92,10 +98,13 @@ export function createTreeStore(): TreeStore {
       const index = get().childrenByParent as Map<string, readonly string[]>;
       const touched = new Set<string>();
 
-      // Pass 1: detach every changed node from its old parent list.
-      for (const { id, before } of changes) {
-        if (before && before.deletedAt === null) {
-          const key = parentKey(before.parentId);
+      // Pass 1: detach every changed node from its current parent list. Uses
+      // the node as the store holds it, not `before`: after a synced change
+      // from another device, an undo's `before` snapshot can be out of date.
+      for (const { id } of changes) {
+        const current = nodes.get(id);
+        if (current && current.deletedAt === null) {
+          const key = parentKey(current.parentId);
           touched.add(key);
           index.set(key, (index.get(key) ?? EMPTY).filter((x) => x !== id));
         }

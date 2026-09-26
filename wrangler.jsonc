@@ -1,12 +1,23 @@
 {
-  // Cloudflare Workers static-assets deployment: `pnpm build && npx wrangler deploy`.
-  // Cloudflare Pages works too: build command `pnpm build`, output directory `dist`
-  // (with no 404.html, Pages serves index.html for unknown paths).
+  // Cloudflare Workers: `pnpm build && npx wrangler deploy`.
+  // The app is static assets; the Worker script (worker/index.ts) only runs for
+  // `/api/*` (sync), so loading the app never counts toward Worker limits.
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "aletheia",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-09-01",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  // Sync storage. No database_id: `wrangler deploy` creates the database on
+  // first deploy. The Worker creates its tables itself.
+  "d1_databases": [{ "binding": "DB", "database_name": "aletheia-sync" }],
+  "vars": {
+    // Sync spaces this deployment accepts. 1 = the first device to turn sync
+    // on owns it; everyone else gets "already has its sync space".
+    "SYNC_MAX_SPACES": "1"
   }
 }

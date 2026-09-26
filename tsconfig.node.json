@@ -9,7 +9,8 @@
     "skipLibCheck": true,
     "noEmit": true,
     "verbatimModuleSyntax": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["vite.config.ts", "playwright.config.ts", "e2e"]
+  "include": ["vite.config.ts", "playwright.config.ts", "e2e", "worker/**/*.test.ts", "worker/testing"]
 }
