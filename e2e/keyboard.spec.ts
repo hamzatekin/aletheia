@@ -130,13 +130,13 @@ test('Escape selects the row; Shift+Down extends; Tab, Backspace and undo act on
   await page.keyboard.press('Escape');
   await expect(page.locator('.ProseMirror')).toHaveCount(0);
   await page.keyboard.press('Shift+ArrowDown');
-  await expect(page.locator('[data-node-id].bg-blue-100\\/70')).toHaveCount(2);
+  await expect(page.locator('[data-node-id][data-selected]')).toHaveCount(2);
   await page.keyboard.press('Backspace');
   await expect.poll(() => outline(page, 'Someday')).toEqual([]);
   await page.keyboard.press('Control+z'); // undo in selection mode keeps selection mode
   await expect.poll(() => outline(page, 'Someday')).toEqual(['Learn to juggle', 'Plant a tree']);
   await expect(page.locator('.ProseMirror')).toHaveCount(0);
-  await expect(page.locator('[data-node-id].bg-blue-100\\/70')).toHaveCount(1);
+  await expect(page.locator('[data-node-id][data-selected]')).toHaveCount(1);
   await page.keyboard.press('Shift+ArrowDown');
   await page.keyboard.press('Tab'); // first selected has no previous sibling → skipped; second indents under it
   await expect.poll(() => outline(page, 'Someday')).toEqual([['Learn to juggle', ['Plant a tree']]]);

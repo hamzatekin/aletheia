@@ -15,6 +15,7 @@ export interface Settings {
   deskColor: string;
   pageColor: string;
   textColor: string;
+  accentColor: string;
   font: FontId;
   /** Row text size in px. */
   fontSize: number;
@@ -34,6 +35,7 @@ export const DEFAULT_SETTINGS: Settings = {
   deskColor: '#e9e6df',
   pageColor: '#fffdf8',
   textColor: '#1f1d1a',
+  accentColor: '#2563eb',
   font: 'inter',
   fontSize: 18,
   lineHeight: 1.35,
@@ -63,12 +65,13 @@ interface Palette {
   desk: string;
   page: string;
   text: string;
+  accent: string;
 }
 
 export const THEMES: Record<Exclude<ThemeId, 'system' | 'custom'>, { label: string } & Palette> = {
-  paper: { label: 'Paper', scheme: 'light', desk: '#e9e6df', page: '#fffdf8', text: '#1f1d1a' },
-  sepia: { label: 'Sepia', scheme: 'light', desk: '#d9cfbd', page: '#f5ecd9', text: '#3b2f22' },
-  night: { label: 'Night', scheme: 'dark', desk: '#111111', page: '#1c1c1c', text: '#e4e4e4' },
+  paper: { label: 'Paper', scheme: 'light', desk: '#e9e6df', page: '#fffdf8', text: '#1f1d1a', accent: '#2563eb' },
+  sepia: { label: 'Sepia', scheme: 'light', desk: '#d9cfbd', page: '#f5ecd9', text: '#3b2f22', accent: '#a0522d' },
+  night: { label: 'Night', scheme: 'dark', desk: '#111111', page: '#1c1c1c', text: '#e4e4e4', accent: '#60a5fa' },
 };
 
 const STORAGE_KEY = 'aletheia:settings';
@@ -91,7 +94,7 @@ export function sanitize(input: unknown): Settings {
   const color = /^#[0-9a-f]{6}$/i;
   if (typeof src.theme === 'string' && (src.theme === 'system' || src.theme === 'custom' || src.theme in THEMES)) out.theme = src.theme as ThemeId;
   if (typeof src.font === 'string' && src.font in FONTS) out.font = src.font as FontId;
-  for (const k of ['deskColor', 'pageColor', 'textColor'] as const) {
+  for (const k of ['deskColor', 'pageColor', 'textColor', 'accentColor'] as const) {
     if (typeof src[k] === 'string' && color.test(src[k])) out[k] = src[k];
   }
   for (const k of ['fontSize', 'lineHeight', 'pageWidth', 'outlineDepth'] as const) {
@@ -141,7 +144,7 @@ export function useSettings<T>(store: SettingsStore, selector: (s: SettingsState
 export function resolvePalette(s: Settings): Palette | null {
   if (s.theme === 'system') return null;
   if (s.theme === 'custom') {
-    return { scheme: isDark(s.pageColor) ? 'dark' : 'light', desk: s.deskColor, page: s.pageColor, text: s.textColor };
+    return { scheme: isDark(s.pageColor) ? 'dark' : 'light', desk: s.deskColor, page: s.pageColor, text: s.textColor, accent: s.accentColor };
   }
   return THEMES[s.theme];
 }
@@ -165,6 +168,7 @@ export function applySettings(s: Settings, root: HTMLElement, prefersDark: boole
   set('--desk', palette?.desk ?? null);
   set('--page', palette?.page ?? null);
   set('--ink', palette?.text ?? null);
+  set('--accent', palette?.accent ?? null);
   set('--font', FONTS[s.font].stack);
   set('--font-size', `${s.fontSize}px`);
   set('--row-lh', `${Math.round(s.fontSize * s.lineHeight)}px`);

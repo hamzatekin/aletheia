@@ -58,7 +58,7 @@ export function SearchPalette() {
   return (
     <div className="fixed inset-0 z-30 flex items-start justify-center bg-black/20 pt-[15vh]" onMouseDown={close} data-testid="search-palette">
       <div
-        className="w-full max-w-lg overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+        className="w-full max-w-lg overflow-hidden rounded-lg border border-line bg-surface shadow-xl"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <input
@@ -71,10 +71,10 @@ export function SearchPalette() {
           onKeyDown={onKeyDown}
           placeholder="Search…"
           aria-label="Search"
-          className="w-full bg-transparent px-4 py-3 text-base outline-none placeholder:text-neutral-400"
+          className="w-full bg-transparent px-4 py-3 text-base outline-none placeholder:text-faint"
         />
         {hits.length > 0 && (
-          <ul role="listbox" className="max-h-80 overflow-y-auto border-t border-neutral-200 py-1 dark:border-neutral-700">
+          <ul role="listbox" className="max-h-80 overflow-y-auto border-t border-line py-1">
             {hits.map((hit, i) => {
               const node = engine.tree.get(hit.id);
               if (!node) return null;
@@ -85,7 +85,7 @@ export function SearchPalette() {
                   role="option"
                   aria-selected={i === selected}
                   data-testid="search-hit"
-                  className={'cursor-pointer px-4 py-1.5 ' + (i === selected ? 'bg-neutral-100 dark:bg-neutral-800' : '')}
+                  className={'cursor-pointer px-4 py-1.5 ' + (i === selected ? 'bg-active' : '')}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     choose(i);
@@ -94,14 +94,14 @@ export function SearchPalette() {
                 >
                   <div className="truncate">{plainText(node.content) || 'Untitled'}</div>
                   {(path !== '' || node.note !== '') && (
-                    <div className="truncate text-xs text-neutral-500">{path !== '' ? path : node.note.split('\n')[0]}</div>
+                    <div className="truncate text-xs text-muted">{path !== '' ? path : node.note.split('\n')[0]}</div>
                   )}
                 </li>
               );
             })}
           </ul>
         )}
-        {query.trim() !== '' && hits.length === 0 && <div className="border-t border-neutral-200 px-4 py-2 text-sm text-neutral-400 dark:border-neutral-700">No results</div>}
+        {query.trim() !== '' && hits.length === 0 && <div className="border-t border-line px-4 py-2 text-sm text-faint">No results</div>}
       </div>
     </div>
   );

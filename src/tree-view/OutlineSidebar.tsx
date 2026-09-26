@@ -65,11 +65,11 @@ export function OutlineSidebar({ settings, rootId }: Props) {
         onClick={closeIfNarrow}
       >
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
-          <span className="text-xs font-semibold tracking-wider text-neutral-500 uppercase dark:text-neutral-400">Outline</span>
+          <span className="text-xs font-semibold tracking-wider text-muted uppercase">Outline</span>
           <button
             type="button"
             onClick={() => settings.getState().update({ sidebarOpen: false })}
-            className="rounded p-1 text-neutral-500 hover:bg-(--subtle) hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100"
+            className="rounded p-1 text-muted hover:bg-hover hover:text-ink"
             aria-label="Hide outline"
             title="Hide outline (Ctrl+\)"
           >
@@ -81,7 +81,7 @@ export function OutlineSidebar({ settings, rootId }: Props) {
             to="/"
             className={
               'mb-1 flex items-center rounded px-2 py-1 ' +
-              (rootId === null ? 'bg-(--subtle) font-medium' : 'text-neutral-600 hover:bg-(--subtle) dark:text-neutral-300')
+              (rootId === null ? 'bg-active font-medium' : 'text-muted hover:bg-hover')
             }
           >
             Home
@@ -94,7 +94,7 @@ export function OutlineSidebar({ settings, rootId }: Props) {
             </ul>
           </Ctx.Provider>
         </nav>
-        <div className="border-t border-(--subtle) p-2">
+        <div className="border-t border-line p-2">
           <button
             type="button"
             onClick={() => {
@@ -102,7 +102,7 @@ export function OutlineSidebar({ settings, rootId }: Props) {
               ui.blur();
               ui.setHelpOpen(true);
             }}
-            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-neutral-600 hover:bg-(--subtle) dark:text-neutral-300"
+            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-muted hover:bg-hover"
           >
             <span className="flex size-4 items-center justify-center rounded-full border border-current text-[10px] font-semibold">?</span>
             Tutorial and shortcuts
@@ -128,7 +128,7 @@ const Item = memo(function Item({ id, depth }: { id: string; depth: number }) {
       <div
         className={
           'group flex items-center rounded pr-2 ' +
-          (active ? 'bg-(--subtle) font-medium' : trail.has(id) ? 'text-neutral-900 dark:text-neutral-100' : 'text-neutral-600 dark:text-neutral-300')
+          (active ? 'bg-active font-medium' : trail.has(id) ? 'text-ink' : 'text-muted')
         }
         style={{ paddingLeft: depth * 14 }}
       >
@@ -136,7 +136,7 @@ const Item = memo(function Item({ id, depth }: { id: string; depth: number }) {
           <button
             type="button"
             onClick={() => setOverride(!expanded)}
-            className="flex h-7 w-5 shrink-0 items-center justify-center text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+            className="flex h-7 w-5 shrink-0 items-center justify-center text-faint hover:text-ink"
             aria-label={expanded ? 'Collapse in outline' : 'Expand in outline'}
             aria-expanded={expanded}
           >
@@ -149,7 +149,7 @@ const Item = memo(function Item({ id, depth }: { id: string; depth: number }) {
         )}
         <Link
           to={`/n/${id}`}
-          className="min-w-0 flex-1 truncate rounded px-1 py-1 hover:bg-(--subtle)"
+          className="min-w-0 flex-1 truncate rounded px-1 py-1 hover:bg-hover"
           title={title}
           data-testid="outline-item"
         >

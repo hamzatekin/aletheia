@@ -14,9 +14,9 @@ export function SlashMenu() {
       role="listbox"
       aria-label="Commands"
       data-testid="slash-menu"
-      className="absolute top-full left-0 z-20 mt-1 max-h-72 w-72 overflow-y-auto rounded-md border border-neutral-200 bg-white py-1 text-sm shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
+      className="absolute top-full left-0 z-20 mt-1 max-h-72 w-72 overflow-y-auto rounded-md border border-line bg-surface py-1 text-sm shadow-lg"
     >
-      {items.length === 0 && <div className="px-3 py-1.5 text-neutral-400">No matching command</div>}
+      {items.length === 0 && <div className="px-3 py-1.5 text-faint">No matching command</div>}
       {items.map((item, i) => (
         <div
           key={item.id}
@@ -25,7 +25,7 @@ export function SlashMenu() {
           data-testid="slash-item"
           className={
             'flex cursor-pointer items-center justify-between px-3 py-1.5 ' +
-            (i === index ? 'bg-neutral-100 dark:bg-neutral-800' : '')
+            (i === index ? 'bg-active' : '')
           }
           onMouseDown={(e) => {
             e.preventDefault();
@@ -34,7 +34,7 @@ export function SlashMenu() {
           onMouseEnter={() => ui.setSlash({ ...slash, index: i })}
         >
           <span>{item.title}</span>
-          {item.group && <span className="ml-3 text-xs text-neutral-400">{item.group}</span>}
+          {item.group && <span className="ml-3 text-xs text-faint">{item.group}</span>}
         </div>
       ))}
     </div>

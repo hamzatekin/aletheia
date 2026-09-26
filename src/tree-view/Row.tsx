@@ -50,30 +50,31 @@ export const Row = memo(function Row({ id, depth }: Props) {
       ref={rowRef}
       className={
         'group relative flex items-start ' +
-        (selected ? 'rounded bg-blue-100/70 dark:bg-blue-900/30 ' : focusField ? 'row-focused ' : '') +
+        (selected ? 'rounded bg-selection ' : focusField ? 'row-focused ' : '') +
         (dragging ? 'opacity-40' : '')
       }
       style={{ paddingLeft: depth * INDENT_PX }}
       data-node-id={id}
       data-depth={depth}
       data-focused={focusField ?? undefined}
+      data-selected={selected || undefined}
     >
       {indicator && (
         <div
-          className="pointer-events-none absolute right-0 z-10 h-0.5 rounded bg-blue-500"
+          className="pointer-events-none absolute right-0 z-10 h-0.5 rounded bg-accent"
           style={{ left: indicator.level * INDENT_PX - 20, [indicator.edge === 'above' ? 'top' : 'bottom']: -1 }}
           data-testid="drop-indicator"
           data-level={indicator.level}
           data-edge={indicator.edge}
         >
-          <div className="absolute -top-[3px] -left-[3px] h-2 w-2 rounded-full border-2 border-blue-500 bg-white dark:bg-neutral-900" />
+          <div className="absolute -top-[3px] -left-[3px] h-2 w-2 rounded-full border-2 border-accent bg-surface" />
         </div>
       )}
       <span
         ref={gripRef}
         aria-hidden="true"
         className={
-          'absolute top-px flex h-(--row-lh) w-4 cursor-grab items-center justify-center text-neutral-400 transition-opacity active:cursor-grabbing dark:text-neutral-500 ' +
+          'absolute top-px flex h-(--row-lh) w-4 cursor-grab items-center justify-center text-faint transition-opacity active:cursor-grabbing ' +
           (focusField ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
         }
         style={{ left: depth * INDENT_PX - 64 }}
@@ -108,7 +109,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
         ) : (
           node.note !== '' && (
             <div
-              className="node-note prose-note row-note cursor-text pb-0.5 text-neutral-500 dark:text-neutral-400"
+              className="node-note prose-note row-note cursor-text pb-0.5 text-muted"
               onMouseDown={onNoteMouseDown}
               dangerouslySetInnerHTML={{ __html: renderBlock(node.note) }}
             />

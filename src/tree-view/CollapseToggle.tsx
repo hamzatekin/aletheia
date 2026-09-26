@@ -13,7 +13,7 @@ export function CollapseToggle({ collapsed, onToggle }: Props) {
       aria-expanded={!collapsed}
       onClick={onToggle}
       onMouseDown={(e) => e.preventDefault()}
-      className="flex h-(--row-lh) w-5 shrink-0 items-center justify-center rounded text-neutral-400 opacity-0 transition-opacity group-hover:opacity-100 hover:text-neutral-700 focus-visible:opacity-100 dark:hover:text-neutral-200"
+      className="flex h-(--row-lh) w-5 shrink-0 items-center justify-center rounded text-faint opacity-0 transition-opacity group-hover:opacity-100 hover:text-ink focus-visible:opacity-100"
     >
       <svg
         width="10"

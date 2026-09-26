@@ -85,7 +85,7 @@ export function NoteEditor({ id }: Props) {
       data-editor="note"
       aria-label="Note"
       placeholder="Note"
-      className="prose-note row-note block w-full resize-none bg-transparent text-neutral-600 outline-none placeholder:text-neutral-400 dark:text-neutral-300"
+      className="prose-note row-note block w-full resize-none overflow-hidden bg-transparent text-muted outline-none placeholder:text-faint"
       onChange={(e) => setText(e.target.value)}
       onBlur={(e) => save(e.target.value)}
       onKeyDown={onKeyDown}
