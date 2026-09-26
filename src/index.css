@@ -27,6 +27,7 @@
   --subtle: color-mix(in srgb, var(--ink) 7%, transparent);
   --surface: var(--page);
   --sidebar: color-mix(in srgb, var(--page) 55%, var(--desk));
+  --danger: light-dark(#dc2626, #f87171);
   --selection: color-mix(in srgb, var(--accent) 18%, transparent);
   /* Translucent, so the halo still shows on the focused row's band. */
   --halo: color-mix(in srgb, var(--ink) 18%, transparent);
@@ -47,6 +48,7 @@
   --color-page: var(--page);
   --color-desk: var(--desk);
   --color-accent: var(--accent);
+  --color-danger: var(--danger);
   --color-selection: var(--selection);
   --color-halo: var(--halo);
 }
@@ -104,6 +106,10 @@ body {
 }
 .bullet-dot.bullet-collapsed {
   box-shadow: 0 0 0 calc(var(--font-size) * 0.26) var(--halo);
+}
+.grip:hover, .grip[aria-expanded='true'] {
+  background: var(--halo-hover);
+  color: var(--muted);
 }
 .group\/bullet:hover .bullet-dot.bullet-collapsed {
   box-shadow: 0 0 0 calc(var(--font-size) * 0.26) var(--halo-hover);
@@ -179,14 +185,45 @@ body {
   border-radius: 0.375rem;
   overflow-x: auto;
   background: var(--subtle);
+  /* Tight enough that box-drawing tables join up. */
+  line-height: 1.2;
 }
 .prose-note pre code { padding: 0; background: none; }
+/* Long lines wrap (and keep their indent) instead of scrolling sideways. */
+.prose-note pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.prose-note pre.nowrap { white-space: pre; overflow-wrap: normal; }
 .prose-note blockquote {
   margin: 0.25rem 0;
   padding-left: 0.75rem;
   border-left: 2px solid var(--line);
 }
 .prose-note h1, .prose-note h2, .prose-note h3 { font-weight: 600; margin: 0.5rem 0 0.25rem; }
+.prose-note hr { margin: 0.75rem 0; border: 0; border-top: 1px solid var(--line); }
+/*
+ * Tables (terminal output included) fit the note: as wide as their content up
+ * to the note's width, where cells wrap. Only a table that can't fit even
+ * wrapped (many columns, long words) scrolls, and only itself.
+ */
+.prose-note table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+  border-collapse: collapse;
+  font-size: 0.9em;
+  line-height: 1.45;
+}
+.prose-note th, .prose-note td {
+  min-width: 4rem;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.prose-note th { font-weight: 600; color: var(--ink); background: var(--subtle); }
+.prose-note :is(th, td) p, .ProseMirror.prose-note :is(th, td) p { margin: 0; }
+.prose-note .selectedCell { background: var(--selection); }
 
 /* The single Tiptap editor, styled exactly like static content. */
 .ProseMirror {
@@ -202,11 +239,16 @@ body {
   content: '';
 }
 
-/* The focused row gets a faint band that runs the full width of the window. */
-.row-focused {
+/* The focused row gets a faint band that runs the full width of the window.
+   Drawn behind the row (not by clipping the row) so the slash and grip menus
+   can hang below it. */
+.row-focused::before {
+  content: '';
+  position: absolute;
+  inset: 0 -100vmax;
+  z-index: -1;
   background: var(--row-focus);
-  box-shadow: 0 0 0 100vmax var(--row-focus);
-  clip-path: inset(0 -100vmax);
+  pointer-events: none;
 }
 
 /* Native drag preview for a node. */
@@ -221,4 +263,16 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* The rendered note editor keeps the spacing of a rendered note. */
+.ProseMirror.prose-note p { margin: 0.25rem 0; }
+.ProseMirror.prose-note > :first-child { margin-top: 0; }
+.ProseMirror.prose-note > :last-child { margin-bottom: 0; }
+.ProseMirror.prose-note > p:only-child:has(> br:only-child)::before {
+  content: 'Note';
+  float: left;
+  height: 0;
+  color: var(--faint);
+  pointer-events: none;
 }

@@ -120,7 +120,7 @@ const TABS: Tab[] = [
           rows={[
             [<Keys k="Alt+Shift+↑" />, 'Move the node (with its children) up among its siblings.'],
             [<Keys k="Alt+Shift+↓" />, 'Move it down.'],
-            ['Drag a bullet', 'Or the ≡ grip left of it. The blue line shows where it lands; move left or right to change its level.'],
+            ['Drag a bullet', 'Or the ≡ grip left of it. The blue line shows where it lands; move left or right to change its level. Click the grip for a menu of actions on that node.'],
           ]}
         />
       </>
@@ -179,7 +179,9 @@ const TABS: Tab[] = [
           rows={[
             [<Keys k="Shift+Enter" />, 'Open or edit the note of the current node.'],
             [<Keys k="Esc" />, 'Leave the note and go back to the node.'],
-            ['Click a note', 'Edit it.'],
+            ['Click a note', 'Edit it. Markdown renders as you type: "## " makes a heading, "- " a list, ``` a code block.'],
+            ['Rendered / Markdown', 'Click the small icon at the upper right of a note to switch between rendered and raw Markdown editing.'],
+            ['▾ left of a note', 'Collapse the note to its first line, or expand it again. Also in the ≡ menu.'],
           ]}
         />
         <H>What works in notes</H>
@@ -189,6 +191,8 @@ const TABS: Tab[] = [
             [<Code>&gt; quote</Code>, 'Quote'],
             [<Code>```</Code>, 'Code block'],
             [<Code># Heading</Code>, 'Heading'],
+            [<Code>| a | b |</Code>, 'Table (a header row, then |---|---|)'],
+            ['Terminal output', 'Paste an answer copied from Claude Code and its box tables become real tables. For notes imported earlier, use ≡ → Format terminal output.'],
           ]}
         />
       </>
@@ -233,7 +237,7 @@ const TABS: Tab[] = [
             ['/Export as Markdown', 'The current page as an indented Markdown list.'],
             ['/Export as OPML', 'For other outliners such as Dynalist or Workflowy.'],
             ['/Export JSON backup', 'Everything, exactly as stored.'],
-            ['/Import Markdown or OPML', 'Adds the file as children of the node you are on.'],
+            ['/Import Markdown or OPML', 'Adds the file as children of the node you are on. For WorkFlowy, export as OPML: formatting and notes carry over, completed items come in struck through, and terminal output kept in code blocks comes in as readable Markdown.'],
             ['/Restore JSON backup', 'Replaces everything with the backup.'],
             ['Paste several lines', 'Each line becomes a node, nested by its indentation, as one undo step.'],
           ]}

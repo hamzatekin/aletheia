@@ -1,15 +1,25 @@
 import { memo, useRef, type MouseEvent } from 'react';
 import { renderBlock, renderInline } from '@/editor/render';
 import { NodeEditor } from '@/editor/NodeEditor';
-import { NoteEditor } from '@/editor/NoteEditor';
+import { NoteEditor, NoteHeader, useNoteMode } from '@/editor/NoteEditor';
 import { useUiStore } from '@/store/ui-store';
+import { notePrefs, useNotePrefs } from '@/store/note-prefs';
+import { plainText } from '@/editor/markdown';
 import { Bullet } from './Bullet';
 import { CollapseToggle } from './CollapseToggle';
+import { NodeMenu } from './NodeMenu';
 import { useOutline } from './outline-context';
 import { useHasChildren, useNode } from './use-outline';
 import { useRowDnd } from './use-dnd';
 
 export const INDENT_PX = 24;
+
+/** One line standing in for a collapsed note: its first line of text, marked as cut. */
+function noteSummary(note: string): string {
+  const lines = note.split('\n').filter((l) => l.trim() !== '' && !/^\s*(`{3,}|~{3,})/.test(l));
+  const first = plainText((lines[0] ?? '').replace(/^\s*(#{1,6}\s+|[-*+]\s+|\d+[.)]\s+|>\s*)/, '')).trim();
+  return lines.length > 1 || first === '' ? `${first} …`.trim() : first;
+}
 
 interface Props {
   id: string;
@@ -24,10 +34,13 @@ export const Row = memo(function Row({ id, depth }: Props) {
   const focusField = useUiStore(ui, (s) => (s.focus?.id === id ? s.focus.field : null));
   const selected = useUiStore(ui, (s) => s.selection?.ids.has(id) ?? false);
   const dragging = useUiStore(ui, (s) => s.dragging === id);
+  const menuOpen = useUiStore(ui, (s) => s.menu === id);
+  const noteCollapsed = useNotePrefs((s) => s.collapsed.has(id));
+  const noteMode = useNoteMode();
   const indicator = useUiStore(ui, (s) => (s.dropIndicator?.targetId === id ? s.dropIndicator : null));
   const rowRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLAnchorElement>(null);
-  const gripRef = useRef<HTMLSpanElement>(null);
+  const gripRef = useRef<HTMLButtonElement>(null);
   useRowDnd(id, depth, rowRef, handleRef, gripRef);
   if (!node) return null;
 
@@ -42,7 +55,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
     if ((e.target as HTMLElement).closest('a')) return;
     if (e.button !== 0) return;
     e.preventDefault();
-    ui.focusNode(id, { kind: 'end' }, 'note');
+    ui.focusNode(id, { kind: 'point', x: e.clientX, y: e.clientY }, 'note');
   };
 
   return (
@@ -70,22 +83,33 @@ export const Row = memo(function Row({ id, depth }: Props) {
           <div className="absolute -top-[3px] -left-[3px] h-2 w-2 rounded-full border-2 border-accent bg-surface" />
         </div>
       )}
-      <span
+      <button
         ref={gripRef}
-        aria-hidden="true"
+        type="button"
+        aria-label="Node menu"
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        tabIndex={-1}
         className={
-          'absolute top-px flex h-(--row-lh) w-4 cursor-grab items-center justify-center text-faint transition-opacity active:cursor-grabbing ' +
-          (focusField ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
+          'grip absolute flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-faint transition-[opacity,background-color] ' +
+          (focusField || menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
         }
-        style={{ left: depth * INDENT_PX - 64 }}
+        style={{ left: depth * INDENT_PX - 68, top: 'calc((var(--row-lh) - 1.5rem) / 2 + 1px)' }}
         data-testid="drag-grip"
+        data-menu-for={id}
+        onClick={() => ui.setMenu(menuOpen ? null : id)}
       >
         <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor">
           <rect y="0" width="14" height="1.25" rx="0.6" />
           <rect y="4.4" width="14" height="1.25" rx="0.6" />
           <rect y="8.75" width="14" height="1.25" rx="0.6" />
         </svg>
-      </span>
+      </button>
+      {menuOpen && (
+        <div className="absolute" style={{ left: depth * INDENT_PX - 68, top: 'var(--row-lh)' }}>
+          <NodeMenu id={id} hasChildren={hasChildren} collapsed={node.collapsed} />
+        </div>
+      )}
       <div className="-ml-11.5 flex w-11.5 shrink-0 items-start pr-1.5">
         {hasChildren ? (
           <CollapseToggle collapsed={node.collapsed} onToggle={() => engine.execute({ type: 'toggleCollapse', id })} />
@@ -108,11 +132,43 @@ export const Row = memo(function Row({ id, depth }: Props) {
           <NoteEditor id={id} />
         ) : (
           node.note !== '' && (
-            <div
-              className="node-note prose-note row-note cursor-text pb-0.5 text-muted"
-              onMouseDown={onNoteMouseDown}
-              dangerouslySetInnerHTML={{ __html: renderBlock(node.note) }}
-            />
+            <div className="relative">
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-label={noteCollapsed ? 'Expand note' : 'Collapse note'}
+                aria-expanded={!noteCollapsed}
+                data-testid="note-toggle"
+                className={
+                  'note-toggle absolute top-0 -left-6 flex h-5 w-5 items-center justify-center rounded-full text-faint hover:bg-hover hover:text-muted ' +
+                  (noteCollapsed ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
+                }
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => notePrefs.getState().toggleCollapsed(id)}
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" className={noteCollapsed ? '-rotate-90' : ''}>
+                  <path d="M1.5 3.2 5 6.8l3.5-3.6z" />
+                </svg>
+              </button>
+              {noteCollapsed ? (
+                <div
+                  className="node-note row-note cursor-text truncate pb-0.5 text-muted"
+                  data-collapsed="true"
+                  onMouseDown={onNoteMouseDown}
+                >
+                  {noteSummary(node.note)}
+                </div>
+              ) : (
+                <>
+                  <NoteHeader raw={noteMode.raw} quiet />
+                  <div
+                    className="node-note prose-note row-note cursor-text pb-0.5 text-muted"
+                    onMouseDown={onNoteMouseDown}
+                    dangerouslySetInnerHTML={{ __html: renderBlock(node.note) }}
+                  />
+                </>
+              )}
+            </div>
           )
         )}
       </div>

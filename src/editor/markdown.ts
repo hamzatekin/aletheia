@@ -18,6 +18,14 @@ md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
   return defaultLinkOpen(tokens, idx, options, env, self);
 };
 
+// Code blocks wrap long lines, except ones drawn with box characters
+// (terminal tables), which only line up unwrapped.
+const defaultFence: RendererRule = md.renderer.rules.fence!;
+md.renderer.rules.fence = (tokens, idx, options, env, self) => {
+  const html = defaultFence(tokens, idx, options, env, self);
+  return /[\u2500-\u257f]/.test(tokens[idx]!.content) ? html.replace('<pre>', '<pre class="nowrap">') : html;
+};
+
 /** Inline Markdown → HTML (no wrapping <p>). Not sanitized. */
 export function inlineToHtml(content: string): string {
   return md.renderInline(content);

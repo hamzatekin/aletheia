@@ -7,7 +7,7 @@ test('edits, structure and collapse state survive a reload', async ({ page }) =>
   await page.keyboard.type(' tomorrow');
   await page.keyboard.press('Tab');
   await row(page, 'Welcome').hover();
-  await row(page, 'Welcome').getByRole('button', { name: 'Collapse' }).click();
+  await row(page, 'Welcome').getByRole('button', { name: 'Collapse', exact: true }).click();
   await expect.poll(() => rowCount(page)).toBe(13);
   await page.waitForTimeout(600); // idle-delay save
   await page.reload();

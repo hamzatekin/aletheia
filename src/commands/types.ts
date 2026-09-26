@@ -16,6 +16,8 @@ export type Command =
   | { type: 'outdent'; id: string }
   | { type: 'toggleCollapse'; id: string; collapsed?: boolean }
   | { type: 'deleteSubtree'; id: string }
+  /** Delete `id` but keep its children: they take its place under its parent. */
+  | { type: 'deleteNode'; id: string }
   | { type: 'restore'; id: string };
 
 export type CommandType = Command['type'];

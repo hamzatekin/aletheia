@@ -1,4 +1,5 @@
 import { Extension } from '@tiptap/core';
+import { Plugin } from '@tiptap/pm/state';
 
 /** Structural keys the editor never handles itself; they go to the outline. */
 export type OutlineKey =
@@ -65,11 +66,24 @@ export const OutlinerKeymap = Extension.create<Record<string, never>, OutlinerKe
       'Shift-Mod-z': send('redo'),
       'Mod-y': send('redo'),
       'Mod-k': send('search'),
-      // Open the slash menu but let the "/" be typed.
-      '/': () => {
-        this.storage.handler?.('slash');
-        return false;
-      },
     };
+  },
+
+  addProseMirrorPlugins() {
+    const storage = this.storage;
+    return [
+      new Plugin({
+        props: {
+          // Open the slash menu on the typed "/" itself rather than its key, so it
+          // works on any keyboard layout (Shift/AltGr combos) and on mobile
+          // keyboards whose keydown reports no key. The "/" is still inserted;
+          // the outline is told once it is in the document, right before the caret.
+          handleTextInput: (_view, _from, _to, text) => {
+            if (text.endsWith('/')) queueMicrotask(() => storage.handler?.('slash'));
+            return false;
+          },
+        },
+      }),
+    ];
   },
 });

@@ -1,6 +1,8 @@
 import type { Command, Engine, Outcome } from '@/commands';
 import { newId } from '@/model';
+import { looksLikeTerminalProse, terminalToMarkdown } from './terminal';
 import type { OutlineItem } from './types';
+import { codeTitle, extractFencedBlocks, extractWorkflowyCodeBlocks, fencedBlock, looksLikeWorkflowyHtml, workflowyHtmlToMarkdown } from './workflowy';
 
 const BULLET = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
 
@@ -58,20 +60,73 @@ export function parseMarkdownOutline(text: string): OutlineItem[] {
   return roots;
 }
 
-/** Parse OPML `<outline>` elements (text/_note attributes). Needs a DOM. */
+/**
+ * A code block moved into a note. Terminal answers pasted into a code block
+ * just to keep their line breaks come back as the Markdown they were.
+ */
+export function noteBlock(code: string): string {
+  return looksLikeTerminalProse(code) ? terminalToMarkdown(code) : fencedBlock(code);
+}
+
+/** An OPML `<outline>` as read from the file, before any conversion. */
+export interface RawOutline {
+  text: string;
+  note: string;
+  complete: boolean;
+  children: RawOutline[];
+}
+
+/**
+ * Raw outlines → items. WorkFlowy exports (spotted by `ownerEmail` in the
+ * head, `_complete` flags or its HTML markup) get their HTML turned into
+ * Markdown and completed items struck through; other OPML is taken as is.
+ */
+export function opmlItems(outlines: RawOutline[], fromWorkflowy = false): OutlineItem[] {
+  const any = (list: RawOutline[]): boolean =>
+    list.some((o) => o.complete || looksLikeWorkflowyHtml(o.text) || looksLikeWorkflowyHtml(o.note) || any(o.children));
+  const html = fromWorkflowy || any(outlines);
+  const convert = (o: RawOutline): OutlineItem => {
+    if (!html) {
+      // Plain OPML text is taken as is, except that a ``` fence can't stay in single-line content.
+      const text = extractFencedBlocks(o.text);
+      const content = text.html.replace(/\s+/g, ' ').trim() || (text.blocks[0] ? codeTitle(text.blocks[0]) : '');
+      const note = [...text.blocks.map(noteBlock), ...(o.note === '' ? [] : [o.note])].join('\n\n');
+      return text.blocks.length > 0 ? { content, note, children: o.children.map(convert) } : { content: o.text, note: o.note, children: o.children.map(convert) };
+    }
+    // Multi-line code can't live in a node's single-line content: it moves to the note.
+    const text = extractWorkflowyCodeBlocks(o.text);
+    const note = extractWorkflowyCodeBlocks(o.note, '\u0000');
+    let content = workflowyHtmlToMarkdown(text.html);
+    if (content === '' && text.blocks.length > 0) content = codeTitle(text.blocks[0]!);
+    if (o.complete && content !== '') content = `~~${content}~~`;
+    // Code blocks in the note stay where they were, as their own paragraphs.
+    const parts = text.blocks.map(noteBlock);
+    workflowyHtmlToMarkdown(note.html, true)
+      .split('\u0000')
+      .forEach((segment, i) => {
+        if (i > 0) parts.push(noteBlock(note.blocks[i - 1]!));
+        if (segment.trim() !== '') parts.push(segment.trim());
+      });
+    return { content, note: parts.join('\n\n'), children: o.children.map(convert) };
+  };
+  return outlines.map(convert);
+}
+
+/** Parse OPML `<outline>` elements (text/_note/_complete attributes). Needs a DOM. */
 export function parseOpml(text: string): OutlineItem[] {
   const doc = new DOMParser().parseFromString(text, 'application/xml');
   if (doc.querySelector('parsererror')) throw new Error('invalid OPML');
   const body = doc.querySelector('body') ?? doc.documentElement;
-  const walk = (el: Element): OutlineItem[] =>
+  const walk = (el: Element): RawOutline[] =>
     [...el.children]
       .filter((c) => c.tagName.toLowerCase() === 'outline')
       .map((c) => ({
-        content: c.getAttribute('text') ?? c.getAttribute('title') ?? '',
+        text: c.getAttribute('text') ?? c.getAttribute('title') ?? '',
         note: c.getAttribute('_note') ?? '',
+        complete: c.getAttribute('_complete') === 'true',
         children: walk(c),
       }));
-  return walk(body);
+  return opmlItems(walk(body), doc.querySelector('head > ownerEmail') !== null);
 }
 
 /** createNode commands for the items under `parentId`, after `after` or at the end. */
