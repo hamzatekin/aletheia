@@ -18,7 +18,7 @@ export function Bullet({ id, collapsedWithChildren, handleRef }: Props) {
     >
       <span
         className={
-          'block h-1.5 w-1.5 rounded-full bg-neutral-500 transition-[box-shadow] dark:bg-neutral-400 ' +
+          'block size-[5px] rounded-full bg-neutral-500 transition-[box-shadow] dark:bg-neutral-400 ' +
           (collapsedWithChildren
             ? 'shadow-[0_0_0_4px] shadow-neutral-200 dark:shadow-neutral-700'
             : 'group-hover/bullet:shadow-[0_0_0_4px] group-hover/bullet:shadow-neutral-100 dark:group-hover/bullet:shadow-neutral-800')

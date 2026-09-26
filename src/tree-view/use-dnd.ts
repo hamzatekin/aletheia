@@ -9,13 +9,20 @@ import { canDropOn, DRAG_TYPE, isDragData, itemMode, resolveInstruction } from '
 import { INDENT_PX } from './Row';
 import { useOutline } from './outline-context';
 
-/** Make the bullet drag the node and the row accept drops. */
-export function useRowDnd(id: string, depth: number, rowRef: RefObject<HTMLElement | null>, handleRef: RefObject<HTMLElement | null>): void {
+/** Make the bullet (and the grip left of it) drag the node, and the row accept drops. */
+export function useRowDnd(
+  id: string,
+  depth: number,
+  rowRef: RefObject<HTMLElement | null>,
+  handleRef: RefObject<HTMLElement | null>,
+  gripRef?: RefObject<HTMLElement | null>,
+): void {
   const { engine, ui, session } = useOutline();
   useEffect(() => {
     const row = rowRef.current;
     const handle = handleRef.current;
     if (!row || !handle) return;
+    const handles = gripRef?.current ? [handle, gripRef.current] : [handle];
     const { tree } = engine;
     const showIndicator = (data: Record<string | symbol, unknown>) => {
       const instruction = extractInstruction(data);
@@ -23,32 +30,34 @@ export function useRowDnd(id: string, depth: number, rowRef: RefObject<HTMLEleme
       ui.setDropIndicator(resolved ? resolved.indicator : null);
     };
     return combine(
-      draggable({
-        element: handle,
-        getInitialData: () => ({ type: DRAG_TYPE, id }),
-        onGenerateDragPreview: ({ nativeSetDragImage }) => {
-          setCustomNativeDragPreview({
-            nativeSetDragImage,
-            getOffset: pointerOutsideOfPreview({ x: '8px', y: '8px' }),
-            render: ({ container }) => {
-              const el = document.createElement('div');
-              el.className = 'drag-preview';
-              el.textContent = plainText(tree.get(id)?.content ?? '') || 'Untitled';
-              container.appendChild(el);
-            },
-          });
-        },
-        onDragStart: () => {
-          session.flush();
-          ui.blur();
-          ui.setSelection(null);
-          ui.setDragging(id);
-        },
-        onDrop: () => {
-          ui.setDragging(null);
-          ui.setDropIndicator(null);
-        },
-      }),
+      ...handles.map((element) =>
+        draggable({
+          element,
+          getInitialData: () => ({ type: DRAG_TYPE, id }),
+          onGenerateDragPreview: ({ nativeSetDragImage }) => {
+            setCustomNativeDragPreview({
+              nativeSetDragImage,
+              getOffset: pointerOutsideOfPreview({ x: '8px', y: '8px' }),
+              render: ({ container }) => {
+                const el = document.createElement('div');
+                el.className = 'drag-preview';
+                el.textContent = plainText(tree.get(id)?.content ?? '') || 'Untitled';
+                container.appendChild(el);
+              },
+            });
+          },
+          onDragStart: () => {
+            session.flush();
+            ui.blur();
+            ui.setSelection(null);
+            ui.setDragging(id);
+          },
+          onDrop: () => {
+            ui.setDragging(null);
+            ui.setDropIndicator(null);
+          },
+        })
+      ),
       dropTargetForElements({
         element: row,
         canDrop: ({ source }) => isDragData(source.data) && canDropOn(tree, source.data.id, id),
@@ -63,7 +72,7 @@ export function useRowDnd(id: string, depth: number, rowRef: RefObject<HTMLEleme
         },
       }),
     );
-  }, [engine, ui, session, id, depth, rowRef, handleRef]);
+  }, [engine, ui, session, id, depth, rowRef, handleRef, gripRef]);
 }
 
 /** One monitor per page: turn the final drop instruction into a move. */

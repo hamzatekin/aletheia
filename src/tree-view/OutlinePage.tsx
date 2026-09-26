@@ -95,10 +95,10 @@ export function OutlinePage({ ui, session, search }: Props) {
             {root && rootId !== null && (
               <header className="mb-4" data-node-id={rootId} data-title="true">
                 {titleFocus === 'content' ? (
-                  <NodeEditor id={rootId} className="node-content text-2xl font-semibold leading-tight wrap-break-word" />
+                  <NodeEditor id={rootId} className="node-content text-[1.75rem] font-normal leading-tight tracking-tight wrap-break-word" />
                 ) : (
                   <h1
-                    className="node-content cursor-text text-2xl font-semibold leading-tight wrap-break-word"
+                    className="node-content cursor-text text-[1.75rem] font-normal leading-tight tracking-tight wrap-break-word"
                     onMouseDown={onTitleMouseDown}
                     dangerouslySetInnerHTML={{ __html: renderInline(root.content) || '<br>' }}
                   />

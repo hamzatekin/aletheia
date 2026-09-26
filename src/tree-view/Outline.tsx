@@ -31,7 +31,7 @@ export function Outline({ rootId }: Props) {
 
   const virtualizer = useWindowVirtualizer({
     count: rows.length,
-    estimateSize: () => 28,
+    estimateSize: () => 26,
     overscan: 12,
     scrollMargin: listRef.current?.offsetTop ?? 0,
     getItemKey: (index) => rows[index]!.id,
@@ -50,7 +50,7 @@ export function Outline({ rootId }: Props) {
   if (rows.length === 0) {
     return (
       <div
-        className="cursor-text py-0.5 leading-6 text-neutral-400 dark:text-neutral-500"
+        className="cursor-text py-px text-lg leading-6 text-neutral-400 dark:text-neutral-500"
         data-testid="empty-outline"
         onMouseDown={(e) => {
           e.preventDefault();
