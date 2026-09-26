@@ -1,6 +1,7 @@
 import type { Command, Engine, Outcome } from '@/commands';
 import { newId } from '@/model';
 import type { OutlineItem } from './types';
+import { looksLikeWorkflowyHtml, workflowyHtmlToMarkdown } from './workflowy';
 
 const BULLET = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
 
@@ -58,20 +59,46 @@ export function parseMarkdownOutline(text: string): OutlineItem[] {
   return roots;
 }
 
-/** Parse OPML `<outline>` elements (text/_note attributes). Needs a DOM. */
+/** An OPML `<outline>` as read from the file, before any conversion. */
+export interface RawOutline {
+  text: string;
+  note: string;
+  complete: boolean;
+  children: RawOutline[];
+}
+
+/**
+ * Raw outlines → items. WorkFlowy exports (spotted by `ownerEmail` in the
+ * head, `_complete` flags or its HTML markup) get their HTML turned into
+ * Markdown and completed items struck through; other OPML is taken as is.
+ */
+export function opmlItems(outlines: RawOutline[], fromWorkflowy = false): OutlineItem[] {
+  const any = (list: RawOutline[]): boolean =>
+    list.some((o) => o.complete || looksLikeWorkflowyHtml(o.text) || looksLikeWorkflowyHtml(o.note) || any(o.children));
+  const html = fromWorkflowy || any(outlines);
+  const convert = (o: RawOutline): OutlineItem => {
+    let content = html ? workflowyHtmlToMarkdown(o.text) : o.text;
+    if (o.complete && content !== '') content = `~~${content}~~`;
+    return { content, note: html ? workflowyHtmlToMarkdown(o.note, true) : o.note, children: o.children.map(convert) };
+  };
+  return outlines.map(convert);
+}
+
+/** Parse OPML `<outline>` elements (text/_note/_complete attributes). Needs a DOM. */
 export function parseOpml(text: string): OutlineItem[] {
   const doc = new DOMParser().parseFromString(text, 'application/xml');
   if (doc.querySelector('parsererror')) throw new Error('invalid OPML');
   const body = doc.querySelector('body') ?? doc.documentElement;
-  const walk = (el: Element): OutlineItem[] =>
+  const walk = (el: Element): RawOutline[] =>
     [...el.children]
       .filter((c) => c.tagName.toLowerCase() === 'outline')
       .map((c) => ({
-        content: c.getAttribute('text') ?? c.getAttribute('title') ?? '',
+        text: c.getAttribute('text') ?? c.getAttribute('title') ?? '',
         note: c.getAttribute('_note') ?? '',
+        complete: c.getAttribute('_complete') === 'true',
         children: walk(c),
       }));
-  return walk(body);
+  return opmlItems(walk(body), doc.querySelector('head > ownerEmail') !== null);
 }
 
 /** createNode commands for the items under `parentId`, after `after` or at the end. */
