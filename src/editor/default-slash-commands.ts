@@ -119,6 +119,17 @@ export const defaultSlashCommands: SlashCommand[] = [
       c.navigate('/');
     },
   },
+  {
+    id: 'tutorial',
+    title: 'Tutorial',
+    keywords: 'help guide shortcuts keyboard',
+    group: 'Help',
+    run: (c) => {
+      c.session.flush();
+      c.ui.blur();
+      c.ui.setHelpOpen(true);
+    },
+  },
 ];
 
 for (const command of defaultSlashCommands) registerSlashCommand(command);
