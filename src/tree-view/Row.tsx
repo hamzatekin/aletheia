@@ -8,6 +8,7 @@ import { plainText } from '@/editor/markdown';
 import { Bullet } from './Bullet';
 import { CollapseToggle } from './CollapseToggle';
 import { NodeMenu } from './NodeMenu';
+import { useCoarsePointer } from './MobileToolbar';
 import { useOutline } from './outline-context';
 import { useHasChildren, useNode } from './use-outline';
 import { useRowDnd } from './use-dnd';
@@ -38,6 +39,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
   const noteCollapsed = useNotePrefs((s) => isNoteCollapsed(s, id));
   const noteMode = useNoteMode();
   const indicator = useUiStore(ui, (s) => (s.dropIndicator?.targetId === id ? s.dropIndicator : null));
+  const coarse = useCoarsePointer();
   const rowRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLAnchorElement>(null);
   const gripRef = useRef<HTMLButtonElement>(null);
@@ -91,7 +93,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
         aria-expanded={menuOpen}
         tabIndex={-1}
         className={
-          'grip absolute flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-faint transition-[opacity,background-color] ' +
+          'grip absolute flex h-6 w-6 pointer-coarse:hidden cursor-pointer items-center justify-center rounded-full text-faint transition-[opacity,background-color] ' +
           (focusField || menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
         }
         style={{ left: depth * INDENT_PX - 68, top: 'calc((var(--row-lh) - 1.5rem) / 2 + 1px)' }}
@@ -107,7 +109,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
       </button>
       {menuOpen && (
         <div className="absolute" style={{ left: depth * INDENT_PX - 68, top: 'var(--row-lh)' }}>
-          <NodeMenu id={id} hasChildren={hasChildren} collapsed={node.collapsed} />
+          <NodeMenu id={id} hasChildren={hasChildren} collapsed={node.collapsed} sheet={coarse} />
         </div>
       )}
       <div className="-ml-11.5 flex w-11.5 shrink-0 items-start pr-1.5">
