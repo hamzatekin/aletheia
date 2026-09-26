@@ -4,7 +4,7 @@ import { moveDownCommand, moveUpCommand, type Command } from '@/commands';
 import { importItems, type OutlineItem } from '@/io';
 import { formatTerminalContent, formatTerminalNote } from '@/io/terminal';
 import type { TreeReader } from '@/model';
-import { notePrefs, useNotePrefs } from '@/store/note-prefs';
+import { isNoteCollapsed, notePrefs, useNotePrefs } from '@/store/note-prefs';
 import { useOutline } from './outline-context';
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -44,7 +44,7 @@ export function NodeMenu({ id, hasChildren, collapsed }: { id: string; hasChildr
   const navigate = useNavigate();
   const ref = useRef<HTMLDivElement>(null);
   const close = () => ui.setMenu(null);
-  const noteCollapsed = useNotePrefs((s) => s.collapsed.has(id));
+  const noteCollapsed = useNotePrefs((s) => isNoteCollapsed(s, id));
 
   useEffect(() => {
     const onDown = (e: PointerEvent) => {

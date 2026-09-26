@@ -181,7 +181,7 @@ const TABS: Tab[] = [
             [<Keys k="Esc" />, 'Leave the note and go back to the node.'],
             ['Click a note', 'Edit it. Markdown renders as you type: "## " makes a heading, "- " a list, ``` a code block.'],
             ['Rendered / Markdown', 'Click the small icon at the upper right of a note to switch between rendered and raw Markdown editing.'],
-            ['▾ left of a note', 'Collapse the note to its first line, or expand it again. Also in the ≡ menu.'],
+            ['▾ left of a note', 'Notes start collapsed to their first line: expand or collapse one here or in the ≡ menu. A note you open stays open. Settings can start them expanded.'],
           ]}
         />
         <H>What works in notes</H>
