@@ -18,10 +18,8 @@ export function Bullet({ id, collapsedWithChildren, handleRef }: Props) {
     >
       <span
         className={
-          'block size-[5px] rounded-full bg-muted transition-[box-shadow] ' +
-          (collapsedWithChildren
-            ? 'shadow-[0_0_0_4px] shadow-halo'
-            : 'group-hover/bullet:shadow-[0_0_0_4px] group-hover/bullet:shadow-halo-soft')
+          'bullet-dot block rounded-full bg-muted transition-[box-shadow] ' +
+          (collapsedWithChildren ? 'bullet-collapsed' : '')
         }
       />
     </Link>
