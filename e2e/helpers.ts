@@ -6,6 +6,12 @@ export type Spec = string | [string, Spec[]];
 export async function gotoHome(page: Page): Promise<void> {
   await page.goto('/');
   await page.locator('[data-testid=outline]').waitFor();
+  // Text rewraps when the web font arrives, which moves rows; measure after that.
+  await page.evaluate(async () => {
+    await document.fonts.load('16px "Inter Variable"');
+    await document.fonts.ready;
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  });
 }
 
 export function outline(page: Page, root: string | null = null): Promise<Spec[]> {

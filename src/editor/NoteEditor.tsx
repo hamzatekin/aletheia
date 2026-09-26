@@ -19,8 +19,8 @@ export function useNoteMode(): { raw: boolean } {
 export function NoteEditor({ id }: Props) {
   const { raw } = useNoteMode();
   return (
-    <div className="note-box">
-      <NoteHeader raw={raw} />
+    <div className="note-box relative flow-root">
+      <NoteHeader raw={raw} overlay={raw} />
       {raw ? <RawNoteEditor id={id} /> : <RichNoteEditor id={id} />}
     </div>
   );
@@ -38,16 +38,18 @@ const MarkdownIcon = () => (
 );
 
 /**
- * Every expanded note starts with this thin header row, shown the same way
+ * The icon at the upper right of every expanded note, shown the same way
  * whether the note is being read or edited, so nothing moves when you click
- * in or out. At its right is one icon showing the current mode (lines for
- * rendered, <> for Markdown); clicking it switches. `quiet` hides it until
- * the row is hovered.
+ * in or out. It floats, so the note's first line wraps around it and the note
+ * starts right under its node instead of under a header row. It shows the
+ * current mode (lines for rendered, <> for Markdown); clicking it switches.
+ * `quiet` hides it until the row is hovered. `overlay` pins it over the raw
+ * textarea instead, which reserves room for it on the right.
  */
-export function NoteHeader({ raw, quiet = false }: { raw: boolean; quiet?: boolean }) {
+export function NoteHeader({ raw, quiet = false, overlay = false }: { raw: boolean; quiet?: boolean; overlay?: boolean }) {
   const tip = raw ? 'Markdown. Click to edit rendered' : 'Rendered. Click to edit as Markdown';
   return (
-    <div className="note-header flex h-5 justify-end" data-testid="note-mode">
+    <div className={'note-header ' + (overlay ? 'absolute top-0 right-0 z-[1]' : 'float-right ml-2')} data-testid="note-mode">
       <button
         type="button"
         tabIndex={-1}
@@ -162,7 +164,7 @@ function RawNoteEditor({ id }: Props) {
       data-editor="note"
       aria-label="Note"
       placeholder="Note"
-      className="prose-note row-note block w-full resize-none font-mono overflow-hidden bg-transparent text-muted outline-none placeholder:text-faint"
+      className="prose-note row-note block w-full resize-none pr-6 font-mono overflow-hidden bg-transparent text-muted outline-none placeholder:text-faint"
       onChange={(e) => setText(e.target.value)}
       onPaste={(e) => {
         // Terminal output (box tables, Claude Code answers) pastes as the Markdown it was.

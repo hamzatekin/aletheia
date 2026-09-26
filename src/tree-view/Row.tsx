@@ -132,7 +132,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
           <NoteEditor id={id} />
         ) : (
           node.note !== '' && (
-            <div className="relative">
+            <div className="relative flow-root">
               <button
                 type="button"
                 tabIndex={-1}
