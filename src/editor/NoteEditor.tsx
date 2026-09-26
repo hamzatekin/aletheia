@@ -221,7 +221,7 @@ function RawNoteEditor({ id }: Props) {
       data-editor="note"
       aria-label="Note"
       placeholder="Note"
-      className="prose-note row-note block w-full resize-none pr-6 font-mono overflow-hidden bg-transparent text-muted outline-none placeholder:text-faint"
+      className="prose-note row-note block w-full resize-none pr-12 font-mono overflow-hidden bg-transparent text-muted outline-none placeholder:text-faint"
       onChange={(e) => setText(e.target.value)}
       onPaste={(e) => {
         // Terminal output (box tables, Claude Code answers) pastes as the Markdown it was.

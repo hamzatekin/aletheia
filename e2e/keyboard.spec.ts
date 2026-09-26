@@ -247,7 +247,7 @@ test('a note starts right under its node, and opening or leaving it moves nothin
   const listId = await page.evaluate(() => {
     const { engine } = (window as any).__aletheia;
     const node = [...engine.tree.all()].find((n: any) => n.content !== 'Plant a tree' && n.note === '' && n.content !== '');
-    const note = ['Intro paragraph', '', '- one item that is long enough to wrap onto a second line in the note column', '- another item', '', '## A heading', '', '| Run | Cost |', '| --- | --- |', '| First | $0.13 |', '', '> a quote', '', '1. one', '2. two', '', 'Closing paragraph'].join('\n');
+    const note = ['Intro paragraph', '', '- one item that is long enough to wrap onto a second line in the note column', '- another item', '', '## A heading', '', '> a quote', '', '1. one', '2. two', '', 'Closing paragraph', '', '| Run | Cost |', '| --- | --- |', '| First | $0.13 |'].join('\n');
     engine.execute({ type: 'updateNote', id: node.id, note });
     return node.id as string;
   });
@@ -255,10 +255,14 @@ test('a note starts right under its node, and opening or leaving it moves nothin
   const viewNote = row.locator('.node-note');
   const before = (await viewNote.boundingBox())!;
   const header = (await row.locator('.note-header').boundingBox())!;
-  // The note starts right under its node's text, level with the mode icon.
+  // The note's card starts right under its node's text, with the icons inside
+  // it, level with the note's first line.
   const content = (await row.locator('.node-content').boundingBox())!;
-  expect(before.y - (content.y + content.height)).toBeLessThanOrEqual(2);
+  const card = (await row.locator('.note-card').boundingBox())!;
+  expect(card.y - (content.y + content.height)).toBeLessThanOrEqual(3);
   expect(Math.abs(header.y - before.y)).toBeLessThanOrEqual(2);
+  expect(header.x + header.width).toBeLessThanOrEqual(card.x + card.width);
+  expect(header.y).toBeGreaterThanOrEqual(card.y);
   await viewNote.locator('p').click();
   const editNote = page.locator('.ProseMirror[data-editor=note]');
   await expect(editNote).toBeFocused();

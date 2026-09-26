@@ -231,11 +231,14 @@ body {
 .prose-note th, .prose-note td {
   min-width: 4rem;
   padding: 0.3rem 0.65rem;
-  border: 1px solid var(--line);
+  /* Translucent, so it shows on the card whatever is behind it. */
+  border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
   text-align: left;
   vertical-align: top;
 }
 .prose-note th { font-weight: 600; color: var(--ink); background: var(--subtle); }
+.prose-note .tableWrapper { margin: 0.5rem 0; }
+.prose-note .tableWrapper > table { margin: 0; }
 .prose-note :is(th, td) p, .ProseMirror.prose-note :is(th, td) p { margin: 0; }
 .prose-note .selectedCell { background: var(--selection); }
 
@@ -293,6 +296,21 @@ body {
   pointer-events: none;
 }
 
+/*
+ * A note is a card under its node, like a code block in WorkFlowy: its copy
+ * and Rendered/Markdown icons sit inside the card's top right corner, and the
+ * card looks the same whether the note is being read or edited.
+ */
+.note-card {
+  --card-pad-y: 0.35rem;
+  margin: 0.125rem 0 0.25rem;
+  padding: var(--card-pad-y) 0.6rem;
+  border-radius: 0.5rem;
+  background: var(--subtle);
+}
+/* The ▾ beside the card lines up with the note's first line. */
+.note-card > .note-toggle { top: var(--card-pad-y); }
+
 /* Touch screens: fingers need bigger targets than the drawn icons. The
    collapse arrow at the row's right edge reaches a little above and below it. */
 @media (pointer: coarse) {
@@ -300,6 +318,12 @@ body {
     content: '';
     position: absolute;
     inset: -6px 0;
+  }
+  .note-header button { position: relative; }
+  .note-header button::after {
+    content: '';
+    position: absolute;
+    inset: -8px -1px;
   }
   /* Long-pressing a bullet should not pop up the browser's link preview. */
   .group\/bullet {

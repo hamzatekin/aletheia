@@ -144,7 +144,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
           />
         )}
         {(focusField === 'note' || node.note !== '') && (
-          <div className="relative flow-root">
+          <div className="note-card relative flow-root">
             {/* The same caret while reading and editing, so nothing appears or moves on click. */}
             {node.note !== '' && (
               <button
@@ -154,7 +154,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
                 aria-expanded={!noteCollapsed}
                 data-testid="note-toggle"
                 className={
-                  'note-toggle absolute top-0 -left-6 z-[1] flex h-5 w-5 items-center justify-center rounded-full text-faint hover:bg-hover hover:text-muted ' +
+                  'note-toggle absolute -left-6 z-[1] flex h-5 w-5 items-center justify-center rounded-full text-faint hover:bg-hover hover:text-muted ' +
                   (noteCollapsed && focusField !== 'note' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
                 }
                 onMouseDown={(e) => e.preventDefault()}
