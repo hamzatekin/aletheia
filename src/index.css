@@ -141,6 +141,13 @@ body {
 @media (min-width: 640px) {
   :root[data-book='true'] .book-page { padding: 4.5rem 4.5rem 8rem 6rem; }
 }
+/* Landscape: a wide sheet that keeps a strip of desk around it. */
+:root[data-shape='landscape'][data-book='true'] .book-page {
+  max-width: min(var(--page-width), calc(100% - 5rem));
+}
+@media (min-width: 640px) {
+  :root[data-shape='landscape'][data-book='true'] .book-page { padding: 4.5rem 6rem 8rem 7.5rem; }
+}
 @media (max-width: 639px) {
   :root[data-book='true'] .book-page { margin: 0 auto; border-radius: 0; min-height: 100vh; }
 }

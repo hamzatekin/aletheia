@@ -7,6 +7,7 @@ import { useStore } from 'zustand';
  */
 
 export type ThemeId = 'system' | 'paper' | 'sepia' | 'night' | 'custom';
+export type PageShape = 'portrait' | 'landscape';
 export type FontId = 'inter' | 'system' | 'literata' | 'georgia' | 'mono';
 
 export interface Settings {
@@ -23,6 +24,10 @@ export interface Settings {
   lineHeight: number;
   /** Width of the text column in px. */
   pageWidth: number;
+  /** Portrait is a tall sheet; landscape is a wide one that uses most of the window. */
+  pageShape: PageShape;
+  /** Width of the landscape sheet in px (capped by the window). */
+  landscapeWidth: number;
   /** Draw the text column as a sheet of paper on a desk. */
   bookPage: boolean;
   sidebarOpen: boolean;
@@ -40,6 +45,8 @@ export const DEFAULT_SETTINGS: Settings = {
   fontSize: 18,
   lineHeight: 1.35,
   pageWidth: 720,
+  pageShape: 'portrait',
+  landscapeWidth: 1400,
   bookPage: true,
   sidebarOpen: true,
   outlineDepth: 2,
@@ -49,6 +56,7 @@ export const LIMITS = {
   fontSize: { min: 13, max: 26, step: 1 },
   lineHeight: { min: 1.1, max: 2.2, step: 0.05 },
   pageWidth: { min: 520, max: 1100, step: 20 },
+  landscapeWidth: { min: 1000, max: 2200, step: 20 },
   outlineDepth: { min: 1, max: 6, step: 1 },
 } as const;
 
@@ -97,10 +105,11 @@ export function sanitize(input: unknown): Settings {
   for (const k of ['deskColor', 'pageColor', 'textColor', 'accentColor'] as const) {
     if (typeof src[k] === 'string' && color.test(src[k])) out[k] = src[k];
   }
-  for (const k of ['fontSize', 'lineHeight', 'pageWidth', 'outlineDepth'] as const) {
+  for (const k of ['fontSize', 'lineHeight', 'pageWidth', 'landscapeWidth', 'outlineDepth'] as const) {
     const v = src[k];
     if (typeof v === 'number' && Number.isFinite(v)) out[k] = Math.min(LIMITS[k].max, Math.max(LIMITS[k].min, v));
   }
+  if (src.pageShape === 'portrait' || src.pageShape === 'landscape') out.pageShape = src.pageShape;
   for (const k of ['bookPage', 'sidebarOpen'] as const) {
     if (typeof src[k] === 'boolean') out[k] = src[k];
   }
@@ -163,6 +172,7 @@ export function applySettings(s: Settings, root: HTMLElement, prefersDark: boole
   const scheme = palette?.scheme ?? (prefersDark ? 'dark' : 'light');
   root.dataset.scheme = scheme;
   root.dataset.book = s.bookPage ? 'true' : 'false';
+  root.dataset.shape = s.pageShape;
   root.style.colorScheme = scheme;
   const set = (name: string, value: string | null) => (value === null ? root.style.removeProperty(name) : root.style.setProperty(name, value));
   set('--desk', palette?.desk ?? null);
@@ -172,5 +182,5 @@ export function applySettings(s: Settings, root: HTMLElement, prefersDark: boole
   set('--font', FONTS[s.font].stack);
   set('--font-size', `${s.fontSize}px`);
   set('--row-lh', `${Math.round(s.fontSize * s.lineHeight)}px`);
-  set('--page-width', `${s.pageWidth}px`);
+  set('--page-width', `${s.pageShape === 'landscape' ? s.landscapeWidth : s.pageWidth}px`);
 }
