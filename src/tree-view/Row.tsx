@@ -1,7 +1,7 @@
 import { memo, useRef, type MouseEvent } from 'react';
 import { renderBlock, renderInline } from '@/editor/render';
 import { NodeEditor } from '@/editor/NodeEditor';
-import { NoteEditor } from '@/editor/NoteEditor';
+import { NoteEditor, NoteHeader, useNoteMode } from '@/editor/NoteEditor';
 import { useUiStore } from '@/store/ui-store';
 import { notePrefs, useNotePrefs } from '@/store/note-prefs';
 import { plainText } from '@/editor/markdown';
@@ -36,6 +36,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
   const dragging = useUiStore(ui, (s) => s.dragging === id);
   const menuOpen = useUiStore(ui, (s) => s.menu === id);
   const noteCollapsed = useNotePrefs((s) => s.collapsed.has(id));
+  const noteMode = useNoteMode(node?.note ?? '');
   const indicator = useUiStore(ui, (s) => (s.dropIndicator?.targetId === id ? s.dropIndicator : null));
   const rowRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLAnchorElement>(null);
@@ -158,11 +159,14 @@ export const Row = memo(function Row({ id, depth }: Props) {
                   {noteSummary(node.note)}
                 </div>
               ) : (
-                <div
-                  className="node-note prose-note row-note cursor-text pb-0.5 text-muted"
-                  onMouseDown={onNoteMouseDown}
-                  dangerouslySetInnerHTML={{ __html: renderBlock(node.note) }}
-                />
+                <>
+                  <NoteHeader raw={noteMode.raw} locked={noteMode.locked} quiet />
+                  <div
+                    className="node-note prose-note row-note cursor-text pb-0.5 text-muted"
+                    onMouseDown={onNoteMouseDown}
+                    dangerouslySetInnerHTML={{ __html: renderBlock(node.note) }}
+                  />
+                </>
               )}
             </div>
           )

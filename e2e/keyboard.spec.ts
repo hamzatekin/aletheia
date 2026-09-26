@@ -167,14 +167,15 @@ test('the note toggle switches between rendered and raw Markdown', async ({ page
   await edit(page, 'Plant a tree');
   await page.keyboard.press('Shift+Enter');
   await page.keyboard.type('some **bold**');
-  await page.getByRole('radiogroup', { name: 'Note editing mode' }).hover();
-  await page.locator('[data-testid=note-mode-markdown]').click();
+  const modes = page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first().getByRole('radiogroup', { name: 'Note editing mode' });
+  await modes.hover();
+  await modes.locator('[data-testid=note-mode-markdown]').click();
   const raw = page.locator('textarea[data-editor=note]');
   await expect(raw).toBeFocused();
   await expect(raw).toHaveValue('some **bold**');
   await page.keyboard.type(' and *more*');
-  await page.getByRole('radiogroup', { name: 'Note editing mode' }).hover();
-  await page.locator('[data-testid=note-mode-rendered]').click();
+  await modes.hover();
+  await modes.locator('[data-testid=note-mode-rendered]').click();
   const rich = page.locator('.ProseMirror[data-editor=note]');
   await expect(rich.locator('em')).toHaveText('more');
   // The choice sticks for the next note.
@@ -200,4 +201,28 @@ test('a note collapses to its first line and expands again', async ({ page }) =>
   await expect(page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first().locator('.node-note')).toHaveText('first line …');
   await page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first().locator('[data-testid=note-toggle]').click();
   await expect(page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first().locator('.node-note p')).toHaveCount(2);
+});
+
+test('opening and leaving a note moves nothing: the note header is there either way', async ({ page }) => {
+  await edit(page, 'Plant a tree');
+  await page.keyboard.press('Shift+Enter');
+  await page.keyboard.type('first paragraph');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('```');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('some code');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  const row = page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first();
+  const viewNote = row.locator('.node-note');
+  const before = (await viewNote.boundingBox())!;
+  const header = (await row.locator('.note-header').boundingBox())!;
+  await viewNote.locator('p').click();
+  const editNote = page.locator('.ProseMirror[data-editor=note]');
+  await expect(editNote).toBeFocused();
+  const after = (await editNote.boundingBox())!;
+  const headerAfter = (await row.locator('.note-header').boundingBox())!;
+  expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(after.height - before.height)).toBeLessThanOrEqual(2);
+  expect(Math.abs(headerAfter.y - header.y)).toBeLessThanOrEqual(1);
 });

@@ -11,17 +11,23 @@ interface Props {
 /** A Markdown table: a row of cells followed by a |---| delimiter row. */
 const TABLE = /^.*\|.*\n\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/m;
 
-/** Edits a note, rendered (default) or as raw Markdown, with a toggle between the two. */
-export function NoteEditor({ id }: Props) {
+/**
+ * Which way a note is edited: the device preference, except that notes with a
+ * table are always raw (the rendered editor has no tables and would flatten them).
+ */
+export function useNoteMode(note: string): { raw: boolean; locked: boolean } {
   const prefersRaw = useNotePrefs((s) => s.raw);
+  const locked = TABLE.test(note);
+  return { raw: prefersRaw || locked, locked };
+}
+
+/** Edits a note, rendered (default) or as raw Markdown, under the note header. */
+export function NoteEditor({ id }: Props) {
   const { engine } = useOutline();
-  // The rendered editor has no tables; editing one there would flatten it.
-  const hasTable = TABLE.test(engine.tree.get(id)?.note ?? '');
-  const raw = prefersRaw || hasTable;
-  const setRaw = (value: boolean) => notePrefs.getState().setRaw(value);
+  const { raw, locked } = useNoteMode(engine.tree.get(id)?.note ?? '');
   return (
     <div>
-      <NoteModeHeader raw={raw} locked={hasTable} onChange={setRaw} />
+      <NoteHeader raw={raw} locked={locked} />
       {raw ? <RawNoteEditor id={id} /> : <RichNoteEditor id={id} />}
     </div>
   );
@@ -39,11 +45,12 @@ const MarkdownIcon = () => (
 );
 
 /**
- * A thin row above the open note: the current mode's icon at the right. On
- * hover it opens into a Rendered / Markdown switch. It takes a sliver of
- * height rather than a column of width, so the note keeps its full width.
+ * Every expanded note starts with this thin header row, shown the same way
+ * whether the note is being read or edited, so nothing moves when you click
+ * in or out. At its right is the current mode's icon; on hover it opens into
+ * a Rendered / Markdown switch. `quiet` hides it until the row is hovered.
  */
-function NoteModeHeader({ raw, locked, onChange }: { raw: boolean; locked: boolean; onChange(raw: boolean): void }) {
+export function NoteHeader({ raw, locked, quiet = false }: { raw: boolean; locked: boolean; quiet?: boolean }) {
   const option = (value: boolean, label: string, icon: React.ReactNode) => (
     <button
       type="button"
@@ -56,10 +63,11 @@ function NoteModeHeader({ raw, locked, onChange }: { raw: boolean; locked: boole
         'flex items-center gap-1 rounded px-1.5 py-px ' +
         (raw === value ? 'bg-active text-muted' : 'hover:bg-hover hover:text-muted disabled:opacity-40 disabled:hover:bg-transparent')
       }
-      // Keep focus in the note; the editor being replaced saves as it unmounts.
+      // Keep focus where it is; an open editor being replaced saves as it unmounts.
       onMouseDown={(e) => {
         e.preventDefault();
-        if (raw !== value) onChange(value);
+        e.stopPropagation();
+        if (raw !== value) notePrefs.getState().setRaw(value);
       }}
     >
       {icon}
@@ -67,12 +75,15 @@ function NoteModeHeader({ raw, locked, onChange }: { raw: boolean; locked: boole
     </button>
   );
   return (
-    <div className="flex h-5 justify-end" data-testid="note-mode">
+    <div className="note-header flex h-5 justify-end" data-testid="note-mode">
       <div
         role="radiogroup"
         aria-label="Note editing mode"
         title={locked ? 'Notes with tables are edited as Markdown' : undefined}
-        className="group/mode flex items-center rounded text-[11px] leading-none text-faint"
+        className={
+          'group/mode flex items-center rounded text-[11px] leading-none text-faint transition-opacity ' +
+          (quiet ? 'opacity-0 group-hover:opacity-100' : '')
+        }
       >
         <span className="flex h-5 w-5 items-center justify-center group-hover/mode:hidden" aria-hidden="true">
           {raw ? <MarkdownIcon /> : <RenderedIcon />}
