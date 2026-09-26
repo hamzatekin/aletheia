@@ -73,7 +73,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
         ref={gripRef}
         aria-hidden="true"
         className={
-          'absolute top-px flex h-6 w-4 cursor-grab items-center justify-center text-neutral-400 transition-opacity active:cursor-grabbing dark:text-neutral-500 ' +
+          'absolute top-px flex h-(--row-lh) w-4 cursor-grab items-center justify-center text-neutral-400 transition-opacity active:cursor-grabbing dark:text-neutral-500 ' +
           (focusField ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
         }
         style={{ left: depth * INDENT_PX - 64 }}
@@ -93,12 +93,12 @@ export const Row = memo(function Row({ id, depth }: Props) {
         )}
         <Bullet id={id} collapsedWithChildren={node.collapsed && hasChildren} handleRef={handleRef} />
       </div>
-      <div className="min-w-0 flex-1 py-px text-lg">
+      <div className="row-text min-w-0 flex-1 py-px">
         {focusField === 'content' ? (
-          <NodeEditor id={id} className="node-content leading-6 wrap-break-word" />
+          <NodeEditor id={id} className="node-content wrap-break-word" />
         ) : (
           <div
-            className="node-content cursor-text leading-6 wrap-break-word"
+            className="node-content cursor-text wrap-break-word"
             onMouseDown={onContentMouseDown}
             dangerouslySetInnerHTML={{ __html: renderInline(node.content) || '<br>' }}
           />
@@ -108,7 +108,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
         ) : (
           node.note !== '' && (
             <div
-              className="node-note prose-note cursor-text pb-0.5 text-sm leading-5 text-neutral-500 dark:text-neutral-400"
+              className="node-note prose-note row-note cursor-text pb-0.5 text-neutral-500 dark:text-neutral-400"
               onMouseDown={onNoteMouseDown}
               dangerouslySetInnerHTML={{ __html: renderBlock(node.note) }}
             />

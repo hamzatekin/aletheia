@@ -3,6 +3,7 @@ import type { Engine } from '@/commands';
 import { EngineProvider } from '@/app/engine-context';
 import type { EditorSession } from '@/editor/session';
 import type { SearchIndex } from '@/search';
+import type { SettingsStore } from '@/store/settings-store';
 import type { UiStore } from '@/store/ui-store';
 import { OutlinePage } from '@/tree-view/OutlinePage';
 
@@ -11,10 +12,11 @@ interface Props {
   ui: UiStore;
   session: EditorSession;
   search: SearchIndex;
+  settings: SettingsStore;
 }
 
-export function App({ engine, ui, session, search }: Props) {
-  const page = <OutlinePage ui={ui} session={session} search={search} />;
+export function App({ engine, ui, session, search, settings }: Props) {
+  const page = <OutlinePage ui={ui} session={session} search={search} settings={settings} />;
   return (
     <EngineProvider value={engine}>
       <BrowserRouter>
