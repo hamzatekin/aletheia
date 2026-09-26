@@ -14,7 +14,7 @@ export function Bullet({ id, collapsedWithChildren, handleRef }: Props) {
       ref={handleRef}
       to={`/n/${id}`}
       aria-label="Zoom in"
-      className="group/bullet flex h-6 w-5 shrink-0 cursor-grab items-center justify-center rounded-full active:cursor-grabbing"
+      className="group/bullet flex h-(--row-lh) w-5 shrink-0 cursor-grab items-center justify-center rounded-full active:cursor-grabbing"
     >
       <span
         className={
