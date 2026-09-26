@@ -107,7 +107,7 @@ export function OutlinePage({ ui, session, search, settings }: Props) {
           <button
             type="button"
             onClick={() => settings.getState().update({ sidebarOpen: true })}
-            className="fixed top-3 left-3 z-30 rounded-md p-2 text-neutral-500 hover:bg-(--subtle) hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100"
+            className="fixed top-3 left-3 z-30 rounded-md p-2 text-muted hover:bg-hover hover:text-ink"
             aria-label="Show outline"
             title="Show outline (Ctrl+\)"
           >
@@ -121,7 +121,7 @@ export function OutlinePage({ ui, session, search, settings }: Props) {
             ui.blur();
             ui.setHelpOpen(true);
           }}
-          className="fixed top-3 right-13 z-40 flex size-[34px] items-center justify-center rounded-md text-[15px] font-semibold text-neutral-500 hover:bg-(--subtle) hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100"
+          className="fixed top-3 right-13 z-40 flex size-[34px] items-center justify-center rounded-md text-[15px] font-semibold text-muted hover:bg-hover hover:text-ink"
           aria-label="Tutorial"
           title="Tutorial (Ctrl+/)"
         >
@@ -133,7 +133,7 @@ export function OutlinePage({ ui, session, search, settings }: Props) {
           <main className="book-page" onMouseDown={onBackgroundMouseDown}>
             {rootId !== null && <Breadcrumbs rootId={rootId} />}
             {missing ? (
-              <div className="text-neutral-500">
+              <div className="text-muted">
                 This node does not exist.{' '}
                 <Link to="/" className="underline">
                   Go home
@@ -159,7 +159,7 @@ export function OutlinePage({ ui, session, search, settings }: Props) {
                     ) : (
                       root.note !== '' && (
                         <div
-                          className="prose-note mt-1 cursor-text text-sm text-neutral-500 dark:text-neutral-400"
+                          className="prose-note mt-1 cursor-text text-sm text-muted"
                           onMouseDown={(e) => {
                             if ((e.target as HTMLElement).closest('a')) return;
                             e.preventDefault();

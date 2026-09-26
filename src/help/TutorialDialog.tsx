@@ -17,7 +17,7 @@ function Keys({ k }: { k: string }) {
       {parts.map((p, i) => (
         <kbd
           key={i}
-          className="min-w-6 rounded border border-b-2 border-neutral-300 bg-neutral-50 px-1.5 py-0.5 text-center font-mono text-xs text-neutral-700 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
+          className="min-w-6 rounded border border-b-2 border-line bg-hover px-1.5 py-0.5 text-center font-mono text-xs text-ink"
         >
           {p}
         </kbd>
@@ -31,9 +31,9 @@ function Table({ rows }: { rows: [ReactNode, ReactNode][] }) {
     <table className="mb-5 w-full text-sm">
       <tbody>
         {rows.map(([a, b], i) => (
-          <tr key={i} className="border-b border-neutral-100 last:border-0 dark:border-neutral-800">
+          <tr key={i} className="border-b border-line last:border-0">
             <td className="w-[45%] py-2 pr-3 align-top">{a}</td>
-            <td className="py-2 align-top text-neutral-600 dark:text-neutral-300">{b}</td>
+            <td className="py-2 align-top text-muted">{b}</td>
           </tr>
         ))}
       </tbody>
@@ -46,11 +46,11 @@ function H({ children }: { children: ReactNode }) {
 }
 
 function P({ children }: { children: ReactNode }) {
-  return <p className="mb-4 text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">{children}</p>;
+  return <p className="mb-4 text-sm leading-relaxed text-muted">{children}</p>;
 }
 
 function Code({ children }: { children: ReactNode }) {
-  return <code className="rounded bg-neutral-100 px-1 py-0.5 font-mono text-[0.85em] dark:bg-neutral-800">{children}</code>;
+  return <code className="rounded bg-active px-1 py-0.5 font-mono text-[0.85em]">{children}</code>;
 }
 
 interface Tab {
@@ -295,14 +295,14 @@ export function TutorialDialog({ ui }: Props) {
         aria-modal="true"
         aria-label="Tutorial"
         data-testid="tutorial"
-        className="flex h-[min(38rem,calc(100vh-1.5rem))] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white text-neutral-900 shadow-2xl sm:flex-row dark:bg-neutral-900 dark:text-neutral-100"
+        className="flex h-[min(38rem,calc(100vh-1.5rem))] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-surface text-ink shadow-2xl sm:flex-row"
       >
         <nav
-          className="flex shrink-0 gap-1 overflow-x-auto border-b border-neutral-200 p-2 sm:w-48 sm:flex-col sm:border-r sm:border-b-0 sm:p-3 dark:border-neutral-800"
+          className="flex shrink-0 gap-1 overflow-x-auto border-b border-line p-2 sm:w-48 sm:flex-col sm:border-r sm:border-b-0 sm:p-3"
           role="tablist"
           aria-label="Tutorial topics"
         >
-          <div className="hidden px-2 pb-2 text-xs font-semibold tracking-wider text-neutral-500 uppercase sm:block">Tutorial</div>
+          <div className="hidden px-2 pb-2 text-xs font-semibold tracking-wider text-muted uppercase sm:block">Tutorial</div>
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -312,7 +312,7 @@ export function TutorialDialog({ ui }: Props) {
               onClick={() => setTab(t.id)}
               className={
                 'shrink-0 rounded-md px-2 py-1.5 text-left text-sm whitespace-nowrap ' +
-                (t.id === current.id ? 'bg-neutral-100 font-medium dark:bg-neutral-800' : 'text-neutral-600 hover:bg-neutral-50 dark:text-neutral-300 dark:hover:bg-neutral-800/60')
+                (t.id === current.id ? 'bg-active font-medium' : 'text-muted hover:bg-hover')
               }
             >
               {t.title}
@@ -326,7 +326,7 @@ export function TutorialDialog({ ui }: Props) {
               ref={closeRef}
               type="button"
               onClick={() => ui.setHelpOpen(false)}
-              className="rounded p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+              className="rounded p-1 text-muted hover:bg-hover hover:text-ink"
               aria-label="Close tutorial"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">

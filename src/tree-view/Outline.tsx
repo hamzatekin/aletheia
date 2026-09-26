@@ -50,7 +50,7 @@ export function Outline({ rootId }: Props) {
   if (rows.length === 0) {
     return (
       <div
-        className="row-text cursor-text py-px text-neutral-400 dark:text-neutral-500"
+        className="row-text cursor-text py-px text-faint"
         data-testid="empty-outline"
         onMouseDown={(e) => {
           e.preventDefault();
