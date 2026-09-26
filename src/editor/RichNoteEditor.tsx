@@ -7,6 +7,7 @@ import { useOutline } from '@/tree-view/outline-context';
 import { useNode } from '@/tree-view/use-outline';
 import { markdownOptions } from './markdown';
 import { takeCaretHandoff } from './caret-handoff';
+import { registerNoteFlush } from './note-flush';
 import { noteTableExtensions } from './note-table';
 import { isTerminalPaste, terminalToMarkdown } from '@/io/terminal';
 
@@ -139,7 +140,9 @@ export function RichNoteEditor({ id }: { id: string }) {
       editor.commands.focus('end', { scrollIntoView: false });
       editor.commands.scrollIntoView();
     }
+    const unregister = registerNoteFlush(id, save);
     return () => {
+      unregister();
       save();
       editorRef.current = null;
       editor.destroy();

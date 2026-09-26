@@ -166,7 +166,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
               </div>
             ) : (
               <>
-                <NoteHeader raw={noteMode.raw} quiet />
+                <NoteHeader id={id} raw={noteMode.raw} quiet />
                 <div
                   className="node-note prose-note row-note cursor-text pb-0.5 text-muted"
                   onMouseDown={onNoteMouseDown}
