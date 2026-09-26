@@ -77,6 +77,15 @@ export const Row = memo(function Row({ id, depth }: Props) {
       data-focused={focusField ?? undefined}
       data-selected={selected || undefined}
     >
+      {/* Indent guides, like WorkFlowy's: one line per ancestor level, down from its bullet through its children. */}
+      {Array.from({ length: depth }, (_, level) => (
+        <div
+          key={level}
+          aria-hidden="true"
+          className="indent-guide pointer-events-none absolute inset-y-0 w-px"
+          style={{ left: level * indent - (coarse ? 14 : 16) }}
+        />
+      ))}
       {indicator && (
         <div
           className="pointer-events-none absolute right-0 z-10 h-0.5 rounded bg-accent"
