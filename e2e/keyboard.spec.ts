@@ -167,12 +167,14 @@ test('the note toggle switches between rendered and raw Markdown', async ({ page
   await edit(page, 'Plant a tree');
   await page.keyboard.press('Shift+Enter');
   await page.keyboard.type('some **bold**');
-  await page.locator('[data-testid=note-mode]').click();
+  await page.getByRole('radiogroup', { name: 'Note editing mode' }).hover();
+  await page.locator('[data-testid=note-mode-markdown]').click();
   const raw = page.locator('textarea[data-editor=note]');
   await expect(raw).toBeFocused();
   await expect(raw).toHaveValue('some **bold**');
   await page.keyboard.type(' and *more*');
-  await page.locator('[data-testid=note-mode]').click();
+  await page.getByRole('radiogroup', { name: 'Note editing mode' }).hover();
+  await page.locator('[data-testid=note-mode-rendered]').click();
   const rich = page.locator('.ProseMirror[data-editor=note]');
   await expect(rich.locator('em')).toHaveText('more');
   // The choice sticks for the next note.

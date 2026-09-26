@@ -18,24 +18,70 @@ export function NoteEditor({ id }: Props) {
   // The rendered editor has no tables; editing one there would flatten it.
   const hasTable = TABLE.test(engine.tree.get(id)?.note ?? '');
   const raw = prefersRaw || hasTable;
+  const setRaw = (value: boolean) => notePrefs.getState().setRaw(value);
   return (
-    <div className="relative">
+    <div>
+      <NoteModeHeader raw={raw} locked={hasTable} onChange={setRaw} />
       {raw ? <RawNoteEditor id={id} /> : <RichNoteEditor id={id} />}
-      <button
-        type="button"
-        tabIndex={-1}
-        data-testid="note-mode"
-        disabled={hasTable}
-        title={hasTable ? 'Notes with tables are edited as Markdown' : raw ? 'Show the note rendered' : 'Edit the note as raw Markdown'}
-        className={'absolute -top-0.5 right-0 rounded px-1.5 py-0.5 text-xs text-faint hover:bg-hover hover:text-muted' + (hasTable ? ' hidden' : '')}
-        // Keep focus in the note; the editor being replaced saves as it unmounts.
-        onMouseDown={(e) => {
-          e.preventDefault();
-          notePrefs.getState().setRaw(!raw);
-        }}
+    </div>
+  );
+}
+
+const RenderedIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+    <path d="M2 3.5h12M2 8h12M2 12.5h7" />
+  </svg>
+);
+const MarkdownIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M5.5 4 2 8l3.5 4M10.5 4 14 8l-3.5 4" />
+  </svg>
+);
+
+/**
+ * A thin row above the open note: the current mode's icon at the right. On
+ * hover it opens into a Rendered / Markdown switch. It takes a sliver of
+ * height rather than a column of width, so the note keeps its full width.
+ */
+function NoteModeHeader({ raw, locked, onChange }: { raw: boolean; locked: boolean; onChange(raw: boolean): void }) {
+  const option = (value: boolean, label: string, icon: React.ReactNode) => (
+    <button
+      type="button"
+      tabIndex={-1}
+      role="radio"
+      aria-checked={raw === value}
+      disabled={locked && !value}
+      data-testid={`note-mode-${value ? 'markdown' : 'rendered'}`}
+      className={
+        'flex items-center gap-1 rounded px-1.5 py-px ' +
+        (raw === value ? 'bg-active text-muted' : 'hover:bg-hover hover:text-muted disabled:opacity-40 disabled:hover:bg-transparent')
+      }
+      // Keep focus in the note; the editor being replaced saves as it unmounts.
+      onMouseDown={(e) => {
+        e.preventDefault();
+        if (raw !== value) onChange(value);
+      }}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+  return (
+    <div className="flex h-5 justify-end" data-testid="note-mode">
+      <div
+        role="radiogroup"
+        aria-label="Note editing mode"
+        title={locked ? 'Notes with tables are edited as Markdown' : undefined}
+        className="group/mode flex items-center rounded text-[11px] leading-none text-faint"
       >
-        {raw ? 'Rendered' : 'Markdown'}
-      </button>
+        <span className="flex h-5 w-5 items-center justify-center group-hover/mode:hidden" aria-hidden="true">
+          {raw ? <MarkdownIcon /> : <RenderedIcon />}
+        </span>
+        <span className="hidden items-center gap-0.5 rounded bg-surface p-0.5 shadow-sm group-hover/mode:flex">
+          {option(false, 'Rendered', <RenderedIcon />)}
+          {option(true, 'Markdown', <MarkdownIcon />)}
+        </span>
+      </div>
     </div>
   );
 }
@@ -116,7 +162,7 @@ function RawNoteEditor({ id }: Props) {
       data-editor="note"
       aria-label="Note"
       placeholder="Note"
-      className="prose-note row-note block w-full resize-none pr-20 font-mono overflow-hidden bg-transparent text-muted outline-none placeholder:text-faint"
+      className="prose-note row-note block w-full resize-none font-mono overflow-hidden bg-transparent text-muted outline-none placeholder:text-faint"
       onChange={(e) => setText(e.target.value)}
       onBlur={(e) => save(e.target.value)}
       onKeyDown={onKeyDown}
