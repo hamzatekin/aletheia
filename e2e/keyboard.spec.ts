@@ -55,7 +55,7 @@ test('Backspace on an empty node deletes it and focuses the previous node', asyn
   expect(await focused(page)).toBe('Plant a tree:content');
 });
 
-test('Backspace on an empty node with children keeps the node and its children', async ({ page }) => {
+test('Backspace on an empty node with children deletes it and moves the children up', async ({ page }) => {
   await edit(page, 'Plant a tree');
   await setCaret(page, 'end');
   await page.keyboard.press('Enter');
@@ -63,9 +63,11 @@ test('Backspace on an empty node with children keeps the node and its children',
   await page.keyboard.press('Tab');
   await edit(page, 'Plant a tree');
   await setCaret(page, 'end');
-  for (let i = 0; i < 'Plant a tree'.length + 2; i++) await page.keyboard.press('Backspace');
+  for (let i = 0; i < 'Plant a tree'.length; i++) await page.keyboard.press('Backspace');
   await expect.poll(() => outline(page, 'Someday')).toEqual(['Learn to juggle', ['', ['water it']]]);
-  expect(await focused(page)).toBe(':content');
+  await page.keyboard.press('Backspace');
+  await expect.poll(() => outline(page, 'Someday')).toEqual(['Learn to juggle', 'water it']);
+  expect(await focused(page)).toBe('Learn to juggle:content');
 });
 
 test('arrow keys move between nodes; Left/Right cross node edges', async ({ page }) => {

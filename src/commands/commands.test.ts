@@ -258,6 +258,24 @@ describe('toggleCollapse', () => {
   });
 });
 
+describe('deleteNode', () => {
+  it('deletes only the node; its children take its place under its parent', () => {
+    const f = fixture([['P', ['X', ['E', ['E1', ['E2', ['E2a']]]], 'Y']]]);
+    ok(f.engine.execute({ type: 'deleteNode', id: f.ids.E! }));
+    expect(outline(f)).toEqual([['P', ['X', 'E1', ['E2', ['E2a']], 'Y']]]);
+    expect(f.node('E').deletedAt).not.toBeNull();
+    expect(f.node('E1').deletedAt).toBeNull();
+  });
+
+  it('works at the top level and undo puts the children back', () => {
+    const f = fixture(['A', ['E', ['E1', 'E2']], 'B']);
+    ok(f.engine.execute({ type: 'deleteNode', id: f.ids.E! }));
+    expect(outline(f)).toEqual(['A', 'E1', 'E2', 'B']);
+    f.engine.undo();
+    expect(outline(f)).toEqual(['A', ['E', ['E1', 'E2']], 'B']);
+  });
+});
+
 describe('deleteSubtree / restore', () => {
   it('soft-deletes the whole subtree with one timestamp and hides it', () => {
     const f = fixture([['A', ['A1', ['A2', ['A2a']]]], 'B']);

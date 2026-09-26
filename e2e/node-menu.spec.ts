@@ -41,3 +41,18 @@ test('Escape and outside clicks close the grip menu', async ({ page }) => {
   await page.mouse.click(5, 650);
   await expect(page.locator('[data-testid=node-menu]')).toHaveCount(0);
 });
+
+test('Delete on an empty node keeps its children in its place', async ({ page }) => {
+  const id = await page.evaluate(() => {
+    const { engine } = (window as any).__aletheia;
+    const n = [...engine.tree.all()].find((x: any) => x.content === 'Plant a tree');
+    engine.execute({ type: 'createNode', id: 'kid-1', parentId: n.id, content: 'water it' });
+    engine.execute({ type: 'updateContent', id: n.id, content: '' });
+    return n.id as string;
+  });
+  const empty = page.locator(`[data-node-id="${id}"]`).first();
+  await empty.hover();
+  await empty.locator('[data-testid=drag-grip]').first().click();
+  await page.locator('[data-testid=node-menu-delete]').click();
+  await expect.poll(() => outline(page, 'Someday')).toEqual(['Learn to juggle', 'water it']);
+});
