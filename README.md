@@ -113,8 +113,11 @@ The app is a static single-page app; all data stays in the browser
   dashboard (Workers & Pages → Create → connect Git) with build command
   `pnpm build` and deploy command `npx wrangler deploy`.
 - **Pages**: build command `pnpm build`, output directory `dist`.
-  `public/_redirects` routes every path to `index.html` so `/n/:id` links
-  work on reload.
+
+Both serve `index.html` for unknown paths, so `/n/:id` links work on reload:
+Workers via `not_found_handling: "single-page-application"`, Pages by default
+since the build has no `404.html`. Don't add a `_redirects` catch-all
+(`/* /index.html 200`); Workers rejects it as an infinite redirect loop.
 
 The browser tests drive the app through `window.__aletheia` (engine, UI
 store, editor session, search index), which dev builds expose. Set

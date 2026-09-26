@@ -1,7 +1,7 @@
 {
   // Cloudflare Workers static-assets deployment: `pnpm build && npx wrangler deploy`.
   // Cloudflare Pages works too: build command `pnpm build`, output directory `dist`
-  // (public/_redirects provides the SPA fallback there).
+  // (with no 404.html, Pages serves index.html for unknown paths).
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "aletheia",
   "compatibility_date": "2026-09-01",
