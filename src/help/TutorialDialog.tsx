@@ -253,6 +253,7 @@ const TABS: Tab[] = [
         <Table
           rows={[
             ['Gear button (top right)', 'Theme, colors, font, font size, line spacing, page shape (portrait or landscape), page width, book page.'],
+            ['Drag the edge of the page', 'Make the page wider or narrower. Double-click the edge to reset.'],
             [<Keys k="Mod+\" />, 'Show or hide the outline sidebar.'],
             ['Outline levels shown', 'In settings: how deep the sidebar opens by default.'],
             [<Keys k="Mod+/" />, 'Open this tutorial.'],

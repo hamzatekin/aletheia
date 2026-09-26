@@ -36,7 +36,8 @@ export function Outline({ rootId }: Props) {
     count: rows.length,
     estimateSize: () => 26,
     overscan: 12,
-    scrollMargin: listRef.current?.offsetTop ?? 0,
+    // Distance from the top of the document; the page sheet is positioned, so offsetTop alone is not enough.
+    scrollMargin: listRef.current ? listRef.current.getBoundingClientRect().top + window.scrollY : 0,
     getItemKey: (index) => rows[index]!.id,
     rangeExtractor,
   });
