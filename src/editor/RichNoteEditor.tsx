@@ -104,8 +104,14 @@ export function RichNoteEditor({ id }: { id: string }) {
     });
     editorRef.current = editor;
     loaded.current = markdownOf(editor);
-    editor.commands.focus('end');
-    editor.view.dom.scrollIntoView({ block: 'nearest' });
+    // A click on the rendered note puts the caret where it landed; otherwise at the end.
+    const caret = ui.getState().focus?.caret;
+    const hit = caret?.kind === 'point' ? editor.view.posAtCoords({ left: caret.x, top: caret.y }) : null;
+    if (hit) editor.chain().setTextSelection(hit.pos).focus(undefined, { scrollIntoView: false }).run();
+    else {
+      editor.commands.focus('end');
+      editor.view.dom.scrollIntoView({ block: 'nearest' });
+    }
     return () => {
       save();
       editorRef.current = null;

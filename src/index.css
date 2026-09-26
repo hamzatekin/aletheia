@@ -189,6 +189,9 @@ body {
   line-height: 1.2;
 }
 .prose-note pre code { padding: 0; background: none; }
+/* Long lines wrap (and keep their indent) instead of scrolling sideways. */
+.prose-note pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.prose-note pre.nowrap { white-space: pre; overflow-wrap: normal; }
 .prose-note blockquote {
   margin: 0.25rem 0;
   padding-left: 0.75rem;

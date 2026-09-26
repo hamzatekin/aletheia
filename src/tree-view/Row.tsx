@@ -54,7 +54,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
     if ((e.target as HTMLElement).closest('a')) return;
     if (e.button !== 0) return;
     e.preventDefault();
-    ui.focusNode(id, { kind: 'end' }, 'note');
+    ui.focusNode(id, { kind: 'point', x: e.clientX, y: e.clientY }, 'note');
   };
 
   return (

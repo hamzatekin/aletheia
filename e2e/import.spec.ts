@@ -60,3 +60,33 @@ test('a WorkFlowy ``` code block with a box table keeps its lines', async ({ pag
   await page.mouse.click(5, 650);
   await imported.screenshot({ path: 'test-results/workflowy-fence-table.png' });
 });
+
+test('long, indented terminal output wraps inside its code block instead of scrolling sideways', async ({ page }) => {
+  const long = 'Money and messages (most serious) 1. Firms with no saved settings are treated as OFF, so the client gets no receipt and the firm is left out of billing.';
+  const text = ['```', `  ${long}`, `    - ${long}`, '  last line', '```'].join('&#10;');
+  const opml = `<opml version="2.0"><head><ownerEmail>me@example.com</ownerEmail></head><body><outline text="${text}" /></body></opml>`;
+  await edit(page, 'Plant a tree');
+  const chooser = page.waitForEvent('filechooser');
+  await page.keyboard.type('/workflowy');
+  await page.keyboard.press('Enter');
+  await (await chooser).setFiles({ name: 'w.opml', mimeType: 'text/xml', buffer: Buffer.from(opml) });
+  const imported = page.locator('[data-node-id]', { hasText: 'Money and messages' }).last();
+  const pre = imported.locator('.node-note pre');
+  await expect(pre.locator('code')).toHaveText(`${long}\n  - ${long}\nlast line`);
+  expect(await pre.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await page.mouse.click(5, 650);
+  await imported.screenshot({ path: 'test-results/workflowy-long-code.png' });
+
+  // Editing it keeps the wrap, with the caret where the click landed rather than at the far end.
+  const box = (await pre.boundingBox())!;
+  await page.mouse.click(box.x + 40, box.y + 14);
+  const editor = page.locator('.ProseMirror[data-editor=note]');
+  await expect(editor).toBeFocused();
+  const editPre = editor.locator('pre');
+  expect(await editPre.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  const caret = await page.evaluate(() => {
+    const sel = window.getSelection()!;
+    return sel.anchorNode!.textContent!.slice(0, sel.anchorOffset).length;
+  });
+  expect(caret).toBeLessThan(20);
+});
