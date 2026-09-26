@@ -18,6 +18,7 @@ import { Breadcrumbs } from './Breadcrumbs';
 import { Outline } from './Outline';
 import { OutlineProvider } from './outline-context';
 import { OutlineSidebar, SidebarIcon } from './OutlineSidebar';
+import { PageResizeHandles } from './PageResizeHandles';
 import { useNode } from './use-outline';
 
 interface Props {
@@ -131,6 +132,7 @@ export function OutlinePage({ ui, session, search, settings }: Props) {
         <TutorialDialog ui={ui} />
         <div className="desk min-h-screen" onMouseDown={onBackgroundMouseDown}>
           <main className="book-page" onMouseDown={onBackgroundMouseDown}>
+            <PageResizeHandles settings={settings} />
             {rootId !== null && <Breadcrumbs rootId={rootId} />}
             {missing ? (
               <div className="text-muted">

@@ -117,6 +117,7 @@ body {
 
 /* The text column. In book mode it is a sheet of paper resting on the desk. */
 .book-page {
+  position: relative;
   box-sizing: border-box;
   max-width: var(--page-width);
   min-height: 100vh;
