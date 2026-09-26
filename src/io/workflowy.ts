@@ -19,7 +19,7 @@ export function decodeEntities(text: string): string {
 }
 
 const TAG = /<(\/?)([a-z]+)\b([^>]*?)\/?>/gi;
-const KNOWN = new Set(['b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'code', 'a', 'span', 'time', 'br', 'mark', 'font']);
+const KNOWN = new Set(['b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'code', 'pre', 'a', 'span', 'time', 'br', 'mark', 'font']);
 const PAIRED = new Set([...KNOWN].filter((t) => t !== 'br'));
 
 /** True when `text` holds WorkFlowy-style HTML: only known tags, all balanced. */
@@ -85,4 +85,41 @@ export function workflowyHtmlToMarkdown(html: string, multiline = false): string
   }
   out += decodeEntities(html.slice(last));
   return multiline ? out.replace(/[ \t]+$/gm, '') : out.replace(/\s+/g, ' ').trim();
+}
+
+const CODE_SPAN = /<(code|pre)\b[^>]*>([^]*?)<\/\1>/gi;
+
+/** Plain text of a code span: <br> is a newline, other tags go, entities decode. */
+function codeText(inner: string): string {
+  return decodeEntities(inner.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, ''));
+}
+
+/** A fenced Markdown code block, with a fence longer than any backtick run inside. */
+export function fencedBlock(code: string): string {
+  const longest = Math.max(2, ...[...code.matchAll(/`+/g)].map((m) => m[0].length));
+  const fence = '`'.repeat(longest + 1);
+  return `${fence}\n${code.replace(/^\n+|\s+$/g, '')}\n${fence}`;
+}
+
+/**
+ * WorkFlowy code blocks are <code>/<pre> spans with line breaks inside. Inline
+ * Markdown can't hold those, so they are cut out of `html` and returned as
+ * fenced blocks for the note, leaving `placeholder` where each was. Single-line
+ * code stays inline.
+ */
+export function extractWorkflowyCodeBlocks(html: string, placeholder = ' '): { html: string; blocks: string[] } {
+  const blocks: string[] = [];
+  const rest = html.replace(CODE_SPAN, (whole, _tag: string, inner: string) => {
+    const code = codeText(inner);
+    if (!code.trim().includes('\n')) return whole;
+    blocks.push(code);
+    return placeholder;
+  });
+  return { html: rest, blocks };
+}
+
+/** A short title for a node that was only a code block: its first line. */
+export function codeTitle(code: string): string {
+  const line = code.split('\n').find((l) => l.trim() !== '')?.trim() ?? '';
+  return line.length > 80 ? `${line.slice(0, 79).trimEnd()}…` : line;
 }

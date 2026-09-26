@@ -1,7 +1,7 @@
 import type { Command, Engine, Outcome } from '@/commands';
 import { newId } from '@/model';
 import type { OutlineItem } from './types';
-import { looksLikeWorkflowyHtml, workflowyHtmlToMarkdown } from './workflowy';
+import { codeTitle, extractWorkflowyCodeBlocks, fencedBlock, looksLikeWorkflowyHtml, workflowyHtmlToMarkdown } from './workflowy';
 
 const BULLET = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
 
@@ -77,9 +77,22 @@ export function opmlItems(outlines: RawOutline[], fromWorkflowy = false): Outlin
     list.some((o) => o.complete || looksLikeWorkflowyHtml(o.text) || looksLikeWorkflowyHtml(o.note) || any(o.children));
   const html = fromWorkflowy || any(outlines);
   const convert = (o: RawOutline): OutlineItem => {
-    let content = html ? workflowyHtmlToMarkdown(o.text) : o.text;
+    if (!html) return { content: o.text, note: o.note, children: o.children.map(convert) };
+    // Multi-line code can't live in a node's single-line content: it moves to the note.
+    const text = extractWorkflowyCodeBlocks(o.text);
+    const note = extractWorkflowyCodeBlocks(o.note, '\u0000');
+    let content = workflowyHtmlToMarkdown(text.html);
+    if (content === '' && text.blocks.length > 0) content = codeTitle(text.blocks[0]!);
     if (o.complete && content !== '') content = `~~${content}~~`;
-    return { content, note: html ? workflowyHtmlToMarkdown(o.note, true) : o.note, children: o.children.map(convert) };
+    // Code blocks in the note stay where they were, as their own paragraphs.
+    const parts = text.blocks.map(fencedBlock);
+    workflowyHtmlToMarkdown(note.html, true)
+      .split('\u0000')
+      .forEach((segment, i) => {
+        if (i > 0) parts.push(fencedBlock(note.blocks[i - 1]!));
+        if (segment.trim() !== '') parts.push(segment.trim());
+      });
+    return { content, note: parts.join('\n\n'), children: o.children.map(convert) };
   };
   return outlines.map(convert);
 }

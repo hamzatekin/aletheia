@@ -61,3 +61,29 @@ describe('opmlItems', () => {
     expect(opmlItems([raw('R&amp;D')], true)[0]!.content).toBe('R&D');
   });
 });
+
+describe('WorkFlowy code blocks', () => {
+  it('moves a multi-line code block out of the content into a fenced block in the note', () => {
+    const code = '<code>Your local main is out of date.\n\n1. Firms with no settings\n- The `send` check</code>';
+    const [item] = opmlItems([raw(code, { note: 'my note' })], true);
+    expect(item!.content).toBe('Your local main is out of date.');
+    expect(item!.note).toBe('```\nYour local main is out of date.\n\n1. Firms with no settings\n- The `send` check\n```\n\nmy note');
+  });
+
+  it('keeps the text around a code block as the title and <br> as line breaks', () => {
+    const [item] = opmlItems([raw('Query: <pre>SELECT *<br>FROM t</pre>')], true);
+    expect(item!.content).toBe('Query:');
+    expect(item!.note).toBe('```\nSELECT *\nFROM t\n```');
+  });
+
+  it('keeps code blocks in notes in place and single-line code inline', () => {
+    const [item] = opmlItems([raw('use <code>npm i</code>', { note: 'before<code>a\nb</code>after' })], true);
+    expect(item!.content).toBe('use `npm i`');
+    expect(item!.note).toBe('before\n\n```\na\nb\n```\n\nafter');
+  });
+
+  it('uses a longer fence when the code has backtick fences of its own', () => {
+    const [item] = opmlItems([raw('<code>```js\nx\n```</code>')], true);
+    expect(item!.note).toBe('````\n```js\nx\n```\n````');
+  });
+});
