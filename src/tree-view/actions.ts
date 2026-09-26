@@ -167,10 +167,13 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
     }
     const slash = ui.getState().slash;
     if (key === 'slash') {
-      // A "/" right after ":" or "/" is part of a URL or path, not a command.
-      const from = session.caretPos();
-      const before = from > 1 ? session.editor.state.doc.textBetween(from - 1, from) : '';
-      if (!slash && before !== ':' && before !== '/') ui.setSlash({ from, query: '', index: 0 });
+      // Sent just after a "/" was typed, so it sits right before the caret.
+      // Inside a word that already has ":" or "/" it is part of a URL or path.
+      const from = session.caretPos() - 1;
+      const { doc } = session.editor.state;
+      if (from < 1 || doc.textBetween(from, from + 1) !== '/') return false;
+      const word = /\S*$/.exec(doc.textBetween(1, from))![0];
+      if (!slash && !/[:/]/.test(word)) ui.setSlash({ from, query: '', index: 0 });
       return false;
     }
     if (slash) {

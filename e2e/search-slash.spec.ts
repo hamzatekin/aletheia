@@ -76,3 +76,22 @@ test('typed Markdown link syntax becomes a link', async ({ page }) => {
   await page.keyboard.press('Escape');
   await expect.poll(() => outline(page, 'Someday')).toEqual(['Learn to juggle', 'Plant a tree [docs](https://example.com)']);
 });
+
+test('the slash menu sits above the rows below it', async ({ page }) => {
+  await edit(page, 'Learn to juggle');
+  await page.keyboard.type(' /');
+  const menu = page.locator('[data-testid=slash-menu]');
+  await expect(menu).toBeVisible();
+  const box = (await menu.boundingBox())!;
+  const onTop = await page.evaluate(
+    ({ x, y }) => !!document.elementFromPoint(x, y)?.closest('[data-testid=slash-menu]'),
+    { x: box.x + 20, y: box.y + 12 },
+  );
+  expect(onTop).toBe(true);
+});
+
+test('a "/" inserted without a key event (mobile keyboards, other layouts) opens the menu', async ({ page }) => {
+  await edit(page, 'Plant a tree');
+  await page.keyboard.insertText(' /');
+  await expect(page.locator('[data-testid=slash-menu]')).toBeVisible();
+});

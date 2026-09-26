@@ -120,7 +120,7 @@ const TABS: Tab[] = [
           rows={[
             [<Keys k="Alt+Shift+↑" />, 'Move the node (with its children) up among its siblings.'],
             [<Keys k="Alt+Shift+↓" />, 'Move it down.'],
-            ['Drag a bullet', 'Or the ≡ grip left of it. The blue line shows where it lands; move left or right to change its level.'],
+            ['Drag a bullet', 'Or the ≡ grip left of it. The blue line shows where it lands; move left or right to change its level. Click the grip for a menu of actions on that node.'],
           ]}
         />
       </>
