@@ -93,6 +93,34 @@ const TABS: Tab[] = [
     ),
   },
   {
+    id: 'phone',
+    title: 'On a phone',
+    body: (
+      <>
+        <P>Everything works by touch too, the way WorkFlowy and Dynalist do it on a phone.</P>
+        <Table
+          rows={[
+            ['Tap a line', 'Start editing it. A toolbar appears above the keyboard.'],
+            ['Tap the ▸ arrow', 'Expand a collapsed node (▸) or collapse an open one (▾). Collapsed nodes also have a halo around the bullet.'],
+            ['Tap a bullet', 'Zoom into that node. Tap Home or a crumb at the top to go back.'],
+            ['Tap the magnifier', 'Search everything, top right.'],
+          ]}
+        />
+        <H>The toolbar above the keyboard</H>
+        <Table
+          rows={[
+            ['⇤  ⇥', 'Outdent and indent, in place of Shift+Tab and Tab.'],
+            ['↑  ↓', 'Move the node up or down among its siblings.'],
+            ['Note', "Write in the node's note; tap again to go back to the node."],
+            ['Undo  Redo', 'Take back the last change, or bring it back.'],
+            ['⋯', 'The node menu: zoom, collapse, duplicate, copy link, delete.'],
+            ['⌄', 'Stop editing and hide the keyboard.'],
+          ]}
+        />
+      </>
+    ),
+  },
+  {
     id: 'organize',
     title: 'Organize',
     body: (
@@ -102,7 +130,7 @@ const TABS: Tab[] = [
           rows={[
             [<Keys k="Mod+↑" />, 'Collapse the node (hide its children).'],
             [<Keys k="Mod+↓" />, 'Expand it again.'],
-            ['Hover the ▾ arrow', 'Click it left of a bullet to collapse or expand. A bullet with a grey halo has hidden children.'],
+            ['The ▸ arrow', 'Left of a bullet: click it to collapse or expand. With a mouse it shows on hover; on a phone it is always there. A bullet with a grey halo has hidden children.'],
           ]}
         />
         <H>Zoom</H>

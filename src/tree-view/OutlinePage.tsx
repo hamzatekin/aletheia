@@ -17,6 +17,7 @@ import { useUiStore, type UiStore } from '@/store/ui-store';
 import { createOutlineActions } from './actions';
 import { Breadcrumbs } from './Breadcrumbs';
 import { Outline } from './Outline';
+import { MobileToolbar } from './MobileToolbar';
 import { OutlineProvider } from './outline-context';
 import { OutlineSidebar, SidebarIcon } from './OutlineSidebar';
 import { PageResizeHandles } from './PageResizeHandles';
@@ -122,6 +123,22 @@ export function OutlinePage({ ui, session, search, settings, sync }: Props) {
           onClick={() => {
             session.flush();
             ui.blur();
+            ui.setSearchOpen(true);
+          }}
+          className="fixed top-3 right-23 z-40 flex size-[34px] items-center justify-center rounded-md text-muted hover:bg-hover hover:text-ink"
+          aria-label="Search"
+          title="Search (Ctrl+K)"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.5" />
+            <path d="m20 20-4.2-4.2" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            session.flush();
+            ui.blur();
             ui.setHelpOpen(true);
           }}
           className="fixed top-3 right-13 z-40 flex size-[34px] items-center justify-center rounded-md text-[15px] font-semibold text-muted hover:bg-hover hover:text-ink"
@@ -181,6 +198,7 @@ export function OutlinePage({ ui, session, search, settings, sync }: Props) {
             <SearchPalette />
           </main>
         </div>
+        <MobileToolbar />
       </div>
     </OutlineProvider>
   );

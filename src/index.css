@@ -286,3 +286,17 @@ body {
   color: var(--faint);
   pointer-events: none;
 }
+
+/* Touch screens: fingers need bigger targets than the drawn icons. The
+   collapse arrow's hit area reaches into the empty margin on its left. */
+@media (pointer: coarse) {
+  .collapse-toggle::after {
+    content: '';
+    position: absolute;
+    inset: -4px 0 -4px -18px;
+  }
+  /* Long-pressing a bullet should not pop up the browser's link preview. */
+  .group\/bullet {
+    -webkit-touch-callout: none;
+  }
+}

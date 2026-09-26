@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router';
 import { moveDownCommand, moveUpCommand, type Command } from '@/commands';
 import { importItems, type OutlineItem } from '@/io';
@@ -38,8 +39,11 @@ function terminalFixes(tree: TreeReader, id: string): Command[] {
   ];
 }
 
-/** Dropdown under a row's ≡ grip with the actions for that node. */
-export function NodeMenu({ id, hasChildren, collapsed }: { id: string; hasChildren: boolean; collapsed: boolean }) {
+/**
+ * The actions for a node: a dropdown under the row's ≡ grip, or on touch
+ * screens a sheet from the bottom of the screen, where a thumb reaches it.
+ */
+export function NodeMenu({ id, hasChildren, collapsed, sheet = false }: { id: string; hasChildren: boolean; collapsed: boolean; sheet?: boolean }) {
   const { engine, ui, session, rootId } = useOutline();
   const navigate = useNavigate();
   const ref = useRef<HTMLDivElement>(null);
@@ -119,13 +123,17 @@ export function NodeMenu({ id, hasChildren, collapsed }: { id: string; hasChildr
     },
   ];
 
-  return (
+  const menu = (
     <div
       ref={ref}
       role="menu"
       aria-label="Node actions"
       data-testid="node-menu"
-      className="absolute top-full left-0 z-20 mt-1 w-56 rounded-md border border-line bg-surface py-1 text-sm shadow-lg"
+      className={
+        sheet
+          ? 'fixed inset-x-0 bottom-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-xl border-t border-line bg-surface py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-base shadow-2xl'
+          : 'absolute top-full left-0 z-20 mt-1 w-56 rounded-md border border-line bg-surface py-1 text-sm shadow-lg'
+      }
       onMouseDown={(e) => e.preventDefault()}
     >
       {items.map((item) => (
@@ -135,7 +143,8 @@ export function NodeMenu({ id, hasChildren, collapsed }: { id: string; hasChildr
           role="menuitem"
           data-testid={`node-menu-${item.id}`}
           className={
-            'flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-hover ' +
+            'flex w-full items-center justify-between text-left hover:bg-hover active:bg-active ' +
+            (sheet ? 'px-5 py-3 ' : 'px-3 py-1.5 ') +
             (item.danger ? 'text-danger' : 'text-ink')
           }
           onClick={() => {
@@ -144,9 +153,17 @@ export function NodeMenu({ id, hasChildren, collapsed }: { id: string; hasChildr
           }}
         >
           <span>{item.label}</span>
-          {item.hint && <span className="ml-3 text-xs text-faint">{item.hint}</span>}
+          {item.hint && !sheet && <span className="ml-3 text-xs text-faint">{item.hint}</span>}
         </button>
       ))}
     </div>
+  );
+  if (!sheet) return menu;
+  return createPortal(
+    <>
+      <div className="fixed inset-0 z-50 bg-black/20" aria-hidden="true" />
+      {menu}
+    </>,
+    document.body,
   );
 }

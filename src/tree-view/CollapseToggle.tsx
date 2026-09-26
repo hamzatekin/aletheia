@@ -3,7 +3,7 @@ interface Props {
   onToggle: () => void;
 }
 
-/** Chevron shown on hover for nodes with children. */
+/** Chevron for nodes with children: on hover with a mouse, always on touch screens (as in WorkFlowy). */
 export function CollapseToggle({ collapsed, onToggle }: Props) {
   return (
     <button
@@ -13,7 +13,10 @@ export function CollapseToggle({ collapsed, onToggle }: Props) {
       aria-expanded={!collapsed}
       onClick={onToggle}
       onMouseDown={(e) => e.preventDefault()}
-      className="flex h-(--row-lh) w-5 shrink-0 items-center justify-center rounded text-faint opacity-0 transition-opacity group-hover:opacity-100 hover:text-ink focus-visible:opacity-100"
+      className={
+        'collapse-toggle relative flex h-(--row-lh) w-5 shrink-0 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100 hover:text-ink focus-visible:opacity-100 pointer-coarse:opacity-100 ' +
+        (collapsed ? 'text-muted' : 'text-faint')
+      }
     >
       <svg
         width="10"

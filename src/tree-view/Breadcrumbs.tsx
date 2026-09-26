@@ -9,7 +9,7 @@ interface Props {
 /** Home › ancestor › ancestor. Clicking any crumb zooms out to it. */
 export function Breadcrumbs({ rootId }: Props) {
   const ancestors = useAncestors(rootId);
-  const crumb = 'max-w-48 truncate rounded px-1 py-0.5 hover:bg-hover hover:text-ink';
+  const crumb = 'max-w-48 truncate rounded px-1 py-0.5 hover:bg-hover hover:text-ink pointer-coarse:px-2 pointer-coarse:py-1.5';
   return (
     <nav aria-label="Breadcrumbs" className="mb-3 flex flex-wrap items-center text-sm text-muted">
       <Link to="/" className={crumb}>
