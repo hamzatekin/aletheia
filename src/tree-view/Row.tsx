@@ -128,11 +128,10 @@ export const Row = memo(function Row({ id, depth }: Props) {
             dangerouslySetInnerHTML={{ __html: renderInline(node.content) || '<br>' }}
           />
         )}
-        {focusField === 'note' ? (
-          <NoteEditor id={id} />
-        ) : (
-          node.note !== '' && (
-            <div className="relative flow-root">
+        {(focusField === 'note' || node.note !== '') && (
+          <div className="relative flow-root">
+            {/* The same caret while reading and editing, so nothing appears or moves on click. */}
+            {node.note !== '' && (
               <button
                 type="button"
                 tabIndex={-1}
@@ -140,36 +139,42 @@ export const Row = memo(function Row({ id, depth }: Props) {
                 aria-expanded={!noteCollapsed}
                 data-testid="note-toggle"
                 className={
-                  'note-toggle absolute top-0 -left-6 flex h-5 w-5 items-center justify-center rounded-full text-faint hover:bg-hover hover:text-muted ' +
-                  (noteCollapsed ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
+                  'note-toggle absolute top-0 -left-6 z-[1] flex h-5 w-5 items-center justify-center rounded-full text-faint hover:bg-hover hover:text-muted ' +
+                  (noteCollapsed && focusField !== 'note' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
                 }
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => notePrefs.getState().toggleCollapsed(id)}
+                onClick={() => {
+                  // Collapsing the note being edited also leaves it.
+                  if (focusField === 'note' && !noteCollapsed) ui.focusNode(id, { kind: 'end' });
+                  notePrefs.getState().toggleCollapsed(id);
+                }}
               >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" className={noteCollapsed ? '-rotate-90' : ''}>
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" className={noteCollapsed && focusField !== 'note' ? '-rotate-90' : ''}>
                   <path d="M1.5 3.2 5 6.8l3.5-3.6z" />
                 </svg>
               </button>
-              {noteCollapsed ? (
+            )}
+            {focusField === 'note' ? (
+              <NoteEditor id={id} />
+            ) : noteCollapsed ? (
+              <div
+                className="node-note row-note cursor-text truncate pb-0.5 text-muted"
+                data-collapsed="true"
+                onMouseDown={onNoteMouseDown}
+              >
+                {noteSummary(node.note)}
+              </div>
+            ) : (
+              <>
+                <NoteHeader raw={noteMode.raw} quiet />
                 <div
-                  className="node-note row-note cursor-text truncate pb-0.5 text-muted"
-                  data-collapsed="true"
+                  className="node-note prose-note row-note cursor-text pb-0.5 text-muted"
                   onMouseDown={onNoteMouseDown}
-                >
-                  {noteSummary(node.note)}
-                </div>
-              ) : (
-                <>
-                  <NoteHeader raw={noteMode.raw} quiet />
-                  <div
-                    className="node-note prose-note row-note cursor-text pb-0.5 text-muted"
-                    onMouseDown={onNoteMouseDown}
-                    dangerouslySetInnerHTML={{ __html: renderBlock(node.note) }}
-                  />
-                </>
-              )}
-            </div>
-          )
+                  dangerouslySetInnerHTML={{ __html: renderBlock(node.note) }}
+                />
+              </>
+            )}
+          </div>
         )}
       </div>
     </div>
