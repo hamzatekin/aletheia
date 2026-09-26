@@ -233,7 +233,7 @@ const TABS: Tab[] = [
             ['/Export as Markdown', 'The current page as an indented Markdown list.'],
             ['/Export as OPML', 'For other outliners such as Dynalist or Workflowy.'],
             ['/Export JSON backup', 'Everything, exactly as stored.'],
-            ['/Import Markdown or OPML', 'Adds the file as children of the node you are on.'],
+            ['/Import Markdown or OPML', 'Adds the file as children of the node you are on. For WorkFlowy, export as OPML: formatting and notes carry over, completed items come in struck through.'],
             ['/Restore JSON backup', 'Replaces everything with the backup.'],
             ['Paste several lines', 'Each line becomes a node, nested by its indentation, as one undo step.'],
           ]}

@@ -98,8 +98,8 @@ export const defaultSlashCommands: SlashCommand[] = [
   },
   {
     id: 'import-opml',
-    title: 'Import OPML into this node',
-    keywords: 'upload xml',
+    title: 'Import OPML (WorkFlowy, Dynalist) into this node',
+    keywords: 'upload xml workflowy dynalist',
     group: 'Import',
     run: (c) => importWith(c, '.opml,.xml,text/xml,text/x-opml', parseOpml),
   },
