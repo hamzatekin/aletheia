@@ -101,7 +101,7 @@ const TABS: Tab[] = [
         <Table
           rows={[
             ['Tap a line', 'Start editing it. A toolbar appears above the keyboard.'],
-            ['Tap the ▸ arrow', 'Expand a collapsed node (▸) or collapse an open one (▾). Collapsed nodes also have a halo around the bullet.'],
+            ['Tap the arrow on the right', 'Every line with children has one. ▸ expands a collapsed node, ▾ collapses an open one. Collapsed nodes also have a halo around the bullet.'],
             ['Tap a bullet', 'Zoom into that node. Tap Home or a crumb at the top to go back.'],
             ['Tap the magnifier', 'Search everything, top right.'],
           ]}
@@ -130,7 +130,7 @@ const TABS: Tab[] = [
           rows={[
             [<Keys k="Mod+↑" />, 'Collapse the node (hide its children).'],
             [<Keys k="Mod+↓" />, 'Expand it again.'],
-            ['The ▸ arrow', 'Left of a bullet: click it to collapse or expand. With a mouse it shows on hover; on a phone it is always there. A bullet with a grey halo has hidden children.'],
+            ['The ▸ arrow', 'Left of a bullet, shown on hover: click it to collapse or expand. On a phone it sits at the right end of the line. A bullet with a grey halo has hidden children.'],
           ]}
         />
         <H>Zoom</H>

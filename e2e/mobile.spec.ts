@@ -13,19 +13,28 @@ async function hitAtCenter(page: Page, selector: string): Promise<boolean> {
   );
 }
 
-test('collapsed nodes show a visible arrow that expands them with a tap', async ({ page }) => {
+test('on a phone the collapse arrow sits at the right end of the line and expands with a tap', async ({ page }) => {
   await gotoHome(page);
   await page.evaluate(() => {
     const { engine } = (window as any).__aletheia;
     const n = [...engine.tree.all()].find((n: any) => n.content === 'Projects');
     engine.execute({ type: 'toggleCollapse', id: n.id, collapsed: true });
   });
-  const toggle = row(page, 'Projects').getByRole('button', { name: 'Expand' });
+  const projects = row(page, 'Projects');
+  const toggle = projects.getByRole('button', { name: 'Expand' });
+  await expect(toggle).toHaveCount(1);
   await expect(toggle).toHaveCSS('opacity', '1');
+  const box = (await toggle.boundingBox())!;
+  const text = (await projects.locator('.node-content').first().boundingBox())!;
+  expect(box.x).toBeGreaterThan(text.x + text.width - 1);
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  expect(box.width).toBeGreaterThanOrEqual(40);
   expect(await hitAtCenter(page, '[data-node-id] button[aria-label=Expand]')).toBe(true);
   await toggle.tap();
   await expect(row(page, 'Write the outliner')).toBeVisible();
-  await expect(row(page, 'Projects').getByRole('button', { name: 'Collapse' })).toHaveCSS('opacity', '1');
+  await expect(projects.getByRole('button', { name: 'Collapse' })).toHaveCount(1);
+  // Leaf nodes get no arrow.
+  await expect(row(page, 'Plant a tree').getByRole('button', { name: /Expand|Collapse/ })).toHaveCount(0);
 });
 
 test('the toolbar above the keyboard indents, outdents and moves while editing', async ({ page }) => {

@@ -1,10 +1,13 @@
 interface Props {
   collapsed: boolean;
   onToggle: () => void;
+  /** Touch screens put it at the row's right edge, always shown, like WorkFlowy's phone app. */
+  side?: 'left' | 'right';
 }
 
-/** Chevron for nodes with children: on hover with a mouse, always on touch screens (as in WorkFlowy). */
-export function CollapseToggle({ collapsed, onToggle }: Props) {
+/** Chevron for nodes with children: left of the bullet on hover with a mouse, at the right edge on touch screens. */
+export function CollapseToggle({ collapsed, onToggle, side = 'left' }: Props) {
+  const right = side === 'right';
   return (
     <button
       type="button"
@@ -14,13 +17,15 @@ export function CollapseToggle({ collapsed, onToggle }: Props) {
       onClick={onToggle}
       onMouseDown={(e) => e.preventDefault()}
       className={
-        'collapse-toggle relative flex h-(--row-lh) w-5 shrink-0 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100 hover:text-ink focus-visible:opacity-100 pointer-coarse:opacity-100 ' +
+        (right
+          ? 'collapse-toggle-right relative -mr-3 flex h-(--row-lh) w-11 shrink-0 items-center justify-center rounded active:bg-active '
+          : 'relative flex h-(--row-lh) w-5 shrink-0 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100 hover:text-ink focus-visible:opacity-100 ') +
         (collapsed ? 'text-muted' : 'text-faint')
       }
     >
       <svg
-        width="10"
-        height="10"
+        width={right ? 14 : 10}
+        height={right ? 14 : 10}
         viewBox="0 0 10 10"
         fill="currentColor"
         aria-hidden="true"

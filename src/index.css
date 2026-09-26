@@ -288,12 +288,12 @@ body {
 }
 
 /* Touch screens: fingers need bigger targets than the drawn icons. The
-   collapse arrow's hit area reaches into the empty margin on its left. */
+   collapse arrow at the row's right edge reaches a little above and below it. */
 @media (pointer: coarse) {
-  .collapse-toggle::after {
+  .collapse-toggle-right::after {
     content: '';
     position: absolute;
-    inset: -4px 0 -4px -18px;
+    inset: -6px 0;
   }
   /* Long-pressing a bullet should not pop up the browser's link preview. */
   .group\/bullet {

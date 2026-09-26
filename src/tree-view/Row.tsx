@@ -113,7 +113,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
         </div>
       )}
       <div className="-ml-11.5 flex w-11.5 shrink-0 items-start pr-1.5">
-        {hasChildren ? (
+        {hasChildren && !coarse ? (
           <CollapseToggle collapsed={node.collapsed} onToggle={() => engine.execute({ type: 'toggleCollapse', id })} />
         ) : (
           <span className="w-5 shrink-0" />
@@ -179,6 +179,9 @@ export const Row = memo(function Row({ id, depth }: Props) {
           </div>
         )}
       </div>
+      {hasChildren && coarse && (
+        <CollapseToggle side="right" collapsed={node.collapsed} onToggle={() => engine.execute({ type: 'toggleCollapse', id })} />
+      )}
     </div>
   );
 });
