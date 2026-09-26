@@ -129,6 +129,18 @@ Local development: `pnpm build && npx wrangler dev` serves the app and the
 API with a local D1 on :8787 (`pnpm dev` proxies `/api` to it). Reset local
 sync data with `npx wrangler d1 execute aletheia-sync --local --command "DELETE FROM spaces; DELETE FROM nodes;"`.
 
+## Installable app (PWA)
+
+`public/manifest.webmanifest` and `public/icons/` let phones and desktop
+Chrome install the app. `pwa/sw.js` is the service worker; on `pnpm build`,
+`pwa/vite-plugin.ts` fills in the built files and a version and writes
+`dist/sw.js` (dev mode registers no service worker).
+
+- Page loads try the network first, so a new deploy shows up on the next
+  open; the cached app is used only offline.
+- Built files are precached, so the app opens offline after one online visit.
+- `/api/*` (sync) is never intercepted.
+
 ## Scripts
 
 ```
