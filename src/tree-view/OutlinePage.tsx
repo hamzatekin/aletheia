@@ -9,6 +9,7 @@ import type { EditorSession } from '@/editor/session';
 import type { SearchIndex } from '@/search';
 import { SearchPalette } from '@/search/SearchPalette';
 import { useEngine } from '@/app/engine-context';
+import { TutorialDialog } from '@/help/TutorialDialog';
 import { SettingsPanel } from '@/settings/SettingsPanel';
 import { useSettings, type SettingsStore } from '@/store/settings-store';
 import { useUiStore, type UiStore } from '@/store/ui-store';
@@ -64,11 +65,18 @@ export function OutlinePage({ ui, session, search, settings }: Props) {
         s.update({ sidebarOpen: !s.sidebarOpen });
         return;
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+        e.preventDefault();
+        session.flush();
+        ui.blur();
+        ui.setHelpOpen(!ui.getState().helpOpen);
+        return;
+      }
       actions.handleGlobalKey(e);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [actions, settings]);
+  }, [actions, settings, session, ui]);
 
   useEffect(() => {
     document.title = root && !missing ? plainText(root.content) || 'Untitled' : 'Aletheia';
@@ -106,7 +114,21 @@ export function OutlinePage({ ui, session, search, settings }: Props) {
             <SidebarIcon />
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => {
+            session.flush();
+            ui.blur();
+            ui.setHelpOpen(true);
+          }}
+          className="fixed top-3 right-13 z-40 flex size-[34px] items-center justify-center rounded-md text-[15px] font-semibold text-neutral-500 hover:bg-(--subtle) hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100"
+          aria-label="Tutorial"
+          title="Tutorial (Ctrl+/)"
+        >
+          ?
+        </button>
         <SettingsPanel settings={settings} />
+        <TutorialDialog ui={ui} />
         <div className="desk min-h-screen" onMouseDown={onBackgroundMouseDown}>
           <main className="book-page" onMouseDown={onBackgroundMouseDown}>
             {rootId !== null && <Breadcrumbs rootId={rootId} />}

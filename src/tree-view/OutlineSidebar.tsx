@@ -5,6 +5,7 @@ import { plainText } from '@/editor/markdown';
 import { ancestorIds, parentKey } from '@/model';
 import { useSettings, type SettingsStore } from '@/store/settings-store';
 import { useTreeStore } from '@/store/tree-store';
+import { useOutline } from './outline-context';
 import { useNode } from './use-outline';
 
 interface Props {
@@ -30,6 +31,7 @@ function useChildren(id: string | null): readonly string[] {
 /** The whole document as a clickable table of contents. Clicking an item zooms into it. */
 export function OutlineSidebar({ settings, rootId }: Props) {
   const engine = useEngine();
+  const { ui, session } = useOutline();
   const open = useSettings(settings, (s) => s.sidebarOpen);
   const depthLimit = useSettings(settings, (s) => s.outlineDepth);
   const structureVersion = useTreeStore(engine.store, (s) => s.structureVersion);
@@ -92,6 +94,20 @@ export function OutlineSidebar({ settings, rootId }: Props) {
             </ul>
           </Ctx.Provider>
         </nav>
+        <div className="border-t border-(--subtle) p-2">
+          <button
+            type="button"
+            onClick={() => {
+              session.flush();
+              ui.blur();
+              ui.setHelpOpen(true);
+            }}
+            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-neutral-600 hover:bg-(--subtle) dark:text-neutral-300"
+          >
+            <span className="flex size-4 items-center justify-center rounded-full border border-current text-[10px] font-semibold">?</span>
+            Tutorial and shortcuts
+          </button>
+        </div>
       </aside>
     </>
   );
