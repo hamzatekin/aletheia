@@ -14,6 +14,8 @@ import { useHasChildren, useNode } from './use-outline';
 import { useRowDnd } from './use-dnd';
 
 export const INDENT_PX = 24;
+/** Phones indent less, like WorkFlowy's app, so deep outlines keep room for text. */
+export const TOUCH_INDENT_PX = 18;
 
 /** One line standing in for a collapsed note: its first line of text, marked as cut. */
 function noteSummary(note: string): string {
@@ -40,6 +42,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
   const noteMode = useNoteMode();
   const indicator = useUiStore(ui, (s) => (s.dropIndicator?.targetId === id ? s.dropIndicator : null));
   const coarse = useCoarsePointer();
+  const indent = coarse ? TOUCH_INDENT_PX : INDENT_PX;
   const rowRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLAnchorElement>(null);
   const gripRef = useRef<HTMLButtonElement>(null);
@@ -68,7 +71,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
         (selected ? 'rounded bg-selection ' : focusField ? 'row-focused ' : '') +
         (dragging ? 'opacity-40' : '')
       }
-      style={{ paddingLeft: depth * INDENT_PX }}
+      style={{ paddingLeft: depth * indent }}
       data-node-id={id}
       data-depth={depth}
       data-focused={focusField ?? undefined}
@@ -77,7 +80,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
       {indicator && (
         <div
           className="pointer-events-none absolute right-0 z-10 h-0.5 rounded bg-accent"
-          style={{ left: indicator.level * INDENT_PX - 20, [indicator.edge === 'above' ? 'top' : 'bottom']: -1 }}
+          style={{ left: indicator.level * indent - 20, [indicator.edge === 'above' ? 'top' : 'bottom']: -1 }}
           data-testid="drop-indicator"
           data-level={indicator.level}
           data-edge={indicator.edge}
@@ -112,8 +115,9 @@ export const Row = memo(function Row({ id, depth }: Props) {
           <NodeMenu id={id} hasChildren={hasChildren} collapsed={node.collapsed} sheet={coarse} />
         </div>
       )}
-      <div className="-ml-11.5 flex w-11.5 shrink-0 items-start pr-1.5">
-        {hasChildren && !coarse ? (
+      {/* On phones the arrow sits at the right end, so the gutter holds just the bullet. */}
+      <div className={coarse ? '-ml-6 flex w-6 shrink-0 items-start pr-1' : '-ml-11.5 flex w-11.5 shrink-0 items-start pr-1.5'}>
+        {coarse ? null : hasChildren ? (
           <CollapseToggle collapsed={node.collapsed} onToggle={() => engine.execute({ type: 'toggleCollapse', id })} />
         ) : (
           <span className="w-5 shrink-0" />

@@ -87,3 +87,44 @@ test('search has a button, since phones have no Ctrl+K', async ({ page }) => {
   await page.getByRole('button', { name: 'Find' }).tap();
   await expect(page.getByTestId('search-palette')).toBeVisible();
 });
+
+test('phones use the full width and keep breadcrumbs on one scrolling line', async ({ page }) => {
+  await gotoHome(page);
+  const id = await page.evaluate(() => {
+    const { engine } = (window as any).__aletheia;
+    let parent: string | null = null;
+    for (const name of ['A long first ancestor', 'A second long ancestor', 'Third ancestor here', 'Fourth one', 'Deep page']) {
+      const id = crypto.randomUUID();
+      engine.execute({ type: 'createNode', id, parentId: parent, at: 'last' });
+      engine.execute({ type: 'updateContent', id, content: name });
+      parent = id;
+    }
+    const child = crypto.randomUUID();
+    engine.execute({ type: 'createNode', id: child, parentId: parent, at: 'last' });
+    engine.execute({ type: 'updateContent', id: child, content: 'Child row' });
+    history.pushState({}, '', `/n/${parent}`);
+    dispatchEvent(new PopStateEvent('popstate'));
+    return parent;
+  });
+  await expect(page.locator('h1')).toHaveText('Deep page');
+  expect(id).toBeTruthy();
+
+  const nav = page.getByRole('navigation', { name: 'Breadcrumbs' });
+  const { height, scrollWidth, clientWidth, scrollLeft } = await nav.evaluate((n) => ({
+    height: n.getBoundingClientRect().height,
+    scrollWidth: n.scrollWidth,
+    clientWidth: n.clientWidth,
+    scrollLeft: n.scrollLeft,
+  }));
+  expect(height).toBeLessThan(40);
+  expect(scrollWidth).toBeGreaterThan(clientWidth);
+  // Scrolled to the end, so the nearest parent shows.
+  expect(scrollLeft + clientWidth).toBeGreaterThanOrEqual(scrollWidth - 1);
+  await expect(nav).toHaveAttribute('data-overflow-left', 'true');
+
+  // The bullet sits near the left edge and text starts soon after it.
+  const bullet = (await row(page, 'Child row').getByRole('link', { name: 'Zoom in' }).boundingBox())!;
+  expect(bullet.x).toBeLessThan(16);
+  const text = (await row(page, 'Child row').locator('.node-content').first().boundingBox())!;
+  expect(text.x).toBeLessThan(36);
+});
