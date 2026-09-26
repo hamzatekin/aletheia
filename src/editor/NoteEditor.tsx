@@ -4,6 +4,7 @@ import { useNode } from '@/tree-view/use-outline';
 import { isNoteCollapsed, notePrefs, useNotePrefs } from '@/store/note-prefs';
 import { RichNoteEditor } from './RichNoteEditor';
 import { keepCaretAcrossSwitch } from './caret-handoff';
+import { flushNote, registerNoteFlush } from './note-flush';
 import { isTerminalPaste, terminalToMarkdown } from '@/io/terminal';
 
 interface Props {
@@ -24,7 +25,7 @@ export function NoteEditor({ id }: Props) {
   const { raw } = useNoteMode();
   return (
     <div className="note-box relative flow-root">
-      <NoteHeader raw={raw} overlay={raw} />
+      <NoteHeader id={id} raw={raw} overlay={raw} />
       {raw ? <RawNoteEditor id={id} /> : <RichNoteEditor id={id} />}
     </div>
   );
@@ -50,10 +51,14 @@ const MarkdownIcon = () => (
  * `quiet` hides it until the row is hovered. `overlay` pins it over the raw
  * textarea instead, which reserves room for it on the right.
  */
-export function NoteHeader({ raw, quiet = false, overlay = false }: { raw: boolean; quiet?: boolean; overlay?: boolean }) {
+export function NoteHeader({ id, raw, quiet = false, overlay = false }: { id: string; raw: boolean; quiet?: boolean; overlay?: boolean }) {
   const tip = raw ? 'Markdown. Click to edit rendered' : 'Rendered. Click to edit as Markdown';
+  // Hidden until the row is hovered, except on touch screens, which have no hover.
+  const reveal = quiet ? 'opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100' : '';
+  const button = 'flex h-5 w-5 items-center justify-center rounded text-faint transition-opacity hover:bg-hover hover:text-muted ';
   return (
-    <div className={'note-header ' + (overlay ? 'absolute top-0 right-0 z-[1]' : 'float-right ml-2')} data-testid="note-mode">
+    <div className={'note-header flex gap-0.5 ' + (overlay ? 'absolute top-0 right-0 z-[1]' : 'float-right ml-2')} data-testid="note-mode">
+      <CopyNoteButton id={id} className={button + reveal} />
       <button
         type="button"
         tabIndex={-1}
@@ -61,10 +66,7 @@ export function NoteHeader({ raw, quiet = false, overlay = false }: { raw: boole
         aria-label={tip}
         aria-pressed={raw}
         data-testid="note-mode-toggle"
-        className={
-          'flex h-5 w-5 items-center justify-center rounded text-faint transition-opacity hover:bg-hover hover:text-muted ' +
-          (quiet ? 'opacity-0 group-hover:opacity-100' : '')
-        }
+        className={button + reveal}
         // Keep focus where it is; an open editor being replaced saves as it unmounts.
         onMouseDown={(e) => {
           e.preventDefault();
@@ -83,6 +85,53 @@ export function NoteHeader({ raw, quiet = false, overlay = false }: { raw: boole
         {raw ? <MarkdownIcon /> : <RenderedIcon />}
       </button>
     </div>
+  );
+}
+
+const CopyIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
+    <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
+    <path d="M10.5 5.5V3.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2" />
+  </svg>
+);
+const CheckIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="m3 8.5 3.2 3L13 4.5" />
+  </svg>
+);
+
+/** Copies the note's Markdown source, whichever way it is shown, and ticks for a moment. */
+function CopyNoteButton({ id, className }: { id: string; className: string }) {
+  const { engine } = useOutline();
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 1200);
+    return () => clearTimeout(t);
+  }, [copied]);
+  const tip = copied ? 'Copied' : 'Copy Markdown';
+  return (
+    <button
+      type="button"
+      tabIndex={-1}
+      title={tip}
+      aria-label={tip}
+      data-testid="note-copy"
+      className={className + (copied ? ' opacity-100!' : '')}
+      // Keep focus (and the caret) in an open editor.
+      onMouseDown={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        flushNote(id);
+        const note = engine.tree.get(id)?.note ?? '';
+        void navigator.clipboard?.writeText(note).then(() => setCopied(true), () => {});
+      }}
+    >
+      {copied ? <CheckIcon /> : <CopyIcon />}
+    </button>
   );
 }
 
@@ -126,7 +175,11 @@ function RawNoteEditor({ id }: Props) {
     // (Selecting before focusing: on a focused textarea Chrome scrolls to the new caret.)
     el.setSelectionRange(el.value.length, el.value.length);
     el.focus({ preventScroll: true });
-    return () => save(textRef.current);
+    const unregister = registerNoteFlush(id, () => save(textRef.current));
+    return () => {
+      unregister();
+      save(textRef.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount/unmount only
   }, [id]);
 

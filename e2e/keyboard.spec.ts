@@ -331,3 +331,27 @@ test('opening a long note or switching its mode never scrolls the page', async (
   await page.waitForTimeout(100);
   expect(await page.evaluate(() => window.scrollY)).toBe(before);
 });
+
+test('the copy icon copies a note as Markdown, including edits not saved yet', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.evaluate(() => {
+    const { engine } = (window as any).__aletheia;
+    const node = [...engine.tree.all()].find((n: any) => n.content === 'Plant a tree');
+    engine.execute({ type: 'updateNote', id: node.id, note: '## Plan\n\n- **dig** a hole\n- water it' });
+  });
+  const row = page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first();
+  await row.hover();
+  await row.getByTestId('note-copy').click();
+  await expect(row.getByTestId('note-copy')).toHaveAttribute('title', 'Copied');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('## Plan\n\n- **dig** a hole\n- water it');
+
+  // While editing, the copy has what was just typed, and the caret stays put.
+  await row.locator('.node-note li').last().click();
+  const editor = page.locator('.ProseMirror[data-editor=note]');
+  await expect(editor).toBeFocused();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' today');
+  await row.getByTestId('note-copy').click();
+  await expect(editor).toBeFocused();
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('## Plan\n\n- **dig** a hole\n- water it today');
+});
