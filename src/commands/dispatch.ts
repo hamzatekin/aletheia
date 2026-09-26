@@ -1,5 +1,5 @@
 import { createNode, mergeNodes, splitNode, updateContent, updateNote } from './content-commands';
-import { deleteSubtree, restore } from './delete-commands';
+import { deleteNode, deleteSubtree, restore } from './delete-commands';
 import { indent, moveNode, outdent, toggleCollapse } from './structure-commands';
 import type { Command, CommandContext, Effect, Rejection } from './types';
 
@@ -26,6 +26,8 @@ export function computeEffect(ctx: CommandContext, cmd: Command): Effect | Rejec
       return toggleCollapse(ctx, cmd);
     case 'deleteSubtree':
       return deleteSubtree(ctx, cmd);
+    case 'deleteNode':
+      return deleteNode(ctx, cmd);
     case 'restore':
       return restore(ctx, cmd);
   }

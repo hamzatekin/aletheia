@@ -95,7 +95,9 @@ export function NodeMenu({ id, hasChildren, collapsed }: { id: string; hasChildr
       run: () => {
         session.flush();
         if (ui.getState().focus?.id === id) ui.blur();
-        engine.execute({ type: 'deleteSubtree', id });
+        // An empty node only groups its children, so deleting it keeps them.
+        const empty = tree.get(id)!.content.trim() === '';
+        engine.execute({ type: empty ? 'deleteNode' : 'deleteSubtree', id });
       },
     },
   ];

@@ -234,10 +234,11 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
         return true;
       case 'backspaceAtStart': {
         if (isTitle) return true;
-        const hasChildren = tree.children(id).length > 0;
-        if (session.isEmpty() && !hasChildren) {
+        if (session.isEmpty()) {
+          // An empty parent goes, but its children stay: they move up into its place.
+          const type = tree.children(id).length > 0 ? 'deleteNode' : 'deleteSubtree';
           session.discard();
-          const outcome = engine.execute({ type: 'deleteSubtree', id });
+          const outcome = engine.execute({ type, id });
           if (outcome.ok && !outcome.focus) {
             const next = nextOf(id);
             if (next) ui.focusNode(next, { kind: 'start' });
@@ -246,8 +247,6 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
           }
           return applyFocus(outcome);
         }
-        // An empty parent stays: merging it away would re-home its children.
-        if (session.isEmpty()) return true;
         const prev = prevOf(id);
         if (prev === null) return true;
         session.flush();
