@@ -75,6 +75,6 @@ test('the node menu opens as a bottom sheet from the toolbar', async ({ page }) 
 
 test('search has a button, since phones have no Ctrl+K', async ({ page }) => {
   await gotoHome(page);
-  await page.getByRole('button', { name: 'Search' }).tap();
+  await page.getByRole('button', { name: 'Find' }).tap();
   await expect(page.getByTestId('search-palette')).toBeVisible();
 });
