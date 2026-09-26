@@ -94,11 +94,22 @@ function codeText(inner: string): string {
   return decodeEntities(inner.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, ''));
 }
 
-/** A fenced Markdown code block, with a fence longer than any backtick run inside. */
+/** Drop the indentation every non-blank line shares (terminal output is often indented). */
+export function dedent(code: string): string {
+  const lines = code.split('\n');
+  const indents = lines.filter((l) => l.trim() !== '').map((l) => /^[ \t]*/.exec(l)![0].length);
+  const cut = indents.length > 0 ? Math.min(...indents) : 0;
+  return cut === 0 ? code : lines.map((l) => l.slice(Math.min(cut, /^[ \t]*/.exec(l)![0].length))).join('\n');
+}
+
+/**
+ * A fenced Markdown code block, with a fence longer than any backtick run
+ * inside. Blank edges and the shared indentation are dropped.
+ */
 export function fencedBlock(code: string): string {
   const longest = Math.max(2, ...[...code.matchAll(/`+/g)].map((m) => m[0].length));
   const fence = '`'.repeat(longest + 1);
-  return `${fence}\n${code.replace(/^\n+|\s+$/g, '')}\n${fence}`;
+  return `${fence}\n${dedent(code.replace(/^\s*\n|\s+$/g, ''))}\n${fence}`;
 }
 
 // A ``` fence with its (optional) language, the code, and the closing fence.

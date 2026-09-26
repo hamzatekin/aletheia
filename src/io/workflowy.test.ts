@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { opmlItems, type RawOutline } from './import';
-import { decodeEntities, looksLikeWorkflowyHtml, workflowyHtmlToMarkdown } from './workflowy';
+import { decodeEntities, fencedBlock, looksLikeWorkflowyHtml, workflowyHtmlToMarkdown } from './workflowy';
 
 const raw = (text: string, extra: Partial<RawOutline> = {}): RawOutline => ({ text, note: '', complete: false, children: [], ...extra });
 
@@ -99,7 +99,7 @@ describe('WorkFlowy ``` code blocks', () => {
   it('uses the first code line as the title for a node that is only a fence', () => {
     const [item] = opmlItems([raw('```bash\n  pnpm build\n  pnpm test\n```')], true);
     expect(item!.content).toBe('pnpm build');
-    expect(item!.note).toBe('```\n  pnpm build\n  pnpm test\n```');
+    expect(item!.note).toBe('```\npnpm build\npnpm test\n```');
   });
 
   it('decodes entities inside fences and handles several blocks in order', () => {
@@ -113,5 +113,11 @@ describe('fences in plain OPML', () => {
   it('moves them to the note without touching the code', () => {
     const [item] = opmlItems([raw('Log\n```\n<b> &amp; x\n```', { note: 'n' })]);
     expect(item).toEqual({ content: 'Log', note: '```\n<b> &amp; x\n```\n\nn', children: [] });
+  });
+});
+
+describe('dedent', () => {
+  it('drops only the indentation all lines share', () => {
+    expect(fencedBlock('\n    a\n      b\n\n    c\n')).toBe('```\na\n  b\n\nc\n```');
   });
 });
