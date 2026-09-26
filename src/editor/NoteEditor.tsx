@@ -47,52 +47,39 @@ const MarkdownIcon = () => (
 /**
  * Every expanded note starts with this thin header row, shown the same way
  * whether the note is being read or edited, so nothing moves when you click
- * in or out. At its right is the current mode's icon; on hover it opens into
- * a Rendered / Markdown switch. `quiet` hides it until the row is hovered.
+ * in or out. At its right is one icon showing the current mode (lines for
+ * rendered, <> for Markdown); clicking it switches. `quiet` hides it until
+ * the row is hovered.
  */
 export function NoteHeader({ raw, locked, quiet = false }: { raw: boolean; locked: boolean; quiet?: boolean }) {
-  const option = (value: boolean, label: string, icon: React.ReactNode) => (
-    <button
-      type="button"
-      tabIndex={-1}
-      role="radio"
-      aria-checked={raw === value}
-      disabled={locked && !value}
-      data-testid={`note-mode-${value ? 'markdown' : 'rendered'}`}
-      className={
-        'flex items-center gap-1 rounded px-1.5 py-px ' +
-        (raw === value ? 'bg-active text-muted' : 'hover:bg-hover hover:text-muted disabled:opacity-40 disabled:hover:bg-transparent')
-      }
-      // Keep focus where it is; an open editor being replaced saves as it unmounts.
-      onMouseDown={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (raw !== value) notePrefs.getState().setRaw(value);
-      }}
-    >
-      {icon}
-      <span>{label}</span>
-    </button>
-  );
+  const tip = locked
+    ? 'Notes with tables are edited as Markdown'
+    : raw
+      ? 'Markdown. Click to edit rendered'
+      : 'Rendered. Click to edit as Markdown';
   return (
     <div className="note-header flex h-5 justify-end" data-testid="note-mode">
-      <div
-        role="radiogroup"
-        aria-label="Note editing mode"
-        title={locked ? 'Notes with tables are edited as Markdown' : undefined}
+      <button
+        type="button"
+        tabIndex={-1}
+        title={tip}
+        aria-label={tip}
+        aria-pressed={raw}
+        disabled={locked}
+        data-testid="note-mode-toggle"
         className={
-          'group/mode flex items-center rounded text-[11px] leading-none text-faint transition-opacity ' +
+          'flex h-5 w-5 items-center justify-center rounded text-faint transition-opacity hover:bg-hover hover:text-muted disabled:hover:bg-transparent ' +
           (quiet ? 'opacity-0 group-hover:opacity-100' : '')
         }
+        // Keep focus where it is; an open editor being replaced saves as it unmounts.
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!locked) notePrefs.getState().setRaw(!raw);
+        }}
       >
-        <span className="flex h-5 w-5 items-center justify-center group-hover/mode:hidden" aria-hidden="true">
-          {raw ? <MarkdownIcon /> : <RenderedIcon />}
-        </span>
-        <span className="hidden items-center gap-0.5 rounded bg-surface p-0.5 shadow-sm group-hover/mode:flex">
-          {option(false, 'Rendered', <RenderedIcon />)}
-          {option(true, 'Markdown', <MarkdownIcon />)}
-        </span>
-      </div>
+        {raw ? <MarkdownIcon /> : <RenderedIcon />}
+      </button>
     </div>
   );
 }

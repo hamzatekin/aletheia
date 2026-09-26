@@ -180,7 +180,7 @@ const TABS: Tab[] = [
             [<Keys k="Shift+Enter" />, 'Open or edit the note of the current node.'],
             [<Keys k="Esc" />, 'Leave the note and go back to the node.'],
             ['Click a note', 'Edit it. Markdown renders as you type: "## " makes a heading, "- " a list, ``` a code block.'],
-            ['Rendered / Markdown', 'Every note has a thin header; hover the icon at its right to switch between rendered and raw Markdown editing.'],
+            ['Rendered / Markdown', 'Click the small icon at the upper right of a note to switch between rendered and raw Markdown editing.'],
             ['▾ left of a note', 'Collapse the note to its first line, or expand it again. Also in the ≡ menu.'],
           ]}
         />
