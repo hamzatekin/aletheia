@@ -85,8 +85,8 @@ export function boxTablesToMarkdown(text: string): string {
   return out.join('\n');
 }
 
-/** Drop the indentation every non-blank line shares. */
-function dedent(text: string): string {
+/** Drop the indentation every non-blank line shares (terminal output is often indented). */
+export function dedent(text: string): string {
   const lines = text.split('\n');
   const indents = lines.filter((l) => l.trim() !== '').map((l) => /^[ \t]*/.exec(l)![0].length);
   const cut = indents.length > 0 ? Math.min(...indents) : 0;

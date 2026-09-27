@@ -1,4 +1,4 @@
-import type { DirtyNode, Node, Operation } from '@/model';
+import type { Node, Operation } from '@/model';
 import type { OutboxEntry } from '@/sync/outbox';
 
 /** Everything one command writes, applied atomically. */
@@ -8,7 +8,6 @@ export interface CommitBatch {
   /** Nodes to physically remove (only when undoing a creation). */
   removals: string[];
   operation: Operation;
-  dirtyNodeIds: string[];
 }
 
 /**
@@ -19,9 +18,7 @@ export interface Repository {
   loadAllNodes(): Promise<Node[]>;
   commit(batch: CommitBatch): Promise<void>;
   listOperations(): Promise<Operation[]>;
-  listDirty(): Promise<DirtyNode[]>;
-  clearDirty(nodeIds: string[]): Promise<void>;
-  /** Replace all nodes (import / restore from backup). Clears dirty marks. `at` stamps the sync outbox. */
+  /** Replace all nodes (import / restore from backup). `at` stamps the sync outbox. */
   replaceAllNodes(nodes: Node[], at?: number): Promise<void>;
 }
 

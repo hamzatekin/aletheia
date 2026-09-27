@@ -12,7 +12,7 @@ Vite · React · TypeScript (strict) · Tailwind · Zustand · Dexie · Vitest
 
 ```
 src/model         Node type, IDs (UUIDv7), sibling order (fractional indexing),
-                  pure tree helpers, Operation / DirtyNode types, seed tree
+                  pure tree helpers, Operation type, seed tree, tree repair
 src/store         Zustand store: Map<id, Node> + childrenByParent index
 src/persistence   Repository interface, Dexie implementation, in-memory implementation
 src/commands      Typed commands, the engine (apply → persist → op log → undo/redo)
@@ -33,9 +33,9 @@ worker            Cloudflare Worker: the sync API on D1 (only `/api/*` runs it)
    `affectedNodeIds`, and an optional caret hint for the view.
 2. The engine applies the changes to the store synchronously, so the UI never
    waits on IndexedDB.
-3. The same batch (node upserts/removals, the `Operation` record, and the
-   affected ids for the `dirtyNodes` table) is written through an ordered
-   write queue into the repository in one transaction.
+3. The same batch (node upserts/removals and the `Operation` record) is
+   written through an ordered write queue into the repository in one
+   transaction.
 4. The operation goes on the undo stack. Undo swaps `before`/`after` for every
    change and commits that as its own `undo` operation (redo likewise), so the
    operation log is a complete history and undo of a `createNode` physically
@@ -80,20 +80,14 @@ in `editor/slash-registry.ts`. Commands receive a context (engine, session,
 UI store, search index, navigate, zoom root, current node) and are filtered
 by title and keywords. Built in: bold, italic, code, link, collapse all,
 expand all, zoom in, export as Markdown / OPML / JSON backup, import
-Markdown / OPML into the current node, restore a JSON backup. Future
-commands, including on-demand AI, plug in as registry entries.
+Markdown / OPML into the current node, restore a JSON backup. New commands
+plug in as registry entries.
 
 Export writes the current zoom root as nested bullets (`content` as bullet
 text, `note` as an indented paragraph beneath), as OPML with `_note`, or the
 whole node table as JSON. Import parses nested bullets or OPML into the
 current node as one undo step. Pasting multi-line text into a node creates
 one node per line, nested by indentation.
-
-`nodeContextText(tree, id)` (model/context.ts) builds the ancestor path,
-content, note and direct children as text for future on-demand AI features;
-the same bullet/note formatting is used by the Markdown export.
-`contentHash(text)` gives a stable hash for staleness checks. The Dexie
-tables `embeddings`, `summaries`, `tags`, `relations` exist and are empty.
 
 ## Sync (opt-in)
 
@@ -148,6 +142,8 @@ pnpm dev        start the app
 pnpm test       run unit tests (Vitest)
 pnpm test:e2e   run browser tests (Playwright; starts the dev server itself)
 pnpm typecheck  tsc
+pnpm knip       unused files, exports and dependencies
+pnpm check      typecheck + unit tests + knip (run before pushing)
 pnpm build      production build
 ```
 

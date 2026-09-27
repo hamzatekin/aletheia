@@ -16,14 +16,14 @@ export interface EngineOptions {
   onPersistError?: (error: unknown, op: Operation) => void;
 }
 
-/**
- * Runs commands: applies to the store synchronously (instant UI), persists in
- * order through a write queue, appends to the operation log, marks dirty
- * nodes, and keeps in-memory undo/redo stacks.
- */
 /** A command, or a function that derives one from the tree as it is mid-batch. */
 export type BatchItem = Command | ((tree: TreeReader) => Command | null);
 
+/**
+ * Runs commands: applies to the store synchronously (instant UI), persists in
+ * order through a write queue, appends to the operation log, and keeps
+ * in-memory undo/redo stacks.
+ */
 export interface Engine {
   readonly store: TreeStore;
   readonly tree: TreeReader;
@@ -87,7 +87,7 @@ export function createEngine(opts: EngineOptions): Engine {
       if (c.after) upserts.push(c.after);
       else removals.push(c.id);
     }
-    const batch = { upserts, removals, operation: op, dirtyNodeIds: op.affectedNodeIds };
+    const batch = { upserts, removals, operation: op };
     if (changedDuringReload) for (const c of op.changes) changedDuringReload.add(c.id);
     // The queue never rejects: each step catches its own error so later
     // writes still run in order.

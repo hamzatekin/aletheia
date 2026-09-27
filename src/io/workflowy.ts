@@ -1,3 +1,5 @@
+import { dedent } from './terminal';
+
 /**
  * WorkFlowy puts rich text into OPML `text` / `_note` attributes as a small
  * HTML dialect: <b>, <i>, <u>, <s>, <a href>, <span class="colored …">,
@@ -92,14 +94,6 @@ const CODE_SPAN = /<(code|pre)\b[^>]*>([^]*?)<\/\1>/gi;
 /** Plain text of a code span: <br> is a newline, other tags go, entities decode. */
 function codeText(inner: string): string {
   return decodeEntities(inner.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, ''));
-}
-
-/** Drop the indentation every non-blank line shares (terminal output is often indented). */
-export function dedent(code: string): string {
-  const lines = code.split('\n');
-  const indents = lines.filter((l) => l.trim() !== '').map((l) => /^[ \t]*/.exec(l)![0].length);
-  const cut = indents.length > 0 ? Math.min(...indents) : 0;
-  return cut === 0 ? code : lines.map((l) => l.slice(Math.min(cut, /^[ \t]*/.exec(l)![0].length))).join('\n');
 }
 
 /**

@@ -18,14 +18,9 @@ export interface Operation {
   /** The command input as submitted (JSON-serialisable). */
   input: unknown;
   changes: NodeChange[];
-  /** Nodes whose derived data (search index, embeddings, ...) may be stale. */
+  /** Nodes the operation touched, including parents whose child list changed. */
   affectedNodeIds: string[];
   timestamp: number;
   /** For undo/redo: the id of the operation being reverted / reapplied. */
   targetOpId?: string;
-}
-
-export interface DirtyNode {
-  nodeId: string;
-  markedAt: number;
 }

@@ -22,8 +22,6 @@ export type Command =
   | { type: 'deleteNode'; id: string }
   | { type: 'restore'; id: string };
 
-export type CommandType = Command['type'];
-
 export interface CommandContext {
   tree: TreeReader;
   now: number;

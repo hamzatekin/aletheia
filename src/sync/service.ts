@@ -336,7 +336,7 @@ export class SyncService {
 }
 
 /** 32 random bytes, base64url. The key is the only credential, so it is long. */
-export function generateKey(): string {
+function generateKey(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
