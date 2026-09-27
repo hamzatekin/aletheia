@@ -67,6 +67,16 @@ export function toggleCollapse(ctx: CommandContext, cmd: Of<'toggleCollapse'>): 
   return { changes: cs.list(), affectedNodeIds: [cmd.id] };
 }
 
+export function toggleStar(ctx: CommandContext, cmd: Of<'toggleStar'>): Effect | Rejection {
+  const node = ctx.tree.get(cmd.id);
+  if (!isLive(node)) return new Rejection('node is missing or deleted');
+  const starred = cmd.starred ?? node.starredAt == null;
+  if (starred === (node.starredAt != null)) return { changes: [], affectedNodeIds: [] };
+  const cs = new ChangeSet(ctx.tree, ctx.now);
+  cs.update(cmd.id, { starredAt: starred ? ctx.now : null });
+  return { changes: cs.list(), affectedNodeIds: [cmd.id] };
+}
+
 /** Sibling-order helpers used by Alt+Shift+Up/Down. */
 export function moveUpCommand(ctx: CommandContext, id: string): Command | null {
   const node = ctx.tree.get(id);

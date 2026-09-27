@@ -15,6 +15,8 @@ export type Command =
   | { type: 'indent'; id: string }
   | { type: 'outdent'; id: string }
   | { type: 'toggleCollapse'; id: string; collapsed?: boolean }
+  /** Star (list under Starred in the sidebar) or unstar a node; omitted `starred` flips it. */
+  | { type: 'toggleStar'; id: string; starred?: boolean }
   | { type: 'deleteSubtree'; id: string }
   /** Delete `id` but keep its children: they take its place under its parent. */
   | { type: 'deleteNode'; id: string }

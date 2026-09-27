@@ -58,7 +58,7 @@ describe('sync server', () => {
 
   it('merges each field group by its own time', async () => {
     await call('POST', 'space', KEY_A);
-    const base = { content: 1, note: 1, pos: 1, collapsed: 1, deleted: 1 };
+    const base = { content: 1, note: 1, pos: 1, collapsed: 1, starred: 1, deleted: 1 };
     await call('POST', 'push', KEY_A, { nodes: [wire('n', { content: 'v1', note: 'n1', order: 'a0', t: base })] });
     // Device 1 edits the text at t=10; device 2 moved it at t=5 and edited the text earlier (t=3).
     await call('POST', 'push', KEY_A, { nodes: [wire('n', { content: 'text from 1', order: 'a0', t: { ...NO_TIMES, content: 10 } })] });
@@ -300,5 +300,49 @@ describe('sync between two devices', () => {
     b.create('mine');
     await expect(b.sync.join(KEY_B, 'replace')).rejects.toThrow(/not valid/);
     expect(b.shape()).toEqual(['mine']);
+  });
+});
+
+describe('stars', () => {
+  it('sync between devices, and the newer star or unstar wins', async () => {
+    const a = device(1_000_000);
+    const x = a.create('X');
+    const key = await a.sync.enable();
+    const b = device(2_000_000);
+    await b.sync.join(key, 'replace');
+    a.engine.execute({ type: 'toggleStar', id: x, starred: true });
+    await syncBoth(a, b);
+    expect(b.find('X').starredAt).toBeGreaterThan(0);
+    // B unstars later than A's star: that wins on both.
+    b.engine.execute({ type: 'toggleStar', id: x, starred: false });
+    await syncBoth(a, b);
+    expect(a.find('X').starredAt ?? null).toBeNull();
+    expect(b.find('X').starredAt ?? null).toBeNull();
+  });
+
+  it('accepts pushes from clients that predate stars without touching the star', async () => {
+    await call('POST', 'space', KEY_A);
+    await call('POST', 'push', KEY_A, { nodes: [wire('n', { content: 'v1', starredAt: 7, t: { ...NO_TIMES, content: 1, starred: 7 } })] });
+    const { starredAt: _s, ...old } = wire('n', { content: 'v2', t: { ...NO_TIMES, content: 2 } });
+    const { starred: _t, ...oldTimes } = old.t;
+    expect((await call('POST', 'push', KEY_A, { nodes: [{ ...old, t: oldTimes }] })).status).toBe(200);
+    const pulled = (await (await call('GET', 'pull?since=0', KEY_A)).json()) as PullResponse;
+    expect(pulled.nodes[0]).toMatchObject({ content: 'v2', starredAt: 7, t: { starred: 7, content: 2 } });
+  });
+
+  it('adds the star columns to a database created before them', async () => {
+    await db.batch([
+      db.prepare(`CREATE TABLE spaces (id TEXT PRIMARY KEY, seq INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL)`),
+      db.prepare(`CREATE TABLE nodes (
+        space TEXT NOT NULL, id TEXT NOT NULL, seq INTEGER NOT NULL, created_at INTEGER NOT NULL,
+        content TEXT NOT NULL, content_t INTEGER NOT NULL, note TEXT NOT NULL, note_t INTEGER NOT NULL,
+        parent_id TEXT, ord TEXT NOT NULL, pos_t INTEGER NOT NULL,
+        collapsed INTEGER NOT NULL, collapsed_t INTEGER NOT NULL,
+        deleted_at INTEGER, deleted_t INTEGER NOT NULL, PRIMARY KEY (space, id))`),
+    ]);
+    await call('POST', 'space', KEY_A);
+    await call('POST', 'push', KEY_A, { nodes: [wire('n', { starredAt: 5, t: { ...NO_TIMES, content: 1, starred: 5 } })] });
+    const pulled = (await (await call('GET', 'pull?since=0', KEY_A)).json()) as PullResponse;
+    expect(pulled.nodes[0]).toMatchObject({ starredAt: 5 });
   });
 });

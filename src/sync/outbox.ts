@@ -34,7 +34,7 @@ export function entriesForAll(nodes: Iterable<Node>): OutboxEntry[] {
 /** Entries after a wholesale replace: every new node, plus deletions for nodes that are gone. */
 export function entriesForReplace(oldIds: Iterable<string>, nodes: readonly Node[], at: number): OutboxEntry[] {
   const keep = new Set(nodes.map((n) => n.id));
-  const out: OutboxEntry[] = nodes.map((n) => ({ nodeId: n.id, t: { content: at, note: at, pos: at, collapsed: at, deleted: at } }));
+  const out: OutboxEntry[] = nodes.map((n) => ({ nodeId: n.id, t: { content: at, note: at, pos: at, collapsed: at, starred: at, deleted: at } }));
   for (const id of oldIds) if (!keep.has(id)) out.push({ nodeId: id, t: { deleted: at } });
   return out;
 }

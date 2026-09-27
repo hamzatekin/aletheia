@@ -50,16 +50,23 @@ const SCHEMA = [
     parent_id TEXT, ord TEXT NOT NULL, pos_t INTEGER NOT NULL,
     collapsed INTEGER NOT NULL, collapsed_t INTEGER NOT NULL,
     deleted_at INTEGER, deleted_t INTEGER NOT NULL,
+    starred_at INTEGER, starred_t INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (space, id)
   )`,
   `CREATE INDEX IF NOT EXISTS nodes_by_seq ON nodes (space, seq)`,
+];
+
+/** Columns added after the first release, for databases created before them. */
+const ADDED_COLUMNS = [
+  { name: 'starred_at', sql: 'ALTER TABLE nodes ADD COLUMN starred_at INTEGER' },
+  { name: 'starred_t', sql: 'ALTER TABLE nodes ADD COLUMN starred_t INTEGER NOT NULL DEFAULT 0' },
 ];
 
 // Each group's columns take the incoming value only when its time is newer.
 const pick = (col: string, t: string) => `${col} = CASE WHEN excluded.${t} > nodes.${t} THEN excluded.${col} ELSE nodes.${col} END`;
 const UPSERT = `
   INSERT INTO nodes (space, id, seq, created_at, content, content_t, note, note_t,
-                     parent_id, ord, pos_t, collapsed, collapsed_t, deleted_at, deleted_t)
+                     parent_id, ord, pos_t, collapsed, collapsed_t, deleted_at, deleted_t, starred_at, starred_t)
   SELECT ?1,
          json_extract(j.value, '$.id'),
          (SELECT seq FROM spaces WHERE id = ?1) - ?2 + j.key + 1,
@@ -68,7 +75,8 @@ const UPSERT = `
          json_extract(j.value, '$.note'), json_extract(j.value, '$.t.note'),
          json_extract(j.value, '$.parentId'), json_extract(j.value, '$.order'), json_extract(j.value, '$.t.pos'),
          json_extract(j.value, '$.collapsed'), json_extract(j.value, '$.t.collapsed'),
-         json_extract(j.value, '$.deletedAt'), json_extract(j.value, '$.t.deleted')
+         json_extract(j.value, '$.deletedAt'), json_extract(j.value, '$.t.deleted'),
+         json_extract(j.value, '$.starredAt'), coalesce(json_extract(j.value, '$.t.starred'), 0)
   FROM json_each(?3) AS j WHERE true
   ON CONFLICT (space, id) DO UPDATE SET
     seq = excluded.seq,
@@ -77,11 +85,20 @@ const UPSERT = `
     ${pick('note', 'note_t')}, note_t = max(nodes.note_t, excluded.note_t),
     ${pick('parent_id', 'pos_t')}, ${pick('ord', 'pos_t')}, pos_t = max(nodes.pos_t, excluded.pos_t),
     ${pick('collapsed', 'collapsed_t')}, collapsed_t = max(nodes.collapsed_t, excluded.collapsed_t),
-    ${pick('deleted_at', 'deleted_t')}, deleted_t = max(nodes.deleted_t, excluded.deleted_t)`;
+    ${pick('deleted_at', 'deleted_t')}, deleted_t = max(nodes.deleted_t, excluded.deleted_t),
+    ${pick('starred_at', 'starred_t')}, starred_t = max(nodes.starred_t, excluded.starred_t)`;
 
 let schemaReady: Promise<unknown> | null = null;
 function ensureSchema(db: SqlDatabase): Promise<unknown> {
-  schemaReady ??= db.batch(SCHEMA.map((s) => db.prepare(s))).catch((e: unknown) => {
+  schemaReady ??= db
+    .batch(SCHEMA.map((s) => db.prepare(s)))
+    .then(async () => {
+      const { results } = await db.prepare('PRAGMA table_info(nodes)').all<{ name: string }>();
+      const have = new Set(results.map((c) => c.name));
+      const missing = ADDED_COLUMNS.filter((c) => !have.has(c.name));
+      if (missing.length > 0) await db.batch(missing.map((c) => db.prepare(c.sql)));
+    })
+    .catch((e: unknown) => {
     schemaReady = null;
     throw e;
   });
@@ -178,6 +195,8 @@ interface Row {
   collapsed_t: number;
   deleted_at: number | null;
   deleted_t: number;
+  starred_at: number | null;
+  starred_t: number;
 }
 
 function fromRow(r: Row): ServerNode {
@@ -189,9 +208,10 @@ function fromRow(r: Row): ServerNode {
     content: r.content,
     note: r.note,
     collapsed: Boolean(r.collapsed),
+    starredAt: r.starred_at,
     createdAt: r.created_at,
     deletedAt: r.deleted_at,
-    t: { content: r.content_t, note: r.note_t, pos: r.pos_t, collapsed: r.collapsed_t, deleted: r.deleted_t },
+    t: { content: r.content_t, note: r.note_t, pos: r.pos_t, collapsed: r.collapsed_t, starred: r.starred_t, deleted: r.deleted_t },
   };
 }
 
@@ -209,9 +229,11 @@ function validWireNode(n: unknown): n is WireNode {
     typeof w.collapsed === 'boolean' &&
     Number.isFinite(w.createdAt) &&
     (w.deletedAt === null || Number.isFinite(w.deletedAt)) &&
+    (w.starredAt === undefined || w.starredAt === null || Number.isFinite(w.starredAt)) &&
     typeof w.t === 'object' &&
     w.t !== null &&
-    GROUPS.every((g) => Number.isFinite(w.t[g]))
+    // Clients from before stars send no starred time; that group then never wins.
+    GROUPS.every((g) => Number.isFinite(w.t[g]) || (g === 'starred' && w.t[g] === undefined))
   );
 }
 

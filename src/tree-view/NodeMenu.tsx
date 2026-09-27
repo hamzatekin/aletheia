@@ -86,6 +86,11 @@ export function NodeMenu({ id, hasChildren, collapsed, sheet = false }: { id: st
           { id: 'collapse-all', label: 'Collapse all inside', run: () => actions.setAllCollapsed(id, true, true) },
         ]
       : []),
+    {
+      id: 'star',
+      label: node.starredAt != null ? 'Unstar' : 'Star',
+      run: () => exec({ type: 'toggleStar', id }),
+    },
     { id: 'select', label: 'Select', hint: 'Esc', run: () => actions.selectNode(id) },
     { id: 'indent', label: 'Indent', hint: 'Tab', run: () => exec({ type: 'indent', id }) },
     ...(canOutdent ? [{ id: 'outdent', label: 'Outdent', hint: 'Shift+Tab', run: () => exec({ type: 'outdent', id }) }] : []),

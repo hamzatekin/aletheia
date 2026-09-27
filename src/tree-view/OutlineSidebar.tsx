@@ -7,6 +7,7 @@ import { useSettings, type SettingsStore } from '@/store/settings-store';
 import { useTreeStore } from '@/store/tree-store';
 import { useOutline } from './outline-context';
 import { useNode } from './use-outline';
+import { StarIcon, useStarred } from './Star';
 
 interface Props {
   settings: SettingsStore;
@@ -41,6 +42,7 @@ export function OutlineSidebar({ settings, rootId }: Props) {
     [engine, rootId, structureVersion],
   );
   const top = useChildren(null);
+  const starred = useStarred();
   const context = useMemo(() => ({ rootId, trail, depthLimit }), [rootId, trail, depthLimit]);
   if (!open) return null;
 
@@ -86,6 +88,16 @@ export function OutlineSidebar({ settings, rootId }: Props) {
           >
             Home
           </Link>
+          {starred.length > 0 && (
+            <section className="mb-2 border-b border-line pb-2" aria-label="Starred" data-testid="starred-list">
+              <div className="px-2 pt-1 pb-0.5 text-[11px] font-semibold tracking-wider text-faint uppercase">Starred</div>
+              <ul>
+                {starred.map((id) => (
+                  <StarredItem key={id} id={id} active={rootId === id} />
+                ))}
+              </ul>
+            </section>
+          )}
           <Ctx.Provider value={context}>
             <ul>
               {top.map((id) => (
@@ -112,6 +124,30 @@ export function OutlineSidebar({ settings, rootId }: Props) {
     </>
   );
 }
+
+/** A starred node: click to go there; the star unstars it. */
+const StarredItem = memo(function StarredItem({ id, active }: { id: string; active: boolean }) {
+  const { engine } = useOutline();
+  const node = useNode(id);
+  if (!node) return null;
+  const title = plainText(node.content).trim() || 'Untitled';
+  return (
+    <li className={'group flex items-center rounded pr-1 ' + (active ? 'bg-active font-medium' : 'text-muted')}>
+      <button
+        type="button"
+        onClick={() => engine.execute({ type: 'toggleStar', id, starred: false })}
+        className="star-on flex h-7 w-6 shrink-0 items-center justify-center rounded hover:text-ink"
+        aria-label={`Unstar ${title}`}
+        title="Unstar"
+      >
+        <StarIcon filled size={13} />
+      </button>
+      <Link to={`/n/${id}`} className="min-w-0 flex-1 truncate rounded px-1 py-1 hover:bg-hover" title={title} data-testid="starred-item">
+        {title}
+      </Link>
+    </li>
+  );
+});
 
 const Item = memo(function Item({ id, depth }: { id: string; depth: number }) {
   const { rootId, trail, depthLimit } = useContext(Ctx);

@@ -14,6 +14,8 @@ export interface Node {
   /** Optional multi-line block Markdown. */
   note: string;
   collapsed: boolean;
+  /** When the node was starred (listed under Starred in the sidebar); absent or null = not starred. */
+  starredAt?: number | null;
   createdAt: number;
   updatedAt: number;
   /** Soft delete timestamp. Deleting a parent stamps its whole subtree. */
