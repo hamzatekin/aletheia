@@ -128,3 +128,11 @@ test('phones use the full width and keep breadcrumbs on one scrolling line', asy
   const text = (await row(page, 'Child row').locator('.node-content').first().boundingBox())!;
   expect(text.x).toBeLessThan(36);
 });
+
+test('the collapse-all button works with a tap', async ({ page }) => {
+  await gotoHome(page);
+  await page.getByRole('button', { name: 'Collapse all' }).tap();
+  await expect(row(page, 'Write the outliner')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Expand all' }).tap();
+  await expect(row(page, 'Drag and drop')).toBeVisible();
+});

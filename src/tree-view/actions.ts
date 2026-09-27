@@ -1,4 +1,4 @@
-import { moveDownCommand, moveUpCommand, type BatchItem, type Command, type Engine, type Outcome } from '@/commands';
+import { hasOpenParent, moveDownCommand, moveUpCommand, setAllCollapsedCommands, type BatchItem, type Command, type Engine, type Outcome } from '@/commands';
 import type { EditorSession } from '@/editor/session';
 import type { OutlineKey } from '@/editor/outliner-keymap';
 import { slashCommands } from '@/editor/slash-registry';
@@ -21,6 +21,10 @@ export interface OutlineActions {
   undo(): void;
   redo(): void;
   zoomOut(): void;
+  /** Collapse or expand every parent under `underId` (null: the whole page), with `underId` itself if asked. */
+  setAllCollapsed(underId: string | null, collapsed: boolean, includeSelf?: boolean): void;
+  /** Collapse everything on the page if anything is open, else expand everything. */
+  toggleAll(): void;
   /** Zoom to the node's parent and focus it (search results, links). */
   revealNode(id: string): void;
   /** Run the i-th command of the open slash menu. */
@@ -91,6 +95,23 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
     navigate(root?.parentId ? `/n/${root.parentId}` : '/');
     ui.focusNode(rootId, { kind: 'end' });
   };
+
+  const setAllCollapsed = (underId: string | null, collapsed: boolean, includeSelf = false) => {
+    session.flush();
+    const commands = setAllCollapsedCommands(tree, underId, collapsed, includeSelf);
+    if (commands.length === 0) return;
+    engine.batch(commands, collapsed ? 'collapseAll' : 'expandAll');
+    // A focused node that just got hidden hands the caret to the ancestor that hides it.
+    const focus = ui.getState().focus;
+    if (!collapsed || !focus || focus.id === rootId) return;
+    const visible = new Set(visibleRows(tree, rootId).map((r) => r.id));
+    if (visible.has(focus.id)) return;
+    const holder = ancestorIds(tree, focus.id).find((a) => visible.has(a));
+    if (holder) ui.focusNode(holder, { kind: 'end' });
+    else ui.blur();
+  };
+
+  const toggleAll = () => setAllCollapsed(rootId, hasOpenParent(tree, rootId));
 
   const selectRange = (anchor: string, head: string) => {
     const rows = visibleRows(tree, rootId).map((r) => r.id);
@@ -480,6 +501,12 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
       undoRedo('redo');
       return true;
     }
+    // Ctrl/⌘+Shift+. like Dynalist; e.code, since Shift turns "." into ">" on many layouts.
+    if (mod && e.shiftKey && e.code === 'Period') {
+      e.preventDefault();
+      toggleAll();
+      return true;
+    }
 
     const { focus, selection } = ui.getState();
     if (focus) return false;
@@ -567,6 +594,8 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
     focusPrev,
     focusNext,
     createFirst,
+    setAllCollapsed,
+    toggleAll,
     undo: () => undoRedo('undo'),
     redo: () => undoRedo('redo'),
     zoomOut,

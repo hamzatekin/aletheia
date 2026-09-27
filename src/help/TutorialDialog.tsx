@@ -105,6 +105,7 @@ const TABS: Tab[] = [
             ['Tap a bullet', 'Zoom into that node. Tap Home or a crumb at the top to go back.'],
             ['Tap the magnifier', 'Search everything, top right.'],
             ['Long-press a line', 'Select it. Tap more lines to add or remove them, then use the bar at the bottom to indent, move, copy, cut, paste below or delete them all at once.'],
+            ['Tap the ⇕ button', 'Next to the magnifier: collapse everything on the page, or expand it all.'],
           ]}
         />
         <H>The toolbar above the keyboard</H>
@@ -131,6 +132,7 @@ const TABS: Tab[] = [
           rows={[
             [<Keys k="Mod+↑" />, 'Collapse the node (hide its children).'],
             [<Keys k="Mod+↓" />, 'Expand it again.'],
+            [<Keys k="Mod+Shift+." />, 'Collapse everything on the page, or expand it all when nothing is open. The button left of the magnifier at the top does the same, and the ≡ menu has Collapse all inside and Expand all inside for one node.'],
             ['The ▸ arrow', 'Left of a bullet, shown on hover: click it to collapse or expand. On a phone it sits at the right end of the line. A bullet with a grey halo has hidden children.'],
           ]}
         />

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, type MouseEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import type { Engine } from '@/commands';
+import { hasOpenParent, type Engine } from '@/commands';
 import { plainText } from '@/editor/markdown';
 import { renderBlock, renderInline } from '@/editor/render';
 import { NodeEditor } from '@/editor/NodeEditor';
@@ -22,7 +22,7 @@ import { CLIP_TYPE } from '@/io/clipboard';
 import { OutlineProvider } from './outline-context';
 import { OutlineSidebar, SidebarIcon } from './OutlineSidebar';
 import { PageResizeHandles } from './PageResizeHandles';
-import { useNode } from './use-outline';
+import { useNode, useVisibleRows } from './use-outline';
 
 interface Props {
   ui: UiStore;
@@ -153,6 +153,11 @@ export function OutlinePage({ ui, session, search, settings, sync }: Props) {
     document.title = root && !missing ? plainText(root.content) || 'Untitled' : 'Aletheia';
   }, [root, missing]);
 
+  // Visible rows change whenever a parent opens or closes, so this follows every toggle.
+  const pageRows = useVisibleRows(rootId);
+  const anyOpen = useMemo(() => hasOpenParent(engine.tree, rootId), [engine, rootId, pageRows]); // eslint-disable-line react-hooks/exhaustive-deps
+  const anyParent = pageRows.some((r) => engine.tree.children(r.id).length > 0);
+
   const titleFocus = useUiStore(ui, (s) => (rootId !== null && s.focus?.id === rootId ? s.focus.field : null));
 
   const sidebarOpen = useSettings(settings, (s) => s.sidebarOpen);
@@ -185,6 +190,21 @@ export function OutlinePage({ ui, session, search, settings, sync }: Props) {
             <SidebarIcon />
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => actions.toggleAll()}
+          onMouseDown={(e) => e.preventDefault()}
+          disabled={!anyParent}
+          className="fixed top-3 right-33 z-40 flex size-[34px] items-center justify-center rounded-md text-muted hover:bg-hover hover:text-ink disabled:opacity-40"
+          aria-label={anyOpen ? 'Collapse all' : 'Expand all'}
+          title={(anyOpen ? 'Collapse all' : 'Expand all') + ' (Ctrl+Shift+.)'}
+          data-testid="toggle-all"
+          data-state={anyOpen ? 'open' : 'collapsed'}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            {anyOpen ? <path d="m7 20 5-5 5 5M7 4l5 5 5-5" /> : <path d="m7 15 5 5 5-5M7 9l5-5 5 5" />}
+          </svg>
+        </button>
         <button
           type="button"
           onClick={() => {
