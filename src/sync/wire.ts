@@ -7,7 +7,7 @@
  * one device and editing its text on another both survive.
  */
 
-export const GROUPS = ['content', 'note', 'pos', 'collapsed', 'deleted'] as const;
+export const GROUPS = ['content', 'note', 'pos', 'collapsed', 'starred', 'deleted'] as const;
 export type Group = (typeof GROUPS)[number];
 export type GroupTimes = Record<Group, number>;
 
@@ -19,6 +19,7 @@ export interface NodeFields {
   content: string;
   note: string;
   collapsed: boolean;
+  starredAt?: number | null;
   createdAt: number;
   updatedAt: number;
   deletedAt: number | null;
@@ -31,6 +32,8 @@ export interface WireNode {
   content: string;
   note: string;
   collapsed: boolean;
+  /** Absent from clients older than stars; read as not starred, with the group's time 0. */
+  starredAt?: number | null;
   createdAt: number;
   deletedAt: number | null;
   /** When each group last changed. 0 = unchanged here (never wins). */
@@ -53,7 +56,7 @@ export interface PullResponse {
   more: boolean;
 }
 
-export const NO_TIMES: GroupTimes = { content: 0, note: 0, pos: 0, collapsed: 0, deleted: 0 };
+export const NO_TIMES: GroupTimes = { content: 0, note: 0, pos: 0, collapsed: 0, starred: 0, deleted: 0 };
 
 /** The groups that differ between two versions of a node. */
 export function changedGroups(before: NodeFields | null, after: NodeFields | null): Group[] {
@@ -64,6 +67,7 @@ export function changedGroups(before: NodeFields | null, after: NodeFields | nul
   if (before.note !== after.note) out.push('note');
   if (before.parentId !== after.parentId || before.order !== after.order) out.push('pos');
   if (before.collapsed !== after.collapsed) out.push('collapsed');
+  if ((before.starredAt ?? null) !== (after.starredAt ?? null)) out.push('starred');
   if (before.deletedAt !== after.deletedAt) out.push('deleted');
   return out;
 }
@@ -86,6 +90,7 @@ export function toWire(node: NodeFields, times: Partial<GroupTimes>): WireNode {
     content: node.content,
     note: node.note,
     collapsed: node.collapsed,
+    starredAt: node.starredAt ?? null,
     createdAt: node.createdAt,
     deletedAt: node.deletedAt,
     t: { ...NO_TIMES, ...times },
@@ -101,6 +106,7 @@ export function tombstone(id: string, at: number): WireNode {
     content: '',
     note: '',
     collapsed: false,
+    starredAt: null,
     createdAt: at,
     deletedAt: at,
     t: { ...NO_TIMES, deleted: at },
@@ -115,8 +121,9 @@ export function fromWire(w: WireNode): NodeFields {
     content: w.content,
     note: w.note,
     collapsed: w.collapsed,
+    starredAt: w.starredAt ?? null,
     createdAt: w.createdAt,
-    updatedAt: Math.max(w.createdAt, ...GROUPS.map((g) => w.t[g])),
+    updatedAt: Math.max(w.createdAt, ...GROUPS.map((g) => w.t[g] ?? 0)),
     deletedAt: w.deletedAt,
   };
 }
@@ -128,7 +135,7 @@ export function fromWire(w: WireNode): NodeFields {
 export function overlayPending(remote: NodeFields, local: NodeFields | undefined, pending: Partial<GroupTimes> | undefined, remoteTimes: GroupTimes): NodeFields {
   if (!local || !pending) return remote;
   const out = { ...remote };
-  const newer = (g: Group) => (pending[g] ?? 0) > remoteTimes[g];
+  const newer = (g: Group) => (pending[g] ?? 0) > (remoteTimes[g] ?? 0);
   if (newer('content')) out.content = local.content;
   if (newer('note')) out.note = local.note;
   if (newer('pos')) {
@@ -136,6 +143,7 @@ export function overlayPending(remote: NodeFields, local: NodeFields | undefined
     out.order = local.order;
   }
   if (newer('collapsed')) out.collapsed = local.collapsed;
+  if (newer('starred')) out.starredAt = local.starredAt ?? null;
   if (newer('deleted')) out.deletedAt = local.deletedAt;
   out.updatedAt = Math.max(out.updatedAt, local.updatedAt);
   return out;

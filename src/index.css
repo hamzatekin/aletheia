@@ -361,3 +361,10 @@ body {
   color: inherit;
 }
 .filter-bar { background: var(--page); }
+
+/* Stars: marker gold, like WorkFlowy's. */
+.star-on { color: light-dark(#d4a017, #f2c94c); }
+.page-star { left: -2.4rem; top: calc(0.96em - 0.875rem); }
+@media (max-width: 639px) and (pointer: coarse) {
+  .page-star { left: -1.75rem; }
+}

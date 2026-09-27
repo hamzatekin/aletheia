@@ -24,6 +24,7 @@ import { CLIP_TYPE } from '@/io/clipboard';
 import { OutlineProvider } from './outline-context';
 import { OutlineSidebar, SidebarIcon } from './OutlineSidebar';
 import { PageResizeHandles } from './PageResizeHandles';
+import { StarIcon } from './Star';
 import { useNode, useVisibleRows } from './use-outline';
 
 interface Props {
@@ -258,7 +259,23 @@ export function OutlinePage({ ui, session, search, settings, sync }: Props) {
             ) : (
               <>
                 {root && rootId !== null && (
-                  <header className="mb-4" data-node-id={rootId} data-title="true">
+                  <header className="group/title relative mb-4" data-node-id={rootId} data-title="true">
+                    {/* In the gutter left of the title, where rows have their bullets: star this page. */}
+                    <button
+                      type="button"
+                      onClick={() => engine.execute({ type: 'toggleStar', id: rootId })}
+                      onMouseDown={(e) => e.preventDefault()}
+                      className={
+                        'page-star absolute flex size-7 items-center justify-center rounded-full hover:bg-hover ' +
+                        (root.starredAt != null ? 'star-on' : 'text-faint opacity-0 group-hover/title:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100')
+                      }
+                      aria-label={root.starredAt != null ? 'Unstar this page' : 'Star this page'}
+                      aria-pressed={root.starredAt != null}
+                      title={root.starredAt != null ? 'Starred: listed in the sidebar. Click to unstar.' : 'Star: list this page in the sidebar'}
+                      data-testid="page-star"
+                    >
+                      <StarIcon filled={root.starredAt != null} size={17} />
+                    </button>
                     {titleFocus === 'content' ? (
                       <NodeEditor id={rootId} className="node-content page-title font-normal tracking-tight wrap-break-word" />
                     ) : (

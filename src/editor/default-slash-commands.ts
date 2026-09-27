@@ -55,6 +55,16 @@ export const defaultSlashCommands: SlashCommand[] = [
   { id: 'collapse-all', title: 'Collapse all', keywords: 'fold', group: 'Outline', run: (c) => setCollapsedUnder(c, true) },
   { id: 'expand-all', title: 'Expand all', keywords: 'unfold', group: 'Outline', run: (c) => setCollapsedUnder(c, false) },
   {
+    id: 'star',
+    title: 'Star or unstar',
+    keywords: 'bookmark favorite pin sidebar',
+    group: 'Outline',
+    run: (c) => {
+      c.session.flush();
+      c.engine.execute({ type: 'toggleStar', id: c.nodeId });
+    },
+  },
+  {
     id: 'zoom-in',
     title: 'Zoom in',
     keywords: 'focus open',

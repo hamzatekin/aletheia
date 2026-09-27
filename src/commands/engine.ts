@@ -235,6 +235,7 @@ function sameNode(a: Node, b: Node): boolean {
     a.content === b.content &&
     a.note === b.note &&
     a.collapsed === b.collapsed &&
+    (a.starredAt ?? null) === (b.starredAt ?? null) &&
     a.deletedAt === b.deletedAt &&
     a.createdAt === b.createdAt
   );

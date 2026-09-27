@@ -1,6 +1,6 @@
 import { createNode, mergeNodes, splitNode, updateContent, updateNote } from './content-commands';
 import { deleteNode, deleteSubtree, restore } from './delete-commands';
-import { indent, moveNode, outdent, toggleCollapse } from './structure-commands';
+import { indent, moveNode, outdent, toggleCollapse, toggleStar } from './structure-commands';
 import type { Command, CommandContext, Effect, Rejection } from './types';
 
 /** Pure: compute what a command would change against the given tree. */
@@ -24,6 +24,8 @@ export function computeEffect(ctx: CommandContext, cmd: Command): Effect | Rejec
       return outdent(ctx, cmd);
     case 'toggleCollapse':
       return toggleCollapse(ctx, cmd);
+    case 'toggleStar':
+      return toggleStar(ctx, cmd);
     case 'deleteSubtree':
       return deleteSubtree(ctx, cmd);
     case 'deleteNode':
