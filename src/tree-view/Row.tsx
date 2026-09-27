@@ -31,7 +31,7 @@ interface Props {
 
 /** One outline row: gutter (toggle + bullet), content, optional note. */
 export const Row = memo(function Row({ id, depth }: Props) {
-  const { engine, ui, actions } = useOutline();
+  const { engine, ui, actions, session } = useOutline();
   const node = useNode(id);
   const hasChildren = useHasChildren(id);
   const focusField = useUiStore(ui, (s) => (s.focus?.id === id ? s.focus.field : null));
@@ -73,13 +73,41 @@ export const Row = memo(function Row({ id, depth }: Props) {
     return false;
   };
 
-  const onContentMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+  /**
+   * Pressing on a row's text. With a mouse the browser selects text right
+   * away, as on any page (and as in WorkFlowy and Dynalist); editing starts on
+   * release if nothing got selected. A drag into another row selects whole
+   * nodes instead (OutlinePage). Touch screens start editing at once.
+   */
+  const pressText = (e: MouseEvent<HTMLDivElement>, field: 'content' | 'note') => {
     if (e.button !== 0) return;
     if (selectClick(e)) return;
     if ((e.target as HTMLElement).closest('a')) return; // let links open
-    e.preventDefault();
-    ui.focusNode(id, { kind: 'point', x: e.clientX, y: e.clientY });
+    const point = { kind: 'point', x: e.clientX, y: e.clientY } as const;
+    if (coarse || e.detail >= 2) {
+      // The second press of a quick double-click lands before the editor is up: select the word in it.
+      e.preventDefault();
+      ui.focusNode(id, e.detail >= 2 ? { ...point, word: true } : point, field);
+      return;
+    }
+    if (ui.getState().focus) {
+      session.flush();
+      ui.blur();
+    }
+    ui.setSelection(null);
+    window.addEventListener(
+      'mouseup',
+      (up: globalThis.MouseEvent) => {
+        if (ui.getState().selection || ui.getState().focus) return; // dragged across rows, or already editing
+        const sel = document.getSelection();
+        const dragged = Math.hypot(up.clientX - point.x, up.clientY - point.y) > 3;
+        if (dragged && sel && !sel.isCollapsed && rowRef.current?.contains(sel.anchorNode)) return; // text was selected: keep it
+        ui.focusNode(id, point, field);
+      },
+      { once: true },
+    );
   };
+  const onContentMouseDown = (e: MouseEvent<HTMLDivElement>) => pressText(e, 'content');
 
   // A long press selects the node, as in WorkFlowy's and Dynalist's apps.
   const onTouchStart = (e: TouchEvent<HTMLDivElement>) => {
@@ -105,13 +133,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
     if (longPress.current) clearTimeout(longPress.current.timer);
   };
 
-  const onNoteMouseDown = (e: MouseEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    if (selectClick(e)) return;
-    if ((e.target as HTMLElement).closest('a')) return;
-    e.preventDefault();
-    ui.focusNode(id, { kind: 'point', x: e.clientX, y: e.clientY }, 'note');
-  };
+  const onNoteMouseDown = (e: MouseEvent<HTMLDivElement>) => pressText(e, 'note');
 
   return (
     <div
