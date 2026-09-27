@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { plainText } from '@/editor/markdown';
-import { useCoarsePointer } from './MobileToolbar';
+import { useCoarsePointer } from './use-coarse-pointer';
 import { useAncestors } from './use-outline';
 
 interface Props {

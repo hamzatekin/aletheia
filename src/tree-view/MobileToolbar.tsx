@@ -1,25 +1,9 @@
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { moveDownCommand, moveUpCommand } from '@/commands';
 import { useUiStore } from '@/store/ui-store';
 import type { SelectionAction } from './actions';
 import { useOutline } from './outline-context';
-
-const COARSE = '(pointer: coarse)';
-
-function subscribeCoarse(onChange: () => void): () => void {
-  const mq = window.matchMedia(COARSE);
-  mq.addEventListener('change', onChange);
-  return () => mq.removeEventListener('change', onChange);
-}
-
-/** True on touch screens (phones, tablets), where there is no hover and no Tab key. */
-export function useCoarsePointer(): boolean {
-  return useSyncExternalStore(
-    subscribeCoarse,
-    () => window.matchMedia(COARSE).matches,
-    () => false,
-  );
-}
+import { useCoarsePointer } from './use-coarse-pointer';
 
 /** Height of the on-screen keyboard (or anything else covering the bottom of the window). */
 function useKeyboardInset(): number {

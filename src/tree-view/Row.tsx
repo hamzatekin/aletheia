@@ -8,7 +8,7 @@ import { plainText } from '@/editor/markdown';
 import { Bullet } from './Bullet';
 import { CollapseToggle } from './CollapseToggle';
 import { NodeMenu } from './NodeMenu';
-import { useCoarsePointer } from './MobileToolbar';
+import { useCoarsePointer } from './use-coarse-pointer';
 import { useOutline } from './outline-context';
 import { useHasChildren, useNode } from './use-outline';
 import { useRowDnd } from './use-dnd';
