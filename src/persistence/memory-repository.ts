@@ -38,12 +38,12 @@ export class MemoryRepository implements SyncRepository {
     for (const id of nodeIds) this.dirty.delete(id);
   }
 
-  async replaceAllNodes(nodes: Node[]): Promise<void> {
+  async replaceAllNodes(nodes: Node[], at = Date.now()): Promise<void> {
     const oldIds = [...this.nodes.keys()];
     this.nodes.clear();
     for (const n of nodes) this.nodes.set(n.id, n);
     this.dirty.clear();
-    if (this.tracking) this.merge(entriesForReplace(oldIds, nodes, Date.now()));
+    if (this.tracking) this.merge(entriesForReplace(oldIds, nodes, at));
   }
 
   setTracking(on: boolean): void {

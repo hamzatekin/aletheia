@@ -12,23 +12,35 @@ import { createUiStore } from './store/ui-store';
 import './editor/default-slash-commands';
 import { DexieRepository } from './persistence';
 import { httpSyncApi, SyncService } from './sync/service';
-import { takeKeyFromLocation, watchBrowser } from './sync/browser';
+import { tabLock, takeKeyFromLocation, watchBrowser } from './sync/browser';
+import { createClock } from './sync/clock';
+import { connectTabs } from './sync/tabs';
 
 // Loading from IndexedDB takes a few ms; render once, with data, no spinner.
 const repository = new DexieRepository();
-const engine = await bootstrap(repository);
+// Edits are stamped by this clock, which never runs behind a change it has seen.
+const clock = createClock();
+const engine = await bootstrap(repository, clock.now);
+for (const n of engine.tree.all()) clock.observe(n.updatedAt);
 const ui = createUiStore();
 const session = new EditorSession(engine);
 const search = new SearchIndex(engine);
 const sync = new SyncService(engine, repository, httpSyncApi(), {
+  clock,
+  lock: tabLock(),
   afterReplace: () => {
     ui.blur();
     search.rebuild();
+  },
+  // Save the row being typed in before a pulled change to it lands, so the typing is not lost.
+  beforeApply: (ids) => {
+    if (session.nodeId !== null && ids.includes(session.nodeId)) session.flush();
   },
 });
 await sync.start();
 sync.setPendingJoin(takeKeyFromLocation());
 watchBrowser(sync);
+connectTabs(engine, sync);
 // On narrow screens the sidebar would cover the page, so start with it hidden (without saving that).
 const saved = loadSettings();
 const settings = createSettingsStore({ ...saved, sidebarOpen: saved.sidebarOpen && window.innerWidth >= 1024 });

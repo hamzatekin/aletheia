@@ -39,7 +39,7 @@ export class DexieRepository implements SyncRepository {
     return this.db.dirtyNodes.bulkDelete(nodeIds);
   }
 
-  replaceAllNodes(nodes: Node[]): Promise<void> {
+  replaceAllNodes(nodes: Node[], at = Date.now()): Promise<void> {
     const { db } = this;
     const track = this.tracking;
     return db.transaction('rw', [db.nodes, db.dirtyNodes, db.outbox], async () => {
@@ -47,7 +47,7 @@ export class DexieRepository implements SyncRepository {
       await db.nodes.clear();
       await db.dirtyNodes.clear();
       await db.nodes.bulkAdd(nodes);
-      if (track) await this.mergeIntoOutbox(entriesForReplace(oldIds, nodes, Date.now()));
+      if (track) await this.mergeIntoOutbox(entriesForReplace(oldIds, nodes, at));
     });
   }
 

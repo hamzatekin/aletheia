@@ -1,9 +1,10 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import type { Engine } from '@/commands';
 import { repairTree, type Node } from '@/model';
-import { REMOTE_OP, type SyncRepository } from '@/persistence/repository';
-import { entriesForAll } from './outbox';
-import { fromWire, overlayPending, tombstone, toWire, type PullResponse, type ServerNode, type WireNode } from './wire';
+import { PEER_OP, REMOTE_OP, type SyncRepository } from '@/persistence/repository';
+import { createClock, type Clock } from './clock';
+import { entriesForAll, entriesForChanges, mergeEntry, type OutboxEntry } from './outbox';
+import { fromWire, GROUPS, overlayPending, tombstone, toWire, type PullResponse, type PushResponse, type ServerNode, type WireNode } from './wire';
 
 export type SyncStatus = 'off' | 'idle' | 'syncing' | 'offline' | 'error';
 
@@ -11,6 +12,8 @@ export interface SyncState {
   status: SyncStatus;
   /** This device's sync key, or null when sync is off. */
   key: string | null;
+  /** The key this device used before sync was turned off here, to turn it back on. */
+  lastKey: string | null;
   lastSyncedAt: number | null;
   error: string | null;
   /** A key from an opened sync link, waiting for the user to confirm joining. */
@@ -21,7 +24,8 @@ export interface SyncApi {
   createSpace(key: string): Promise<void>;
   /** Resolves true if the space exists. */
   checkSpace(key: string): Promise<boolean>;
-  push(key: string, nodes: WireNode[]): Promise<void>;
+  /** Upload nodes. The server skips invalid ones and names them in `rejected`. */
+  push(key: string, nodes: WireNode[]): Promise<PushResponse>;
   pull(key: string, since: number, limit: number): Promise<PullResponse>;
 }
 
@@ -36,6 +40,7 @@ export class SyncServerError extends Error {
 }
 
 const META_KEY = 'syncKey';
+const META_LAST_KEY = 'syncLastKey';
 const META_CURSOR = 'syncCursor';
 const PUSH_BATCH = 200;
 /** Stay well under the Worker's request body and D1's statement limits. */
@@ -43,11 +48,21 @@ const PUSH_MAX_BYTES = 800_000;
 const PULL_PAGE = 500;
 
 export interface SyncServiceOptions {
+  /** Wall clock (tests). Ignored when `clock` is given. */
   now?: () => number;
+  /** The clock the engine stamps edits with; pulled times are fed to it. */
+  clock?: Clock;
   /** Wait this long after the last edit before uploading. */
   debounceMs?: number;
   /** Called after joining replaced every local node (rebuild indexes, drop focus). */
   afterReplace?: () => void;
+  /**
+   * Called just before pulled nodes are applied, with their ids. Save any
+   * edit still held elsewhere (the row being typed in) so it counts as local.
+   */
+  beforeApply?: (ids: readonly string[]) => void;
+  /** Runs each sync exclusively, so two tabs never sync at once (Web Locks in a browser). */
+  lock?: (work: () => Promise<void>) => Promise<void>;
 }
 
 /**
@@ -59,12 +74,16 @@ export interface SyncServiceOptions {
  */
 export class SyncService {
   readonly state: StoreApi<SyncState>;
-  private readonly now: () => number;
+  private readonly clock: Clock;
   private readonly debounceMs: number;
   private readonly afterReplace: () => void;
+  private readonly beforeApply: (ids: readonly string[]) => void;
+  private readonly lock: (work: () => Promise<void>) => Promise<void>;
   private running: Promise<void> | null = null;
   private again = false;
   private timer: ReturnType<typeof setTimeout> | null = null;
+  /** While pulled nodes wait for the outbox read: local edits made meanwhile. */
+  private recording: Map<string, OutboxEntry> | null = null;
   private readonly unsubscribe: () => void;
 
   constructor(
@@ -73,12 +92,18 @@ export class SyncService {
     private readonly api: SyncApi,
     opts: SyncServiceOptions = {},
   ) {
-    this.now = opts.now ?? Date.now;
+    this.clock = opts.clock ?? createClock(opts.now);
     this.debounceMs = opts.debounceMs ?? 2000;
     this.afterReplace = opts.afterReplace ?? (() => {});
-    this.state = createStore<SyncState>(() => ({ status: 'off', key: null, lastSyncedAt: null, error: null, pendingJoinKey: null }));
+    this.beforeApply = opts.beforeApply ?? (() => {});
+    this.lock = opts.lock ?? ((work) => work());
+    this.state = createStore<SyncState>(() => ({ status: 'off', key: null, lastKey: null, lastSyncedAt: null, error: null, pendingJoinKey: null }));
     this.unsubscribe = engine.onOperation((op) => {
-      if (op.type !== REMOTE_OP && this.key) this.schedule();
+      if (op.type === REMOTE_OP || op.type === PEER_OP) return;
+      if (this.recording) {
+        for (const e of entriesForChanges(op.changes, op.timestamp)) this.recording.set(e.nodeId, mergeEntry(this.recording.get(e.nodeId), e));
+      }
+      if (this.key) this.schedule();
     });
   }
 
@@ -88,11 +113,32 @@ export class SyncService {
 
   /** Resume sync if this device has it turned on. */
   async start(): Promise<void> {
-    const key = await this.repo.getMeta<string>(META_KEY);
+    const key = (await this.repo.getMeta<string>(META_KEY)) ?? null;
+    const lastKey = (await this.repo.getMeta<string>(META_LAST_KEY)) ?? null;
+    this.state.setState({ lastKey });
     if (!key) return;
     this.repo.setTracking(true);
     this.state.setState({ key, status: 'idle' });
     void this.sync();
+  }
+
+  /**
+   * Another tab turned sync on or off: follow it, without touching the
+   * outbox or the notes (that tab already did).
+   */
+  async reloadKey(): Promise<void> {
+    const key = (await this.repo.getMeta<string>(META_KEY)) ?? null;
+    const lastKey = (await this.repo.getMeta<string>(META_LAST_KEY)) ?? null;
+    if (key === this.key) {
+      this.state.setState({ lastKey });
+      return;
+    }
+    this.cancelTimer();
+    this.repo.setTracking(key !== null);
+    this.state.setState(
+      key ? { key, lastKey, status: 'idle', error: null, pendingJoinKey: null } : { key: null, lastKey, status: 'off', error: null, lastSyncedAt: null },
+    );
+    if (key) void this.sync();
   }
 
   /** Turn sync on with a new key, uploading this device's notes. Returns the key. */
@@ -131,15 +177,27 @@ export class SyncService {
     await this.sync();
   }
 
-  /** Stop syncing on this device. Notes stay here; the server copy is untouched. */
+  /** Turn sync back on here with the key it had, merging what changed meanwhile. */
+  async resume(): Promise<void> {
+    const { lastKey } = this.state.getState();
+    if (!lastKey) throw new Error('This browser has no earlier sync to turn back on.');
+    await this.join(lastKey, 'merge');
+  }
+
+  /**
+   * Stop syncing on this device. Notes stay here; the server copy is
+   * untouched. The key is kept (as `lastKey`) so sync can be turned back on.
+   */
   async disable(): Promise<void> {
     this.cancelTimer();
     await this.running;
+    const key = this.key;
     this.repo.setTracking(false);
     await this.repo.clearOutbox();
     await this.repo.deleteMeta(META_KEY);
     await this.repo.deleteMeta(META_CURSOR);
-    this.state.setState({ key: null, status: 'off', error: null, lastSyncedAt: null });
+    if (key) await this.repo.setMeta(META_LAST_KEY, key);
+    this.state.setState({ key: null, lastKey: key ?? this.state.getState().lastKey, status: 'off', error: null, lastSyncedAt: null });
   }
 
   setPendingJoin(key: string | null): void {
@@ -169,6 +227,7 @@ export class SyncService {
 
   /** Run `sync` after edits settle. */
   schedule(): void {
+    if (!this.key) return;
     this.cancelTimer();
     this.timer = setTimeout(() => void this.sync(), this.debounceMs);
   }
@@ -187,14 +246,25 @@ export class SyncService {
     const key = this.key!;
     this.state.setState({ status: 'syncing' });
     try {
-      await this.pushAll(key);
-      await this.pullAll(key);
-      const fixes = repairTree(this.engine.tree, this.now());
-      if (fixes.length > 0) {
-        this.engine.applyExternal(fixes, 'repair');
-        await this.pushAll(key);
-      }
-      if (this.key === key) this.state.setState({ status: 'idle', error: null, lastSyncedAt: this.now() });
+      let pushError: SyncServerError | null = null;
+      await this.lock(async () => {
+        if (this.key !== key) return;
+        // A refused upload must not stop downloads: pull anyway, then report it.
+        try {
+          await this.pushAll(key);
+        } catch (error) {
+          if (!(error instanceof SyncServerError)) throw error;
+          pushError = error;
+        }
+        await this.pullAll(key);
+        const fixes = repairTree(this.engine.tree, this.clock.now());
+        if (fixes.length > 0) {
+          this.engine.applyExternal(fixes, 'repair');
+          if (!pushError) await this.pushAll(key);
+        }
+      });
+      if (pushError) throw pushError;
+      if (this.key === key) this.state.setState({ status: 'idle', error: null, lastSyncedAt: Date.now() });
     } catch (error) {
       if (this.key !== key) return;
       if (error instanceof SyncServerError) this.state.setState({ status: 'error', error: error.message });
@@ -211,15 +281,18 @@ export class SyncService {
       const sent = [];
       let bytes = 0;
       for (const e of entries) {
-        const node = this.engine.tree.get(e.nodeId);
-        const wire = node ? toWire(node, e.t) : tombstone(e.nodeId, e.t.deleted ?? this.now());
+        // The saved copy, not this tab's tree: another tab may have made the change.
+        const node = e.node !== undefined ? e.node : (this.engine.tree.get(e.nodeId) ?? null);
+        const wire = node ? toWire(node, e.t) : tombstone(e.nodeId, e.t.deleted ?? this.clock.now());
         const size = wire.content.length + wire.note.length + 200;
         if (wires.length > 0 && bytes + size > PUSH_MAX_BYTES) break;
         wires.push(wire);
         sent.push(e);
         bytes += size;
       }
-      await this.api.push(key, wires);
+      const { rejected } = await this.api.push(key, wires);
+      // Refused nodes are dropped too; retrying them would block every later upload.
+      if (rejected && rejected.length > 0) console.warn('sync: the server refused these nodes', rejected);
       await this.repo.ackOutbox(sent);
     }
   }
@@ -239,10 +312,25 @@ export class SyncService {
 
   private async applyRemote(remote: readonly ServerNode[]): Promise<void> {
     if (remote.length === 0) return;
-    const pending = await this.repo.getOutbox(remote.map((n) => n.id));
-    const nodes: Node[] = remote.map((w) =>
-      overlayPending(fromWire(w), this.engine.tree.get(w.id), pending.get(w.id)?.t, w.t),
-    );
+    for (const w of remote) for (const g of GROUPS) this.clock.observe(w.t[g] ?? 0);
+    const ids = remote.map((n) => n.id);
+    // Edits made while the outbox is read count as pending too, or the
+    // pulled versions would overwrite them.
+    const recorded = new Map<string, OutboxEntry>();
+    this.recording = recorded;
+    let pending: Map<string, OutboxEntry>;
+    try {
+      this.beforeApply(ids);
+      pending = await this.repo.getOutbox(ids);
+    } finally {
+      this.recording = null;
+    }
+    for (const e of recorded.values()) pending.set(e.nodeId, mergeEntry(pending.get(e.nodeId), e));
+    const nodes: Node[] = remote.map((w) => {
+      const p = pending.get(w.id);
+      const local = p?.node !== undefined ? (p.node ?? undefined) : this.engine.tree.get(w.id);
+      return overlayPending(fromWire(w), local, p?.t, w.t);
+    });
     this.engine.applyExternal(nodes, REMOTE_OP);
   }
 }
@@ -298,6 +386,7 @@ export function httpSyncApi(base = '', fetchFn: typeof fetch = (...args) => fetc
     async push(key, nodes) {
       const res = await call(key, 'POST', 'push', { nodes });
       if (!res.ok) await fail(res);
+      return (await res.json()) as PushResponse;
     },
     async pull(key, since, limit) {
       const res = await call(key, 'GET', `pull?since=${since}&limit=${limit}`);

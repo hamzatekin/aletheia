@@ -1,5 +1,6 @@
 import { newId, type Node, type NodeChange, type Operation, type TreeReader } from '@/model';
 import type { Repository } from '@/persistence';
+import { PEER_OP } from '@/persistence/repository';
 import { readerOf, type TreeStore } from '@/store/tree-store';
 import { computeEffect } from './dispatch';
 import { isRejection, type Command, type FocusHint } from './types';
@@ -48,6 +49,16 @@ export interface Engine {
    * are skipped; returns the operation, or null when nothing changed.
    */
   applyExternal(nodes: readonly Node[], type: string): Operation | null;
+  /**
+   * Show node versions another tab already wrote to disk: updates the store
+   * and tells listeners (as a `PEER_OP` operation) but writes nothing. `null`
+   * removes the node. Returns the operation, or null when nothing changed.
+   */
+  applyPeer(nodes: readonly { id: string; after: Node | null }[]): Operation | null;
+  /** Re-read every node from disk and show whatever another tab changed there. */
+  reload(): Promise<void>;
+  /** Subscribe to wholesale replaces (`replaceAll`). Returns unsubscribe. */
+  onReplace(listener: () => void): () => void;
   /** Subscribe to committed operations (search index, etc.). Returns unsubscribe. */
   onOperation(listener: (op: Operation) => void): () => void;
 }
@@ -59,6 +70,9 @@ export function createEngine(opts: EngineOptions): Engine {
   const undoStack: Operation[] = [];
   const redoStack: Operation[] = [];
   const listeners = new Set<(op: Operation) => void>();
+  const replaceListeners = new Set<() => void>();
+  /** While `reload` reads the disk: nodes this tab changed meanwhile (its copy is newer). */
+  let changedDuringReload: Set<string> | null = null;
   let queue: Promise<void> = Promise.resolve();
 
   function commit(op: Operation): void {
@@ -74,6 +88,7 @@ export function createEngine(opts: EngineOptions): Engine {
       else removals.push(c.id);
     }
     const batch = { upserts, removals, operation: op, dirtyNodeIds: op.affectedNodeIds };
+    if (changedDuringReload) for (const c of op.changes) changedDuringReload.add(c.id);
     // The queue never rejects: each step catches its own error so later
     // writes still run in order.
     queue = queue
@@ -82,6 +97,21 @@ export function createEngine(opts: EngineOptions): Engine {
         (opts.onPersistError ?? ((e) => console.error('persist failed', e)))(error, op);
       });
     for (const l of listeners) l(op);
+  }
+
+  function applyPeer(nodes: readonly { id: string; after: Node | null }[]): Operation | null {
+    const changes: NodeChange[] = [];
+    for (const { id, after } of nodes) {
+      const before = tree.get(id) ?? null;
+      if (before === null && after === null) continue;
+      if (before && after && sameNode(before, after) && before.updatedAt === after.updatedAt) continue;
+      changes.push({ id, before, after });
+    }
+    if (changes.length === 0) return null;
+    store.getState().applyChanges(changes);
+    const op: Operation = { id: newId(), type: PEER_OP, input: null, changes, affectedNodeIds: changes.map((c) => c.id), timestamp: now() };
+    for (const l of listeners) l(op);
+    return op;
   }
 
   function invert(changes: readonly NodeChange[], at: number): NodeChange[] {
@@ -201,10 +231,11 @@ export function createEngine(opts: EngineOptions): Engine {
 
     async replaceAll(nodes) {
       await queue;
-      await repository.replaceAllNodes(nodes);
+      await repository.replaceAllNodes(nodes, now());
       undoStack.length = 0;
       redoStack.length = 0;
       store.getState().load(nodes);
+      for (const l of replaceListeners) l();
     },
 
     applyExternal(nodes, type) {
@@ -219,6 +250,32 @@ export function createEngine(opts: EngineOptions): Engine {
       const op: Operation = { id: newId(), type, input: null, changes, affectedNodeIds: ids, timestamp: now() };
       commit(op);
       return op;
+    },
+
+    applyPeer,
+
+    async reload() {
+      const changed = (changedDuringReload = new Set());
+      let onDisk: Node[];
+      try {
+        await queue; // this tab's own writes are on disk first
+        onDisk = await repository.loadAllNodes();
+      } finally {
+        changedDuringReload = null;
+      }
+      const seen = new Set<string>();
+      const nodes: { id: string; after: Node | null }[] = [];
+      for (const n of onDisk) {
+        seen.add(n.id);
+        if (!changed.has(n.id)) nodes.push({ id: n.id, after: n });
+      }
+      for (const n of tree.all()) if (!seen.has(n.id) && !changed.has(n.id)) nodes.push({ id: n.id, after: null });
+      applyPeer(nodes);
+    },
+
+    onReplace(listener) {
+      replaceListeners.add(listener);
+      return () => replaceListeners.delete(listener);
     },
 
     onOperation(listener) {

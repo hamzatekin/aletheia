@@ -49,6 +49,12 @@ export interface PushRequest {
   nodes: WireNode[];
 }
 
+export interface PushResponse {
+  seq: number | null;
+  /** Ids of nodes the server refused as invalid (older servers omit this). */
+  rejected?: string[];
+}
+
 export interface PullResponse {
   nodes: ServerNode[];
   /** Pass back as `since` to continue. */

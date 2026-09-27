@@ -29,7 +29,17 @@ export function watchBrowser(sync: SyncService): () => void {
   const timer = setInterval(() => {
     if (visible() && navigator.onLine) void sync.sync();
   }, POLL_MS);
+  // With sync on, ask the browser not to clear this site's storage when the
+  // device runs low on space (it would take unsynced edits and the key with it).
+  const persist = () => {
+    if (sync.state.getState().key) void keepStorage();
+  };
+  persist();
+  const offState = sync.state.subscribe((s, prev) => {
+    if (s.key !== prev.key) persist();
+  });
   return () => {
+    offState();
     document.removeEventListener('visibilitychange', onVisible);
     document.removeEventListener('visibilitychange', onHidden);
     window.removeEventListener('online', onOnline);
@@ -43,4 +53,19 @@ export function takeKeyFromLocation(): string | null {
   const key = keyFromHash(window.location.hash);
   if (key) window.history.replaceState(null, '', window.location.pathname + window.location.search);
   return key;
+}
+
+/** Let only one tab of this browser sync at a time. */
+export function tabLock(name = 'aletheia-sync'): (work: () => Promise<void>) => Promise<void> {
+  return (work) => (navigator.locks ? navigator.locks.request(name, work) : work());
+}
+
+/** Ask for persistent storage (Chrome decides silently; installed apps get it). */
+async function keepStorage(): Promise<void> {
+  try {
+    if (!navigator.storage?.persist || (await navigator.storage.persisted())) return;
+    await navigator.storage.persist();
+  } catch {
+    // Not supported here; storage stays best-effort.
+  }
 }
