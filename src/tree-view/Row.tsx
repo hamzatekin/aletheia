@@ -1,4 +1,4 @@
-import { memo, useRef, type MouseEvent } from 'react';
+import { memo, useRef, type MouseEvent, type TouchEvent } from 'react';
 import { renderBlock, renderInline } from '@/editor/render';
 import { NodeEditor } from '@/editor/NodeEditor';
 import { NoteEditor, NoteHeader, useNoteMode } from '@/editor/NoteEditor';
@@ -31,7 +31,7 @@ interface Props {
 
 /** One outline row: gutter (toggle + bullet), content, optional note. */
 export const Row = memo(function Row({ id, depth }: Props) {
-  const { engine, ui } = useOutline();
+  const { engine, ui, actions } = useOutline();
   const node = useNode(id);
   const hasChildren = useHasChildren(id);
   const focusField = useUiStore(ui, (s) => (s.focus?.id === id ? s.focus.field : null));
@@ -49,16 +49,66 @@ export const Row = memo(function Row({ id, depth }: Props) {
   useRowDnd(id, depth, rowRef, handleRef, gripRef);
   if (!node) return null;
 
+  const longPress = useRef<{ timer: number; x: number; y: number; fired: number } | null>(null);
+
+  /** Shift+click, Ctrl/Cmd+click, and taps while selecting on a phone pick nodes instead of editing. Returns true if handled. */
+  const selectClick = (e: MouseEvent<HTMLDivElement>): boolean => {
+    if (Date.now() - (longPress.current?.fired ?? 0) < 800) {
+      e.preventDefault();
+      return true; // the tap that ended a long press
+    }
+    const { focus, selection } = ui.getState();
+    if (e.shiftKey && (focus || selection)) {
+      e.preventDefault();
+      actions.selectTo(id);
+      return true;
+    }
+    const onLink = (e.target as HTMLElement).closest('a') !== null;
+    if (((e.metaKey || e.ctrlKey) && !onLink) || (coarse && selection && !focus)) {
+      if (!focus && !selection) return false;
+      e.preventDefault();
+      actions.toggleSelected(id);
+      return true;
+    }
+    return false;
+  };
+
   const onContentMouseDown = (e: MouseEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest('a')) return; // let links open
     if (e.button !== 0) return;
+    if (selectClick(e)) return;
+    if ((e.target as HTMLElement).closest('a')) return; // let links open
     e.preventDefault();
     ui.focusNode(id, { kind: 'point', x: e.clientX, y: e.clientY });
   };
 
+  // A long press selects the node, as in WorkFlowy's and Dynalist's apps.
+  const onTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length !== 1 || ui.getState().focus?.id === id) return;
+    const t = e.touches[0]!;
+    const fired = longPress.current?.fired ?? 0;
+    const timer = window.setTimeout(() => {
+      if (!longPress.current) return;
+      longPress.current.fired = Date.now();
+      navigator.vibrate?.(10);
+      const { selection } = ui.getState();
+      if (selection && !selection.ids.has(id)) actions.toggleSelected(id);
+      else if (!selection) actions.selectNode(id);
+    }, 450);
+    longPress.current = { timer, x: t.clientX, y: t.clientY, fired };
+  };
+  const onTouchMove = (e: TouchEvent<HTMLDivElement>) => {
+    const lp = longPress.current;
+    const t = e.touches[0];
+    if (lp && t && Math.hypot(t.clientX - lp.x, t.clientY - lp.y) > 10) clearTimeout(lp.timer);
+  };
+  const onTouchEnd = () => {
+    if (longPress.current) clearTimeout(longPress.current.timer);
+  };
+
   const onNoteMouseDown = (e: MouseEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest('a')) return;
     if (e.button !== 0) return;
+    if (selectClick(e)) return;
+    if ((e.target as HTMLElement).closest('a')) return;
     e.preventDefault();
     ui.focusNode(id, { kind: 'point', x: e.clientX, y: e.clientY }, 'note');
   };
@@ -133,7 +183,17 @@ export const Row = memo(function Row({ id, depth }: Props) {
         )}
         <Bullet id={id} collapsedWithChildren={node.collapsed && hasChildren} handleRef={handleRef} />
       </div>
-      <div className="row-text min-w-0 flex-1 py-px">
+      <div
+        className="row-text min-w-0 flex-1 py-px"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
+        onContextMenu={(e) => {
+          // The long press is ours; the browser's text selection menu would cover the rows.
+          if (coarse && focusField === null) e.preventDefault();
+        }}
+      >
         {focusField === 'content' ? (
           <NodeEditor id={id} className="node-content wrap-break-word" />
         ) : (

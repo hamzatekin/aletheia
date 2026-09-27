@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router';
 import { moveDownCommand, moveUpCommand, type Command } from '@/commands';
-import { importItems, type OutlineItem } from '@/io';
+import { importItems } from '@/io';
+import { subtreeItems } from '@/io/clipboard';
 import { formatTerminalContent, formatTerminalNote } from '@/io/terminal';
 import type { TreeReader } from '@/model';
 import { isNoteCollapsed, notePrefs, useNotePrefs } from '@/store/note-prefs';
@@ -18,13 +19,6 @@ interface Item {
   hint?: string;
   danger?: boolean;
   run(): void;
-}
-
-function subtreeItems(tree: TreeReader, parentId: string): OutlineItem[] {
-  return tree.children(parentId).map((id) => {
-    const n = tree.get(id)!;
-    return { content: n.content, note: n.note, children: subtreeItems(tree, id) };
-  });
 }
 
 /** updateContent/updateNote commands that clean up terminal output pasted into the node and its descendants. */
@@ -92,6 +86,7 @@ export function NodeMenu({ id, hasChildren, collapsed, sheet = false }: { id: st
           { id: 'collapse-all', label: 'Collapse all inside', run: () => actions.setAllCollapsed(id, true, true) },
         ]
       : []),
+    { id: 'select', label: 'Select', hint: 'Esc', run: () => actions.selectNode(id) },
     { id: 'indent', label: 'Indent', hint: 'Tab', run: () => exec({ type: 'indent', id }) },
     ...(canOutdent ? [{ id: 'outdent', label: 'Outdent', hint: 'Shift+Tab', run: () => exec({ type: 'outdent', id }) }] : []),
     { id: 'up', label: 'Move up', hint: `${ALT}Shift+↑`, run: () => exec(moveUpCommand({ tree, now: 0 }, id)) },
@@ -101,8 +96,7 @@ export function NodeMenu({ id, hasChildren, collapsed, sheet = false }: { id: st
       label: 'Duplicate',
       run: () => {
         session.flush();
-        const copy = tree.get(id)!;
-        importItems(engine, copy.parentId, [{ content: copy.content, note: copy.note, children: subtreeItems(tree, id) }], id);
+        importItems(engine, tree.get(id)!.parentId, subtreeItems(tree, [id]), id);
       },
     },
     ...(fixes.length > 0

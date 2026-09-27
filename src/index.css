@@ -325,6 +325,12 @@ body {
     position: absolute;
     inset: -8px -1px;
   }
+  /* A long press on a row selects it; the browser's own text selection would get in the way. */
+  [data-node-id]:not([data-focused]) .row-text {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
   /* Long-pressing a bullet should not pop up the browser's link preview. */
   .group\/bullet {
     -webkit-touch-callout: none;

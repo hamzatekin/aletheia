@@ -1,3 +1,4 @@
+import { CLIP_TYPE } from '@/io/clipboard';
 import { Editor, Node } from '@tiptap/core';
 import type { Fragment, Node as PMNode } from '@tiptap/pm/model';
 import StarterKit from '@tiptap/starter-kit';
@@ -42,8 +43,8 @@ export class EditorSession {
   private loading = false;
   private mounted = false;
   private readonly unsubscribe: () => void;
-  /** Multi-line paste goes to the outline (one node per line). */
-  pasteHandler: ((text: string) => boolean) | null = null;
+  /** Multi-line paste and copied nodes go to the outline (one node per line). */
+  pasteHandler: ((text: string, json: string | null) => boolean) | null = null;
 
   constructor(private readonly engine: Engine) {
     // Undo/redo (or any command) may change the loaded node's content
@@ -85,8 +86,8 @@ export class EditorSession {
         attributes: { class: 'node-content outline-none', spellcheck: 'true' },
         handlePaste: (_view, event) => {
           const text = event.clipboardData?.getData('text/plain') ?? '';
-          if (text.includes('\n') && this.pasteHandler) return this.pasteHandler(text);
-          return false;
+          const json = event.clipboardData?.getData(CLIP_TYPE) || null;
+          return this.pasteHandler?.(text, json) ?? false;
         },
       },
       onUpdate: () => {
