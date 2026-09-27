@@ -17,7 +17,8 @@ import { useUiStore, type UiStore } from '@/store/ui-store';
 import { createOutlineActions } from './actions';
 import { Breadcrumbs } from './Breadcrumbs';
 import { Outline } from './Outline';
-import { MobileToolbar } from './MobileToolbar';
+import { MobileToolbar, SelectionBar } from './MobileToolbar';
+import { CLIP_TYPE } from '@/io/clipboard';
 import { OutlineProvider } from './outline-context';
 import { OutlineSidebar, SidebarIcon } from './OutlineSidebar';
 import { PageResizeHandles } from './PageResizeHandles';
@@ -81,6 +82,72 @@ export function OutlinePage({ ui, session, search, settings, sync }: Props) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [actions, settings, session, ui]);
+
+  // Ctrl+C / Ctrl+X / Ctrl+V on selected nodes. Nothing is focused then, so the events land on the page.
+  useEffect(() => {
+    const inField = (e: Event) => (e.target as Element | null)?.closest?.('input, textarea, [contenteditable="true"]') != null;
+    const onCopy = (cut: boolean) => (e: ClipboardEvent) => {
+      if (inField(e) || !e.clipboardData) return;
+      if (actions.copySelection(e.clipboardData, cut)) e.preventDefault();
+    };
+    const onPaste = (e: ClipboardEvent) => {
+      if (inField(e) || !e.clipboardData) return;
+      if (actions.pasteIntoSelection(e.clipboardData.getData('text/plain'), e.clipboardData.getData(CLIP_TYPE) || null)) e.preventDefault();
+    };
+    const copy = onCopy(false);
+    const cut = onCopy(true);
+    document.addEventListener('copy', copy);
+    document.addEventListener('cut', cut);
+    document.addEventListener('paste', onPaste);
+    return () => {
+      document.removeEventListener('copy', copy);
+      document.removeEventListener('cut', cut);
+      document.removeEventListener('paste', onPaste);
+    };
+  }, [actions]);
+
+  // Dragging with the mouse from one row into others selects whole rows, as in WorkFlowy.
+  useEffect(() => {
+    let start: string | null = null;
+    let active = false;
+    const rowAt = (x: number, y: number): string | null => {
+      const row = document.elementFromPoint(x, y)?.closest('[data-node-id]:not([data-title])');
+      return row instanceof HTMLElement ? (row.dataset.nodeId ?? null) : null;
+    };
+    const onDown = (e: globalThis.MouseEvent) => {
+      start = null;
+      active = false;
+      if (e.button !== 0 || e.shiftKey || e.metaKey || e.ctrlKey) return;
+      const t = e.target as Element;
+      if (!t.closest?.('.row-text') || t.closest('a, button')) return;
+      start = rowAt(e.clientX, e.clientY);
+    };
+    const onMove = (e: globalThis.MouseEvent) => {
+      if (start === null) return;
+      if ((e.buttons & 1) === 0) {
+        start = null;
+        return;
+      }
+      const over = rowAt(e.clientX, e.clientY);
+      if (over === null || (!active && over === start)) return;
+      active = true;
+      document.getSelection()?.removeAllRanges();
+      const sel = ui.getState().selection;
+      if (sel?.anchor !== start || sel.head !== over || ui.getState().focus) actions.selectRange(start, over);
+    };
+    const onUp = () => {
+      start = null;
+      active = false;
+    };
+    window.addEventListener('mousedown', onDown, true);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousedown', onDown, true);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [actions, ui]);
 
   useEffect(() => {
     document.title = root && !missing ? plainText(root.content) || 'Untitled' : 'Aletheia';
@@ -199,6 +266,7 @@ export function OutlinePage({ ui, session, search, settings, sync }: Props) {
           </main>
         </div>
         <MobileToolbar />
+        <SelectionBar />
       </div>
     </OutlineProvider>
   );

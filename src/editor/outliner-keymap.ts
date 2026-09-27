@@ -22,7 +22,10 @@ export type OutlineKey =
   | 'undo'
   | 'redo'
   | 'slash'
-  | 'search';
+  | 'search'
+  | 'selectUp'
+  | 'selectDown'
+  | 'selectAll';
 
 export interface OutlinerKeymapStorage {
   /** Set by the outline; returns true when the key was consumed. */
@@ -53,6 +56,15 @@ export const OutlinerKeymap = Extension.create<Record<string, never>, OutlinerKe
       ArrowDown: () => (editor.view.endOfTextblock('down') ? send('down')() : false),
       ArrowLeft: () => (atStart() ? send('left')() : false),
       ArrowRight: () => (atEnd() ? send('right')() : false),
+      // Like WorkFlowy: Shift+arrows select text up to the edge of the node, then whole nodes.
+      'Shift-ArrowUp': () => (editor.state.selection.from <= 1 && editor.view.endOfTextblock('up') ? send('selectUp')() : false),
+      'Shift-ArrowDown': () =>
+        editor.state.selection.to >= editor.state.doc.content.size - 1 && editor.view.endOfTextblock('down') ? send('selectDown')() : false,
+      // The first Ctrl+A selects the text; once all of it is selected, the next one selects every node.
+      'Mod-a': () => {
+        const { from, to } = editor.state.selection;
+        return from <= 1 && to >= editor.state.doc.content.size - 1 ? send('selectAll')() : false;
+      },
       'Mod-ArrowUp': send('collapse'),
       'Mod-ArrowDown': send('expand'),
       'Alt-Shift-ArrowUp': send('moveUp'),

@@ -104,6 +104,7 @@ const TABS: Tab[] = [
             ['Tap the arrow on the right', 'Every line with children has one. ▸ expands a collapsed node, ▾ collapses an open one. Collapsed nodes also have a halo around the bullet.'],
             ['Tap a bullet', 'Zoom into that node. Tap Home or a crumb at the top to go back.'],
             ['Tap the magnifier', 'Search everything, top right.'],
+            ['Long-press a line', 'Select it. Tap more lines to add or remove them, then use the bar at the bottom to indent, move, copy, cut, paste below or delete them all at once.'],
           ]}
         />
         <H>The toolbar above the keyboard</H>
@@ -159,11 +160,17 @@ const TABS: Tab[] = [
     title: 'Select',
     body: (
       <>
-        <P>Press Escape while editing to select the whole node instead of its text. Then you can act on several nodes at once.</P>
+        <P>Select whole nodes instead of their text, then act on all of them at once. Copying keeps their children and notes: paste them back here to get the same nodes, or anywhere else to get indented bullets.</P>
         <Table
           rows={[
             [<Keys k="Esc" />, 'Select the current node. Press again to clear the selection.'],
-            [<Keys k="Shift+↑" />, 'Extend the selection up. Shift+↓ extends it down.'],
+            ['Shift+click', 'Select every row from the node you are in to the one you click.'],
+            [MOD + '+click', 'Add a node to the selection, or take it out.'],
+            ['Drag across rows', 'Press in one row and drag into others to select them.'],
+            [<Keys k="Shift+↑" />, 'Extend the selection up. Shift+↓ extends it down. While editing, it first selects the text, then nodes.'],
+            [<Keys k="Mod+A" />, 'Twice while editing, or once in a selection: select every node on the page.'],
+            [<Keys k="Mod+C" />, 'Copy the selected nodes. ' + MOD + '+X cuts them.'],
+            [<Keys k="Mod+V" />, 'Paste below the selection, or into the node you are editing.'],
             [<Keys k="Tab" />, 'Indent every selected node. Shift+Tab outdents.'],
             [<Keys k="Backspace" />, 'Delete the selected nodes and everything under them. Undo brings them back.'],
             [<Keys k="Alt+Shift+↑" />, 'Move the selected nodes up or down.'],

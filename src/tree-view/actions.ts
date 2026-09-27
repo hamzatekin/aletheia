@@ -3,6 +3,8 @@ import type { EditorSession } from '@/editor/session';
 import type { OutlineKey } from '@/editor/outliner-keymap';
 import { slashCommands } from '@/editor/slash-registry';
 import { importCommands, parseMarkdownOutline } from '@/io/import';
+import { clipboardItems, readClipboardText, subtreeItems, writeClipboard, writeClipboardData } from '@/io/clipboard';
+import type { OutlineItem } from '@/io/types';
 import { ancestorIds, newId, nextVisible, previousVisible, visibleRows, type TreeReader } from '@/model';
 import type { SearchIndex } from '@/search';
 import type { Caret, UiStore } from '@/store/ui-store';
@@ -25,9 +27,25 @@ export interface OutlineActions {
   runSlash(index: number): void;
   /** Keep the slash query in sync with the editor; called after each transaction. */
   syncSlash(): void;
-  /** Multi-line paste: one node per line, nested by indentation. */
-  pasteLines(text: string): boolean;
+  /** Multi-line paste: one node per line, nested by indentation. Copied nodes come back whole. */
+  pasteLines(text: string, json?: string | null): boolean;
+  /** Select just this node (Esc, the menu's Select, a long press on a phone). */
+  selectNode(id: string): void;
+  /** Shift+click: select from the edited node or the selection's anchor to this one. */
+  selectTo(id: string): void;
+  /** Ctrl/Cmd+click, or a tap while selecting on a phone: add or remove one node. */
+  toggleSelected(id: string): void;
+  /** Dragging across rows: the rows from `anchor` to `head`. */
+  selectRange(anchor: string, head: string): void;
+  /** Act on the selected nodes (keyboard, and the phone's selection bar). */
+  selectionAction(action: SelectionAction): void;
+  /** Copy (or cut) the selection into a clipboard event. Returns false when nothing is selected. */
+  copySelection(data: DataTransfer | null, cut?: boolean): boolean;
+  /** Paste below the selection. Returns false when nothing is selected. */
+  pasteIntoSelection(text: string, json?: string | null): boolean;
 }
+
+export type SelectionAction = 'indent' | 'outdent' | 'moveUp' | 'moveDown' | 'delete' | 'copy' | 'cut' | 'paste' | 'done';
 
 interface Deps {
   engine: Engine;
@@ -83,6 +101,35 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
     ui.setSelection({ anchor, head, ids });
   };
 
+  const selectNode = (id: string) => {
+    if (id === rootId || !tree.get(id)) return;
+    session.flush();
+    ui.blur();
+    ui.setMenu(null);
+    ui.setSelection({ anchor: id, head: id, ids: new Set([id]) });
+  };
+
+  const selectTo = (id: string) => {
+    const { focus, selection } = ui.getState();
+    const anchor = selection?.anchor ?? (focus && focus.id !== rootId ? focus.id : null);
+    if (anchor === null) return selectNode(id);
+    session.flush();
+    ui.blur();
+    selectRange(anchor, id);
+  };
+
+  const toggleSelected = (id: string) => {
+    const { focus, selection } = ui.getState();
+    const ids = new Set(selection?.ids ?? (focus && focus.id !== rootId ? [focus.id] : []));
+    session.flush();
+    ui.blur();
+    if (ids.has(id)) ids.delete(id);
+    else ids.add(id);
+    if (ids.size === 0) return ui.setSelection(null);
+    const head = ids.has(id) ? id : [...ids][ids.size - 1]!;
+    ui.setSelection({ anchor: ids.has(selection?.anchor ?? '') ? selection!.anchor : head, head, ids });
+  };
+
   const undoRedo = (which: 'undo' | 'redo') => {
     session.flush();
     const inSelectionMode = ui.getState().focus === null && ui.getState().selection !== null;
@@ -126,10 +173,12 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
     void item.run({ engine, session, ui, search, navigate, rootId, nodeId: focus.id });
   };
 
-  const pasteLines = (text: string): boolean => {
+  const pasteLines = (text: string, json?: string | null): boolean => {
     const focus = ui.getState().focus;
     if (!focus || focus.field !== 'content') return false;
-    const items = parseMarkdownOutline(text);
+    const copied = clipboardItems(text, json);
+    if (!copied && !text.includes('\n')) return false;
+    const items = copied ?? parseMarkdownOutline(text);
     if (items.length === 0) return false;
     const id = focus.id;
     const node = tree.get(id);
@@ -293,6 +342,23 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
         ui.blur();
         if (!isTitle) ui.setSelection({ anchor: id, head: id, ids: new Set([id]) });
         return true;
+      case 'selectUp':
+      case 'selectDown': {
+        if (isTitle) return true;
+        const target = key === 'selectUp' ? previousVisible(tree, rootId, id) : nextVisible(tree, rootId, id);
+        session.flush();
+        ui.blur();
+        selectRange(id, target ?? id);
+        return true;
+      }
+      case 'selectAll': {
+        const rows = visibleRows(tree, rootId);
+        if (rows.length === 0) return false;
+        session.flush();
+        ui.blur();
+        selectRange(rows[0]!.id, rows[rows.length - 1]!.id);
+        return true;
+      }
     }
   };
 
@@ -301,6 +367,99 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
     visibleRows(tree, rootId)
       .map((r) => r.id)
       .filter((id) => ids.has(id) && !ids.has(tree.get(id)?.parentId ?? ''));
+
+  const run = (items: BatchItem[], type: string): Outcome => engine.batch(items, type);
+
+  /** Select these sibling subtrees (after a paste): their rows, from the first to the last one's last visible descendant. */
+  const reselect = (ids: string[]) => {
+    const rows = visibleRows(tree, rootId);
+    const first = rows.findIndex((r) => r.id === ids[0]);
+    let last = rows.findIndex((r) => r.id === ids[ids.length - 1]);
+    if (first < 0 || last < 0) return ui.setSelection(null);
+    const depth = rows[last]!.depth;
+    while (rows[last + 1] && rows[last + 1]!.depth > depth) last++;
+    selectRange(rows[first]!.id, rows[last]!.id);
+  };
+
+  const deleteSelected = (ids: ReadonlySet<string>) => {
+    const top = topLevelSelected(ids);
+    const outcome = run(top.map((id): Command => ({ type: 'deleteSubtree', id })), 'deleteSelection');
+    ui.setSelection(null);
+    // Keep selecting where the nodes were, as Dynalist does, unless on a phone where the bar would linger.
+    if (outcome.ok && outcome.focus && !matchMedia('(pointer: coarse)').matches) selectRange(outcome.focus.id, outcome.focus.id);
+  };
+
+  const copySelection = (data: DataTransfer | null, cut = false): boolean => {
+    const { focus, selection } = ui.getState();
+    if (focus || !selection) return false;
+    const items = subtreeItems(tree, topLevelSelected(selection.ids));
+    if (items.length === 0) return false;
+    if (data) writeClipboardData(data, items);
+    else void writeClipboard(items);
+    if (cut) deleteSelected(selection.ids);
+    return true;
+  };
+
+  const pasteItems = (items: OutlineItem[]) => {
+    const { selection } = ui.getState();
+    if (!selection || items.length === 0) return;
+    const top = topLevelSelected(selection.ids);
+    const after = top[top.length - 1];
+    const anchor = after !== undefined ? tree.get(after) : undefined;
+    if (!anchor) return;
+    const commands = importCommands(anchor.parentId, items, after);
+    const outcome = engine.batch(commands, 'paste');
+    if (!outcome.ok) return;
+    // Select what was pasted: the created nodes whose parent is the anchor's.
+    reselect(commands.flatMap((c) => (c.type === 'createNode' && c.parentId === anchor.parentId ? [c.id] : [])));
+  };
+
+  const pasteIntoSelection = (text: string, json?: string | null): boolean => {
+    const { focus, selection } = ui.getState();
+    if (focus || !selection) return false;
+    const items = clipboardItems(text, json) ?? parseMarkdownOutline(text);
+    pasteItems(items);
+    return true;
+  };
+
+  const selectionAction = (action: SelectionAction) => {
+    const { selection } = ui.getState();
+    if (!selection) return;
+    const { ids } = selection;
+    const top = topLevelSelected(ids);
+    switch (action) {
+      case 'moveUp':
+      case 'moveDown': {
+        const ordered = action === 'moveUp' ? top : [...top].reverse();
+        const make = action === 'moveUp' ? moveUpCommand : moveDownCommand;
+        run(ordered.map((id) => (t: TreeReader) => make({ tree: t, now: 0 }, id)), 'moveSelection');
+        return;
+      }
+      case 'indent':
+        run(top.map((id): Command => ({ type: 'indent', id })), 'indentSelection');
+        return;
+      case 'outdent': {
+        const items = [...top].reverse().filter((id) => tree.get(id)?.parentId !== rootId);
+        run(items.map((id): Command => ({ type: 'outdent', id })), 'outdentSelection');
+        return;
+      }
+      case 'delete':
+        deleteSelected(ids);
+        return;
+      case 'copy':
+      case 'cut':
+        copySelection(null, action === 'cut');
+        return;
+      case 'paste':
+        void readClipboardText().then((text) => {
+          if (text !== '') pasteIntoSelection(text);
+        });
+        return;
+      case 'done':
+        ui.setSelection(null);
+        return;
+    }
+  };
 
   const handleGlobalKey = (e: KeyboardEvent): boolean => {
     const mod = e.metaKey || e.ctrlKey;
@@ -342,17 +501,19 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
     const { anchor, head, ids } = selection;
     const rows = visibleRows(tree, rootId).map((r) => r.id);
     const headIndex = rows.indexOf(head);
-    const run = (items: BatchItem[], type: string): Outcome => engine.batch(items, type);
+
+    if (mod && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      if (rows.length > 0) selectRange(rows[0]!, rows[rows.length - 1]!);
+      return true;
+    }
 
     switch (e.key) {
       case 'ArrowUp':
       case 'ArrowDown': {
         e.preventDefault();
         if (e.altKey && e.shiftKey) {
-          const top = topLevelSelected(ids);
-          const ordered = e.key === 'ArrowUp' ? top : [...top].reverse();
-          const make = e.key === 'ArrowUp' ? moveUpCommand : moveDownCommand;
-          run(ordered.map((id) => (t: TreeReader) => make({ tree: t, now: 0 }, id)), 'moveSelection');
+          selectionAction(e.key === 'ArrowUp' ? 'moveUp' : 'moveDown');
           return true;
         }
         if (mod) {
@@ -367,26 +528,15 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
         document.querySelector(`[data-node-id="${target}"]`)?.scrollIntoView({ block: 'nearest' });
         return true;
       }
-      case 'Tab': {
+      case 'Tab':
         e.preventDefault();
-        const top = topLevelSelected(ids);
-        if (e.shiftKey) {
-          const items = [...top].reverse().filter((id) => tree.get(id)?.parentId !== rootId);
-          run(items.map((id): Command => ({ type: 'outdent', id })), 'outdentSelection');
-        } else {
-          run(top.map((id): Command => ({ type: 'indent', id })), 'indentSelection');
-        }
+        selectionAction(e.shiftKey ? 'outdent' : 'indent');
         return true;
-      }
       case 'Backspace':
-      case 'Delete': {
+      case 'Delete':
         e.preventDefault();
-        const top = topLevelSelected(ids);
-        const outcome = run(top.map((id): Command => ({ type: 'deleteSubtree', id })), 'deleteSelection');
-        ui.setSelection(null);
-        if (outcome.ok && outcome.focus) selectRange(outcome.focus.id, outcome.focus.id);
+        selectionAction('delete');
         return true;
-      }
       case 'Enter':
         e.preventDefault();
         ui.focusNode(head, { kind: 'end' });
@@ -424,5 +574,16 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
     runSlash,
     syncSlash,
     pasteLines,
+    selectNode,
+    selectTo,
+    toggleSelected,
+    selectRange: (anchor: string, head: string) => {
+      session.flush();
+      ui.blur();
+      selectRange(anchor, head);
+    },
+    selectionAction,
+    copySelection,
+    pasteIntoSelection,
   };
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { moveDownCommand, moveUpCommand } from '@/commands';
 import { useUiStore } from '@/store/ui-store';
+import type { SelectionAction } from './actions';
 import { useOutline } from './outline-context';
 
 const COARSE = '(pointer: coarse)';
@@ -176,6 +177,76 @@ export function MobileToolbar() {
           {b.icon}
         </button>
       ))}
+    </div>
+  );
+}
+
+/**
+ * The bar at the bottom of a phone while nodes are selected (after a long
+ * press or the menu's Select): what the keyboard does with a selection on a
+ * computer. Tapping rows adds or removes them.
+ */
+export function SelectionBar() {
+  const { ui, actions } = useOutline();
+  const coarse = useCoarsePointer();
+  const count = useUiStore(ui, (s) => (s.focus ? 0 : (s.selection?.ids.size ?? 0)));
+  if (!coarse || count === 0) return null;
+
+  const buttons: { id: SelectionAction; label: string; icon: ReactNode }[] = [
+    { id: 'outdent', label: 'Outdent', icon: <Icon><path d="M21 6H11M21 12H11M21 18H11M7 8l-4 4 4 4" /></Icon> },
+    { id: 'indent', label: 'Indent', icon: <Icon><path d="M21 6H11M21 12H11M21 18H11M3 8l4 4-4 4" /></Icon> },
+    { id: 'moveUp', label: 'Move up', icon: <Icon><path d="M12 19V5M6 11l6-6 6 6" /></Icon> },
+    { id: 'moveDown', label: 'Move down', icon: <Icon><path d="M12 5v14M6 13l6 6 6-6" /></Icon> },
+    {
+      id: 'copy',
+      label: 'Copy',
+      icon: <Icon><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a1 1 0 0 1 1-1h9" /></Icon>,
+    },
+    {
+      id: 'cut',
+      label: 'Cut',
+      icon: <Icon><circle cx="6" cy="18" r="2.5" /><circle cx="18" cy="18" r="2.5" /><path d="M7.8 16.2 18 4M16.2 16.2 6 4" /></Icon>,
+    },
+    {
+      id: 'paste',
+      label: 'Paste below',
+      icon: <Icon><path d="M9 4h6v3H9zM15 5h3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h3" /></Icon>,
+    },
+    {
+      id: 'delete',
+      label: 'Delete',
+      icon: <Icon><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></Icon>,
+    },
+    { id: 'done', label: 'Done', icon: <Icon><path d="m5 12 5 5 9-10" /></Icon> },
+  ];
+
+  return (
+    <div
+      role="toolbar"
+      aria-label={`${count} selected`}
+      data-testid="selection-bar"
+      className="mobile-toolbar fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)]"
+      onMouseDown={(e) => e.preventDefault()}
+    >
+      <div className="px-3 pt-1.5 text-xs text-muted" data-testid="selection-count">
+        {count} selected · tap rows to add or remove
+      </div>
+      <div className="flex items-stretch justify-around">
+        {buttons.map((b) => (
+          <button
+            key={b.id}
+            type="button"
+            tabIndex={-1}
+            aria-label={b.label}
+            title={b.label}
+            data-testid={`selection-${b.id}`}
+            className={'flex h-11 min-w-0 flex-1 items-center justify-center active:bg-active ' + (b.id === 'delete' ? 'text-danger' : 'text-muted')}
+            onClick={() => actions.selectionAction(b.id)}
+          >
+            {b.icon}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
