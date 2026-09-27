@@ -150,7 +150,7 @@ export function useSettings<T>(store: SettingsStore, selector: (s: SettingsState
 }
 
 /** Resolve the theme to concrete colors; `null` colors mean "follow the OS". */
-export function resolvePalette(s: Settings): Palette | null {
+function resolvePalette(s: Settings): Palette | null {
   if (s.theme === 'system') return null;
   if (s.theme === 'custom') {
     return { scheme: isDark(s.pageColor) ? 'dark' : 'light', desk: s.deskColor, page: s.pageColor, text: s.textColor, accent: s.accentColor };

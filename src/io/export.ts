@@ -1,4 +1,18 @@
-import { bulletLine, noteBlock, type Node, type TreeReader } from '@/model';
+import type { Node, TreeReader } from '@/model';
+
+/** One bullet line of an outline at `depth`. */
+export function bulletLine(content: string, depth: number): string {
+  return `${'  '.repeat(depth)}- ${content}`;
+}
+
+/** A note as an indented paragraph beneath its bullet. */
+export function noteBlock(note: string, depth: number): string {
+  const pad = '  '.repeat(depth + 1);
+  return note
+    .split('\n')
+    .map((line) => (line === '' ? '' : pad + line))
+    .join('\n');
+}
 
 /** Nested Markdown bullets under `rootId` (the root itself is not included). */
 export function exportMarkdown(tree: TreeReader, rootId: string | null): string {
@@ -49,7 +63,7 @@ export function exportOpml(tree: TreeReader, rootId: string | null, title = 'Ale
   ].join('\n');
 }
 
-export interface Backup {
+interface Backup {
   format: 'aletheia-backup';
   version: 1;
   exportedAt: number;

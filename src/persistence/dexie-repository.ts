@@ -1,4 +1,4 @@
-import type { DirtyNode, Node, Operation } from '@/model';
+import type { Node, Operation } from '@/model';
 import { entriesForChanges, entriesForReplace, mergeEntry, sameTimes, type OutboxEntry } from '@/sync/outbox';
 import { AletheiaDB } from './db';
 import { REMOTE_OP, type CommitBatch, type SyncRepository } from './repository';
@@ -15,14 +15,10 @@ export class DexieRepository implements SyncRepository {
   commit(batch: CommitBatch): Promise<void> {
     const { db } = this;
     const track = this.tracking && batch.operation.type !== REMOTE_OP;
-    return db.transaction('rw', [db.nodes, db.operations, db.dirtyNodes, db.outbox], async () => {
+    return db.transaction('rw', [db.nodes, db.operations, db.outbox], async () => {
       if (batch.upserts.length > 0) await db.nodes.bulkPut(batch.upserts);
       if (batch.removals.length > 0) await db.nodes.bulkDelete(batch.removals);
       await db.operations.put(batch.operation);
-      if (batch.dirtyNodeIds.length > 0) {
-        const markedAt = batch.operation.timestamp;
-        await db.dirtyNodes.bulkPut(batch.dirtyNodeIds.map((nodeId) => ({ nodeId, markedAt })));
-      }
       if (track) await this.mergeIntoOutbox(entriesForChanges(batch.operation.changes, batch.operation.timestamp));
     });
   }
@@ -31,21 +27,12 @@ export class DexieRepository implements SyncRepository {
     return this.db.operations.orderBy('timestamp').toArray();
   }
 
-  listDirty(): Promise<DirtyNode[]> {
-    return this.db.dirtyNodes.toArray();
-  }
-
-  clearDirty(nodeIds: string[]): Promise<void> {
-    return this.db.dirtyNodes.bulkDelete(nodeIds);
-  }
-
   replaceAllNodes(nodes: Node[], at = Date.now()): Promise<void> {
     const { db } = this;
     const track = this.tracking;
-    return db.transaction('rw', [db.nodes, db.dirtyNodes, db.outbox], async () => {
+    return db.transaction('rw', [db.nodes, db.outbox], async () => {
       const oldIds = track ? ((await db.nodes.toCollection().primaryKeys()) as string[]) : [];
       await db.nodes.clear();
-      await db.dirtyNodes.clear();
       await db.nodes.bulkAdd(nodes);
       if (track) await this.mergeIntoOutbox(entriesForReplace(oldIds, nodes, at));
     });

@@ -20,7 +20,7 @@ describe('DexieRepository', () => {
     );
   });
 
-  it('commits nodes, operations and dirty marks atomically and reloads them', async () => {
+  it('commits nodes and operations atomically and reloads them', async () => {
     const repo = freshRepo();
     const engine = createEngine({ store: createTreeStore(), repository: repo, now: makeClock() });
     const a = newId();
@@ -35,11 +35,6 @@ describe('DexieRepository', () => {
     expect(nodes.map((n) => n.content).sort()).toEqual(['A', 'B']);
     const ops = await repo.listOperations();
     expect(ops.map((o) => o.type)).toEqual(['createNode', 'createNode', 'updateContent', 'undo']);
-    const dirty = (await repo.listDirty()).map((d) => d.nodeId).sort();
-    expect(dirty).toEqual([a, b].sort());
-
-    await repo.clearDirty([a]);
-    expect((await repo.listDirty()).map((d) => d.nodeId)).toEqual([b]);
 
     const store2 = createTreeStore();
     const engine2 = createEngine({ store: store2, repository: repo, now: makeClock() });
@@ -56,7 +51,7 @@ describe('DexieRepository', () => {
     expect(await repo.loadAllNodes()).toEqual([]);
   });
 
-  it('replaceAllNodes swaps the whole node set and clears dirty marks', async () => {
+  it('replaceAllNodes swaps the whole node set', async () => {
     const repo = freshRepo();
     const engine = createEngine({ store: createTreeStore(), repository: repo, now: makeClock() });
     ok(engine.execute({ type: 'createNode', id: newId(), parentId: null, content: 'old' }));
@@ -64,7 +59,6 @@ describe('DexieRepository', () => {
     const fresh = { id: newId(), parentId: null, order: 'a0', content: 'new', note: '', collapsed: false, createdAt: 1, updatedAt: 1, deletedAt: null };
     await repo.replaceAllNodes([fresh]);
     expect(await repo.loadAllNodes()).toEqual([fresh]);
-    expect(await repo.listDirty()).toEqual([]);
   });
 
   it('records changes in the outbox only while tracking, and keeps entries that changed after upload started', async () => {

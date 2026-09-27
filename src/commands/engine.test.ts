@@ -88,7 +88,7 @@ describe('engine: undo / redo', () => {
   }
 });
 
-describe('engine: operation log, dirty nodes, persistence', () => {
+describe('engine: operation log, persistence', () => {
   it('persists every command in order, with the store and repository agreeing', async () => {
     const f = fixture([['A', ['A1']], 'B']);
     ok(f.engine.execute({ type: 'moveNode', id: f.ids.B!, parentId: f.ids.A!, at: 'first' }));
@@ -103,17 +103,7 @@ describe('engine: operation log, dirty nodes, persistence', () => {
     for (const n of f.engine.tree.all()) expect(persisted.get(n.id)).toEqual(n);
   });
 
-  it('records dirty nodes from affectedNodeIds', async () => {
-    const f = fixture([['A', ['A1']], 'B']);
-    await f.engine.flush();
-    await f.repo.clearDirty((await f.repo.listDirty()).map((d) => d.nodeId));
-    ok(f.engine.execute({ type: 'moveNode', id: f.ids.A!, parentId: f.ids.B! }));
-    await f.engine.flush();
-    const dirty = (await f.repo.listDirty()).map((d) => d.nodeId).sort();
-    expect(dirty).toEqual([f.ids.A, f.ids.A1, f.ids.B].sort());
-  });
-
-  it('undo and redo append operations referencing the reverted op and mark dirty', async () => {
+  it('undo and redo append operations referencing the reverted op', async () => {
     const f = fixture(['A']);
     const r = f.engine.execute({ type: 'updateContent', id: f.ids.A!, content: 'X' });
     ok(r);
@@ -126,7 +116,6 @@ describe('engine: operation log, dirty nodes, persistence', () => {
     expect(tail.every((o) => o.targetOpId === r.op.id)).toBe(true);
     expect(tail[0]!.changes[0]!.after?.content).toBe('A');
     expect(tail[1]!.changes[0]!.after?.content).toBe('X');
-    expect((await f.repo.listDirty()).some((d) => d.nodeId === f.ids.A)).toBe(true);
   });
 
   it('undo of a creation physically removes the node from the repository', async () => {

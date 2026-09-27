@@ -1,4 +1,4 @@
-import type { DirtyNode, Node, Operation } from '@/model';
+import type { Node, Operation } from '@/model';
 import { entriesForChanges, entriesForReplace, mergeEntry, sameTimes, type OutboxEntry } from '@/sync/outbox';
 import { REMOTE_OP, type CommitBatch, type SyncRepository } from './repository';
 
@@ -6,7 +6,6 @@ import { REMOTE_OP, type CommitBatch, type SyncRepository } from './repository';
 export class MemoryRepository implements SyncRepository {
   readonly nodes = new Map<string, Node>();
   readonly operations: Operation[] = [];
-  readonly dirty = new Map<string, DirtyNode>();
   readonly outbox = new Map<string, OutboxEntry>();
   readonly meta = new Map<string, unknown>();
   private tracking = false;
@@ -19,8 +18,6 @@ export class MemoryRepository implements SyncRepository {
     for (const n of batch.upserts) this.nodes.set(n.id, n);
     for (const id of batch.removals) this.nodes.delete(id);
     this.operations.push(batch.operation);
-    const markedAt = batch.operation.timestamp;
-    for (const nodeId of batch.dirtyNodeIds) this.dirty.set(nodeId, { nodeId, markedAt });
     if (this.tracking && batch.operation.type !== REMOTE_OP) {
       this.merge(entriesForChanges(batch.operation.changes, batch.operation.timestamp));
     }
@@ -30,19 +27,10 @@ export class MemoryRepository implements SyncRepository {
     return [...this.operations];
   }
 
-  async listDirty(): Promise<DirtyNode[]> {
-    return [...this.dirty.values()];
-  }
-
-  async clearDirty(nodeIds: string[]): Promise<void> {
-    for (const id of nodeIds) this.dirty.delete(id);
-  }
-
   async replaceAllNodes(nodes: Node[], at = Date.now()): Promise<void> {
     const oldIds = [...this.nodes.keys()];
     this.nodes.clear();
     for (const n of nodes) this.nodes.set(n.id, n);
-    this.dirty.clear();
     if (this.tracking) this.merge(entriesForReplace(oldIds, nodes, at));
   }
 

@@ -15,7 +15,7 @@ import { useRowDnd } from './use-dnd';
 
 export const INDENT_PX = 24;
 /** Phones indent less, like WorkFlowy's app, so deep outlines keep room for text. */
-export const TOUCH_INDENT_PX = 18;
+const TOUCH_INDENT_PX = 18;
 
 /** One line standing in for a collapsed note: its first line of text, marked as cut. */
 function noteSummary(note: string): string {
@@ -50,14 +50,13 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
   const rowRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLAnchorElement>(null);
   const gripRef = useRef<HTMLButtonElement>(null);
+  const longPress = useRef<{ timer: number; x: number; y: number; fired: number } | null>(null);
   useRowDnd(id, depth, rowRef, handleRef, gripRef);
   if (!node) return null;
 
   // While searching, the search decides what is open; toggling changes only the search, not the outline.
   const collapsed = filterOpen === undefined ? node.collapsed : !filterOpen;
   const toggle = () => (filterOpen === undefined ? engine.execute({ type: 'toggleCollapse', id }) : actions.toggleFilterRow(id));
-
-  const longPress = useRef<{ timer: number; x: number; y: number; fired: number } | null>(null);
 
   /** Shift+click, Ctrl/Cmd+click, and taps while selecting on a phone pick nodes instead of editing. Returns true if handled. */
   const selectClick = (e: MouseEvent<HTMLDivElement>): boolean => {

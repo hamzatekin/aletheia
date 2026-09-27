@@ -46,7 +46,7 @@ function searchText(node: Node): string {
   return text;
 }
 
-export function nodeMatches(node: Node, words: readonly string[]): boolean {
+function nodeMatches(node: Node, words: readonly string[]): boolean {
   if (words.length === 0) return false;
   const text = searchText(node);
   return words.every((w) => text.includes(w));

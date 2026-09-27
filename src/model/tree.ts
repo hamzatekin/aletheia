@@ -44,7 +44,7 @@ export function isSelfOrDescendant(tree: TreeReader, ancestor: string, maybeDesc
   return ancestorIds(tree, maybeDescendant).includes(ancestor);
 }
 
-export function siblingsOf(tree: TreeReader, id: string): readonly string[] {
+function siblingsOf(tree: TreeReader, id: string): readonly string[] {
   const node = tree.get(id);
   return node ? tree.children(node.parentId) : [];
 }

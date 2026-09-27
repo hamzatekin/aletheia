@@ -32,7 +32,7 @@ async function importWith(ctx: SlashContext, accept: string, parse: (text: strin
   if (outcome.ok) ctx.engine.execute({ type: 'toggleCollapse', id: ctx.nodeId, collapsed: false });
 }
 
-export const defaultSlashCommands: SlashCommand[] = [
+const defaultSlashCommands: SlashCommand[] = [
   { id: 'bold', title: 'Bold', keywords: 'strong', group: 'Format', run: (c) => c.session.editor.chain().focus().toggleBold().run() },
   { id: 'italic', title: 'Italic', keywords: 'emphasis', group: 'Format', run: (c) => c.session.editor.chain().focus().toggleItalic().run() },
   { id: 'code', title: 'Code', keywords: 'monospace', group: 'Format', run: (c) => c.session.editor.chain().focus().toggleCode().run() },

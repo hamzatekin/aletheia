@@ -1,5 +1,6 @@
 import { renderBlock, renderInline } from '@/editor/render';
-import { bulletLine, noteBlock, type TreeReader } from '@/model';
+import type { TreeReader } from '@/model';
+import { bulletLine, noteBlock } from './export';
 import type { OutlineItem } from './types';
 
 /**
@@ -32,7 +33,7 @@ export function itemsToMarkdown(items: OutlineItem[]): string {
   return lines.join('\n');
 }
 
-export function itemsToHtml(items: OutlineItem[]): string {
+function itemsToHtml(items: OutlineItem[]): string {
   const list = (items: OutlineItem[]): string =>
     `<ul>${items
       .map((i) => `<li>${renderInline(i.content)}${i.note !== '' ? renderBlock(i.note) : ''}${i.children.length > 0 ? list(i.children) : ''}</li>`)

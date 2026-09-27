@@ -7,7 +7,7 @@ import markdownIt, { type MarkdownIt, type RendererRule } from 'markdown-it';
  */
 export const markdownOptions = { html: false, linkify: false, breaks: false } as const;
 
-export const md: MarkdownIt = markdownIt(markdownOptions);
+const md: MarkdownIt = markdownIt(markdownOptions);
 
 // Links open in a new tab; the editor owns clicks inside the outline.
 const defaultLinkOpen: RendererRule =

@@ -30,10 +30,10 @@ export interface SyncEnv {
   SYNC_MAX_SPACES?: string;
 }
 
-export const MAX_PUSH_NODES = 500;
+const MAX_PUSH_NODES = 500;
 /** How far ahead of the server's clock a change time may be. Later times are pulled back to this. */
 export const MAX_FUTURE_MS = 60_000;
-export const MAX_PULL_LIMIT = 500;
+const MAX_PULL_LIMIT = 500;
 const MIN_KEY_LENGTH = 32;
 
 const SCHEMA = [
