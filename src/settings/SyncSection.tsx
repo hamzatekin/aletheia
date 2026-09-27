@@ -55,7 +55,7 @@ export function SyncSection({ sync }: Props) {
   } else if (state.key) {
     body = <SyncOn sync={sync} state={state} busy={busy} run={run} />;
   } else {
-    body = <SyncOff sync={sync} busy={busy} run={run} />;
+    body = <SyncOff sync={sync} lastKey={state.lastKey} busy={busy} run={run} />;
   }
 
   return (
@@ -71,16 +71,37 @@ export function SyncSection({ sync }: Props) {
   );
 }
 
-function SyncOff({ sync, busy, run }: { sync: SyncService; busy: boolean; run: (w: () => Promise<unknown>) => Promise<void> }) {
+function SyncOff({
+  sync,
+  lastKey,
+  busy,
+  run,
+}: {
+  sync: SyncService;
+  lastKey: string | null;
+  busy: boolean;
+  run: (w: () => Promise<unknown>) => Promise<void>;
+}) {
   const [link, setLink] = useState('');
   const pasted = link.trim();
   const key = keyFromHash(pasted.includes('#') ? pasted.slice(pasted.indexOf('#')) : `#sync=${pasted}`);
   return (
     <>
-      <p className="mb-3 text-xs text-muted">Off. Your notes are only in this browser. Turn sync on to open them on your phone or another computer.</p>
-      <Button primary disabled={busy} onClick={() => run(() => sync.enable())}>
-        Turn on sync
-      </Button>
+      {lastKey ? (
+        <>
+          <p className="mb-3 text-xs text-muted">Off in this browser. Turning it back on merges this browser's notes with your synced ones.</p>
+          <Button primary disabled={busy} onClick={() => run(() => sync.resume())}>
+            Turn sync back on
+          </Button>
+        </>
+      ) : (
+        <>
+          <p className="mb-3 text-xs text-muted">Off. Your notes are only in this browser. Turn sync on to open them on your phone or another computer.</p>
+          <Button primary disabled={busy} onClick={() => run(() => sync.enable())}>
+            Turn on sync
+          </Button>
+        </>
+      )}
       <form
         className="mt-3 flex gap-2"
         onSubmit={(e) => {
@@ -143,7 +164,7 @@ function SyncOn({
         <Button
           disabled={busy}
           onClick={() => {
-            if (window.confirm('Stop syncing in this browser? Your notes stay here and on your other devices.')) void run(() => sync.disable());
+            if (window.confirm('Stop syncing in this browser? Your notes stay here and on your other devices, and you can turn sync back on here later.')) void run(() => sync.disable());
           }}
         >
           Turn off here

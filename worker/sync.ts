@@ -5,12 +5,12 @@
  *
  *   POST /api/sync/space   create the space for this key (or confirm it exists)
  *   GET  /api/sync/space   200 if the space exists, 404 if not
- *   POST /api/sync/push    { nodes: WireNode[] } -> { seq }
+ *   POST /api/sync/push    { nodes: WireNode[] } -> { seq, rejected: ids }
  *   GET  /api/sync/pull?since=N&limit=M -> { nodes, cursor, more }
  *
  * Every request needs `Authorization: Bearer <sync key>`.
  */
-import { GROUPS, type PullResponse, type PushRequest, type ServerNode, type WireNode } from '../src/sync/wire';
+import { GROUPS, type PullResponse, type PushRequest, type PushResponse, type ServerNode, type WireNode } from '../src/sync/wire';
 
 /** The slice of Cloudflare's D1 API this file uses (so tests can run it on node:sqlite). */
 export interface SqlDatabase {
@@ -31,6 +31,8 @@ export interface SyncEnv {
 }
 
 export const MAX_PUSH_NODES = 500;
+/** How far ahead of the server's clock a change time may be. Later times are pulled back to this. */
+export const MAX_FUTURE_MS = 60_000;
 export const MAX_PULL_LIMIT = 500;
 const MIN_KEY_LENGTH = 32;
 
@@ -88,6 +90,8 @@ const UPSERT = `
     ${pick('deleted_at', 'deleted_t')}, deleted_t = max(nodes.deleted_t, excluded.deleted_t),
     ${pick('starred_at', 'starred_t')}, starred_t = max(nodes.starred_t, excluded.starred_t)`;
 
+const GROUP_COLUMNS = ['content_t', 'note_t', 'pos_t', 'collapsed_t', 'starred_t', 'deleted_t'];
+
 let schemaReady: Promise<unknown> | null = null;
 function ensureSchema(db: SqlDatabase): Promise<unknown> {
   schemaReady ??= db
@@ -97,6 +101,11 @@ function ensureSchema(db: SqlDatabase): Promise<unknown> {
       const have = new Set(results.map((c) => c.name));
       const missing = ADDED_COLUMNS.filter((c) => !have.has(c.name));
       if (missing.length > 0) await db.batch(missing.map((c) => db.prepare(c.sql)));
+      // Times written by a device whose clock ran ahead, before times were capped.
+      const limit = Date.now() + MAX_FUTURE_MS;
+      const cols = GROUP_COLUMNS.map((c) => `${c} = min(${c}, ?1)`).join(', ');
+      const where = GROUP_COLUMNS.map((c) => `${c} > ?1`).join(' OR ');
+      await db.prepare(`UPDATE nodes SET ${cols} WHERE ${where}`).bind(limit).run();
     })
     .catch((e: unknown) => {
     schemaReady = null;
@@ -153,11 +162,17 @@ async function push(env: SyncEnv, space: string, request: Request): Promise<Resp
   } catch {
     return json({ error: 'body must be JSON' }, 400);
   }
-  const nodes = Array.isArray(body?.nodes) ? body.nodes : null;
-  if (!nodes || nodes.length > MAX_PUSH_NODES || !nodes.every(validWireNode)) {
-    return json({ error: `nodes must be 1-${MAX_PUSH_NODES} valid nodes` }, 400);
+  const all: unknown[] | null = Array.isArray(body?.nodes) ? body.nodes : null;
+  if (!all || all.length > MAX_PUSH_NODES) return json({ error: `nodes must be a list of at most ${MAX_PUSH_NODES}` }, 400);
+  // Skip invalid nodes rather than refusing the batch: one bad node must not block every later upload.
+  const rejected: string[] = [];
+  const limit = Date.now() + MAX_FUTURE_MS;
+  const nodes: WireNode[] = [];
+  for (const n of all) {
+    if (validWireNode(n)) nodes.push(capTimes(n, limit));
+    else rejected.push(typeof (n as { id?: unknown })?.id === 'string' ? (n as { id: string }).id : '');
   }
-  if (nodes.length === 0) return json({ seq: null });
+  if (nodes.length === 0) return json({ seq: null, rejected } satisfies PushResponse);
   // One transaction: reserve n sequence numbers, then merge every node.
   const results = await env.DB.batch([
     env.DB.prepare('UPDATE spaces SET seq = seq + ?2 WHERE id = ?1').bind(space, nodes.length),
@@ -165,7 +180,7 @@ async function push(env: SyncEnv, space: string, request: Request): Promise<Resp
     env.DB.prepare('SELECT seq FROM spaces WHERE id = ?1').bind(space),
   ]);
   const last = results[2] as { results?: { seq: number }[] } | undefined;
-  return json({ seq: last?.results?.[0]?.seq ?? null });
+  return json({ seq: last?.results?.[0]?.seq ?? null, rejected } satisfies PushResponse);
 }
 
 async function pull(env: SyncEnv, space: string, url: URL): Promise<Response> {
@@ -235,6 +250,13 @@ function validWireNode(n: unknown): n is WireNode {
     // Clients from before stars send no starred time; that group then never wins.
     GROUPS.every((g) => Number.isFinite(w.t[g]) || (g === 'starred' && w.t[g] === undefined))
   );
+}
+
+/** Pull change times that are ahead of the server's clock back to `limit`, so a fast device clock cannot win for ever. */
+function capTimes(n: WireNode, limit: number): WireNode {
+  const t = { ...n.t };
+  for (const g of GROUPS) if (t[g] !== undefined && t[g] > limit) t[g] = limit;
+  return { ...n, t };
 }
 
 async function sha256(text: string): Promise<string> {

@@ -21,8 +21,8 @@ export interface Repository {
   listOperations(): Promise<Operation[]>;
   listDirty(): Promise<DirtyNode[]>;
   clearDirty(nodeIds: string[]): Promise<void>;
-  /** Replace all nodes (import / restore from backup). Clears dirty marks. */
-  replaceAllNodes(nodes: Node[]): Promise<void>;
+  /** Replace all nodes (import / restore from backup). Clears dirty marks. `at` stamps the sync outbox. */
+  replaceAllNodes(nodes: Node[], at?: number): Promise<void>;
 }
 
 /**
@@ -48,5 +48,11 @@ export interface SyncStorage {
 
 /** Operation type for changes pulled from the sync server. Never re-uploaded. */
 export const REMOTE_OP = 'remote';
+
+/**
+ * Operation type for changes another tab of this browser made and already
+ * saved (see `engine.applyPeer`). Never saved or uploaded again.
+ */
+export const PEER_OP = 'peer';
 
 export type SyncRepository = Repository & SyncStorage;

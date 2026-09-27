@@ -5,6 +5,12 @@ import { changedGroups, GROUPS, mergeTimes, type GroupTimes } from './wire';
 export interface OutboxEntry {
   nodeId: string;
   t: Partial<GroupTimes>;
+  /**
+   * The node as this browser last saved it (null = removed). Uploads send this
+   * copy rather than a tab's in-memory tree, which may be out of date. Absent
+   * in entries written before snapshots existed.
+   */
+  node?: Node | null;
 }
 
 /** Outbox entries for one operation's changes. */
@@ -15,7 +21,7 @@ export function entriesForChanges(changes: readonly NodeChange[], at: number): O
     if (groups.length === 0) continue;
     const t: Partial<GroupTimes> = {};
     for (const g of groups) t[g] = at;
-    out.push({ nodeId: c.id, t });
+    out.push({ nodeId: c.id, t, node: c.after });
   }
   return out;
 }
@@ -26,7 +32,7 @@ export function entriesForAll(nodes: Iterable<Node>): OutboxEntry[] {
   for (const n of nodes) {
     const t: Partial<GroupTimes> = {};
     for (const g of GROUPS) t[g] = n.updatedAt;
-    out.push({ nodeId: n.id, t });
+    out.push({ nodeId: n.id, t, node: n });
   }
   return out;
 }
@@ -34,13 +40,17 @@ export function entriesForAll(nodes: Iterable<Node>): OutboxEntry[] {
 /** Entries after a wholesale replace: every new node, plus deletions for nodes that are gone. */
 export function entriesForReplace(oldIds: Iterable<string>, nodes: readonly Node[], at: number): OutboxEntry[] {
   const keep = new Set(nodes.map((n) => n.id));
-  const out: OutboxEntry[] = nodes.map((n) => ({ nodeId: n.id, t: { content: at, note: at, pos: at, collapsed: at, starred: at, deleted: at } }));
-  for (const id of oldIds) if (!keep.has(id)) out.push({ nodeId: id, t: { deleted: at } });
+  const out: OutboxEntry[] = nodes.map((n) => ({ nodeId: n.id, t: { content: at, note: at, pos: at, collapsed: at, starred: at, deleted: at }, node: n }));
+  for (const id of oldIds) if (!keep.has(id)) out.push({ nodeId: id, t: { deleted: at }, node: null });
   return out;
 }
 
 export function mergeEntry(prev: OutboxEntry | undefined, next: OutboxEntry): OutboxEntry {
-  return prev ? { nodeId: next.nodeId, t: mergeTimes(prev.t, next.t) } : next;
+  if (!prev) return next;
+  const merged: OutboxEntry = { nodeId: next.nodeId, t: mergeTimes(prev.t, next.t) };
+  const node = next.node !== undefined ? next.node : prev.node;
+  if (node !== undefined) merged.node = node;
+  return merged;
 }
 
 export function sameTimes(a: Partial<GroupTimes>, b: Partial<GroupTimes>): boolean {
