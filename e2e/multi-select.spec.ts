@@ -189,3 +189,24 @@ test.describe('on a phone', () => {
     await expect(page.getByTestId('selection-bar')).toHaveCount(0);
   });
 });
+
+test('dragging inside one row selects its text without editing it, and Ctrl+C copies that text', async ({ page }) => {
+  await gotoHome(page);
+  const box = (await row(page, 'Data model and commands').locator('.node-content').first().boundingBox())!;
+  await page.mouse.move(box.x + 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 90, box.y + box.height / 2, { steps: 6 });
+  await page.mouse.up();
+  await expect(page.locator('.ProseMirror')).toHaveCount(0);
+  await expect(selected(page)).toHaveCount(0);
+  const text = await page.evaluate(() => document.getSelection()!.toString());
+  expect(text.length).toBeGreaterThan(3);
+  expect('Data model and commands'.startsWith(text)).toBe(true);
+  await page.keyboard.press('Control+c');
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(text);
+
+  // A plain click still starts editing, and a double-click selects a word.
+  await page.mouse.dblclick(box.x + 10, box.y + box.height / 2);
+  await expect(page.locator('.ProseMirror')).toBeFocused();
+  await expect.poll(() => page.evaluate(() => document.getSelection()!.toString().trim())).toBe('Data');
+});

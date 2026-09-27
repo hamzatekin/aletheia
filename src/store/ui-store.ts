@@ -10,7 +10,7 @@ export type Caret =
   /** Keep the horizontal position when moving between nodes with Up/Down. */
   | { kind: 'line'; line: 'first' | 'last'; x: number }
   /** A mouse click at viewport coordinates. */
-  | { kind: 'point'; x: number; y: number };
+  | { kind: 'point'; x: number; y: number; word?: boolean };
 
 export type Field = 'content' | 'note';
 

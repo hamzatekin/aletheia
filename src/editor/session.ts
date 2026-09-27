@@ -233,7 +233,17 @@ export class EditorSession {
     // Focus synchronously: Tiptap's own focus command defers to the next
     // animation frame, which would drop a keystroke typed right after Enter.
     editor.view.focus();
-    editor.commands.setTextSelection(pos);
+    if (caret.kind === 'point' && caret.word) {
+      // A double-click: select the word under the pointer.
+      const $pos = editor.state.doc.resolve(pos);
+      const text = $pos.parent.textContent;
+      const isWord = (ch: string | undefined) => ch !== undefined && /[\p{L}\p{N}_]/u.test(ch);
+      let from = $pos.parentOffset;
+      let to = from;
+      while (isWord(text[from - 1])) from--;
+      while (isWord(text[to])) to++;
+      editor.commands.setTextSelection({ from: pos - ($pos.parentOffset - from), to: pos + (to - $pos.parentOffset) });
+    } else editor.commands.setTextSelection(pos);
     if (caret.kind !== 'line' && caret.kind !== 'point') editor.commands.scrollIntoView();
   }
 
