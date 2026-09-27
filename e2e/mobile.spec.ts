@@ -82,10 +82,10 @@ test('the node menu opens as a bottom sheet from the toolbar', async ({ page }) 
   await expect(menu).toHaveCount(0);
 });
 
-test('search has a button, since phones have no Ctrl+K', async ({ page }) => {
+test('search has a button, since phones have no Ctrl+F', async ({ page }) => {
   await gotoHome(page);
-  await page.getByRole('button', { name: 'Find' }).tap();
-  await expect(page.getByTestId('search-palette')).toBeVisible();
+  await page.getByRole('button', { name: 'Search' }).tap();
+  await expect(page.getByTestId('filter-input')).toBeFocused();
 });
 
 test('phones use the full width and keep breadcrumbs on one scrolling line', async ({ page }) => {

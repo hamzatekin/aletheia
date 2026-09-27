@@ -3,7 +3,7 @@ import { defaultRangeExtractor, useWindowVirtualizer, type Range } from '@tansta
 import { useUiStore } from '@/store/ui-store';
 import { Row } from './Row';
 import { useOutline } from './outline-context';
-import { useVisibleRows } from './use-outline';
+import { usePageRows } from './use-outline';
 import { useDropMonitor } from './use-dnd';
 
 interface Props {
@@ -13,7 +13,8 @@ interface Props {
 /** The virtualized list of visible rows under the zoom root. */
 export function Outline({ rootId }: Props) {
   const { ui, actions } = useOutline();
-  const rows = useVisibleRows(rootId);
+  const rows = usePageRows(rootId);
+  const filtering = useUiStore(ui, (s) => s.filter !== null && s.filter.query.trim() !== '');
   const listRef = useRef<HTMLDivElement>(null);
   useDropMonitor();
 
@@ -51,6 +52,14 @@ export function Outline({ rootId }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the head changes
   }, [selectionHead]);
 
+  if (rows.length === 0 && filtering) {
+    return (
+      <div className="py-px text-faint" data-testid="no-matches">
+        Nothing here matches.
+      </div>
+    );
+  }
+
   if (rows.length === 0) {
     return (
       <div
@@ -84,7 +93,7 @@ export function Outline({ rootId }: Props) {
             className={'absolute top-0 left-0 w-full' + (row.id === raisedId ? ' z-10' : '')}
             style={{ transform: `translateY(${item.start - virtualizer.options.scrollMargin}px)` }}
           >
-            <Row id={row.id} depth={row.depth} />
+            <Row id={row.id} depth={row.depth} filterOpen={row.open} match={row.match} />
           </div>
         );
       })}
