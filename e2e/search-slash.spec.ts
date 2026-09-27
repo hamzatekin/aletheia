@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => gotoHome(page));
 
 test('Ctrl+K search zooms to the parent and focuses the hit', async ({ page }) => {
   await page.keyboard.press('Control+k');
-  await page.getByLabel('Search').fill('drag drop');
+  await page.getByTestId('search-palette').getByRole('textbox').fill('drag drop');
   await expect(page.locator('[data-testid=search-hit]')).toHaveCount(1);
   await expect(page.locator('[data-testid=search-hit]').first()).toContainText('Projects › Write the outliner');
   await page.keyboard.press('Enter');
@@ -17,7 +17,7 @@ test('search follows edits and Escape closes the palette', async ({ page }) => {
   await edit(page, 'Plant a tree');
   await page.keyboard.type(' xylophone');
   await page.keyboard.press('Control+k');
-  await page.getByLabel('Search').fill('xylo');
+  await page.getByTestId('search-palette').getByRole('textbox').fill('xylo');
   await expect(page.locator('[data-testid=search-hit]')).toHaveCount(1);
   await page.keyboard.press('Escape');
   await expect(page.locator('[data-testid=search-palette]')).toHaveCount(0);

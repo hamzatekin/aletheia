@@ -34,6 +34,8 @@
   --halo-hover: color-mix(in srgb, var(--ink) 24%, transparent);
   --scroll-thumb: color-mix(in srgb, var(--ink) 22%, transparent);
   --scroll-thumb-hover: color-mix(in srgb, var(--ink) 36%, transparent);
+  /* Search matches: a marker yellow that reads on light and dark pages. */
+  --search-hit: light-dark(rgb(250 204 21 / 0.45), rgb(250 204 21 / 0.3));
 }
 
 /* Theme colors as Tailwind utilities: text-muted, bg-hover, border-line, bg-accent... */
@@ -352,3 +354,10 @@ body {
 .indent-guide {
   background: var(--line);
 }
+
+/* Words matching the in-place search (painted by FilterBar with the Custom Highlight API). */
+::highlight(search) {
+  background-color: var(--search-hit);
+  color: inherit;
+}
+.filter-bar { background: var(--page); }

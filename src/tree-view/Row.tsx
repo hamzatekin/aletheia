@@ -27,10 +27,14 @@ function noteSummary(note: string): string {
 interface Props {
   id: string;
   depth: number;
+  /** While searching in place: whether the search shows this row's children (unset: its own collapsed state decides). */
+  filterOpen?: boolean | undefined;
+  /** While searching in place: the row itself matches. */
+  match?: boolean | undefined;
 }
 
 /** One outline row: gutter (toggle + bullet), content, optional note. */
-export const Row = memo(function Row({ id, depth }: Props) {
+export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
   const { engine, ui, actions, session } = useOutline();
   const node = useNode(id);
   const hasChildren = useHasChildren(id);
@@ -48,6 +52,10 @@ export const Row = memo(function Row({ id, depth }: Props) {
   const gripRef = useRef<HTMLButtonElement>(null);
   useRowDnd(id, depth, rowRef, handleRef, gripRef);
   if (!node) return null;
+
+  // While searching, the search decides what is open; toggling changes only the search, not the outline.
+  const collapsed = filterOpen === undefined ? node.collapsed : !filterOpen;
+  const toggle = () => (filterOpen === undefined ? engine.execute({ type: 'toggleCollapse', id }) : actions.toggleFilterRow(id));
 
   const longPress = useRef<{ timer: number; x: number; y: number; fired: number } | null>(null);
 
@@ -148,6 +156,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
       data-depth={depth}
       data-focused={focusField ?? undefined}
       data-selected={selected || undefined}
+      data-match={match || undefined}
     >
       {/* Indent guides, like WorkFlowy's: one line per ancestor level, down from its bullet through its children. */}
       {Array.from({ length: depth }, (_, level) => (
@@ -199,11 +208,11 @@ export const Row = memo(function Row({ id, depth }: Props) {
       {/* On phones the arrow sits at the right end, so the gutter holds just the bullet. */}
       <div className={coarse ? '-ml-6 flex w-6 shrink-0 items-start pr-1' : '-ml-11.5 flex w-11.5 shrink-0 items-start pr-1.5'}>
         {coarse ? null : hasChildren ? (
-          <CollapseToggle collapsed={node.collapsed} onToggle={() => engine.execute({ type: 'toggleCollapse', id })} />
+          <CollapseToggle collapsed={collapsed} onToggle={toggle} />
         ) : (
           <span className="w-5 shrink-0" />
         )}
-        <Bullet id={id} collapsedWithChildren={node.collapsed && hasChildren} handleRef={handleRef} />
+        <Bullet id={id} collapsedWithChildren={collapsed && hasChildren} handleRef={handleRef} />
       </div>
       <div
         className="row-text min-w-0 flex-1 py-px"
@@ -275,7 +284,7 @@ export const Row = memo(function Row({ id, depth }: Props) {
         )}
       </div>
       {hasChildren && coarse && (
-        <CollapseToggle side="right" collapsed={node.collapsed} onToggle={() => engine.execute({ type: 'toggleCollapse', id })} />
+        <CollapseToggle side="right" collapsed={collapsed} onToggle={toggle} />
       )}
     </div>
   );

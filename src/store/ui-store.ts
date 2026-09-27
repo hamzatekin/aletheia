@@ -1,5 +1,6 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { useStore } from 'zustand';
+import type { Filter } from '@/search/filter';
 
 /** Where the caret should land when a node receives focus. */
 export type Caret =
@@ -48,6 +49,8 @@ export interface UiState {
   selection: Selection | null;
   slash: SlashState | null;
   searchOpen: boolean;
+  /** The in-place search on this page (the bar is shown while it is set, even when empty). */
+  filter: Filter | null;
   helpOpen: boolean;
   dropIndicator: DropIndicator | null;
   /** Id of the node being dragged, if any. */
@@ -61,6 +64,7 @@ export interface UiState {
   setDragging(id: string | null): void;
   setSlash(slash: SlashState | null): void;
   setSearchOpen(open: boolean): void;
+  setFilter(filter: Filter | null): void;
   setHelpOpen(open: boolean): void;
   setMenu(id: string | null): void;
 }
@@ -74,6 +78,7 @@ export interface UiStore extends StoreApi<UiState> {
   setDragging(id: string | null): void;
   setSlash(slash: SlashState | null): void;
   setSearchOpen(open: boolean): void;
+  setFilter(filter: Filter | null): void;
   setHelpOpen(open: boolean): void;
   setMenu(id: string | null): void;
 }
@@ -84,11 +89,17 @@ export function createUiStore(): UiStore {
     selection: null,
     slash: null,
     searchOpen: false,
+    filter: null,
     helpOpen: false,
     dropIndicator: null,
     dragging: null,
     menu: null,
-    focusNode: (id, caret = { kind: 'end' }, field = 'content') => set({ focus: { id, field, caret }, selection: null, slash: null }),
+    focusNode: (id, caret = { kind: 'end' }, field = 'content') => {
+      // A row edited during a search stays on screen even when it stops matching.
+      const { filter } = get();
+      const keep = filter && !filter.keep.has(id) ? { filter: { ...filter, keep: new Set([...filter.keep, id]) } } : {};
+      set({ focus: { id, field, caret }, selection: null, slash: null, ...keep });
+    },
     blur: () => set({ focus: null, slash: null }),
     setSelection: (selection) => set({ selection }),
     setDropIndicator: (indicator) => {
@@ -100,6 +111,7 @@ export function createUiStore(): UiStore {
     setDragging: (dragging) => set({ dragging }),
     setSlash: (slash) => set({ slash }),
     setSearchOpen: (searchOpen) => set({ searchOpen }),
+    setFilter: (filter) => set({ filter }),
     setHelpOpen: (helpOpen) => set({ helpOpen }),
     setMenu: (menu) => set({ menu }),
   }));
@@ -111,6 +123,7 @@ export function createUiStore(): UiStore {
     setDragging: (id: string | null) => store.getState().setDragging(id),
     setSlash: (slash: SlashState | null) => store.getState().setSlash(slash),
     setSearchOpen: (open: boolean) => store.getState().setSearchOpen(open),
+    setFilter: (filter: Filter | null) => store.getState().setFilter(filter),
     setHelpOpen: (open: boolean) => store.getState().setHelpOpen(open),
     setMenu: (id: string | null) => store.getState().setMenu(id),
   });

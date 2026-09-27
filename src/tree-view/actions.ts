@@ -5,8 +5,9 @@ import { slashCommands } from '@/editor/slash-registry';
 import { importCommands, parseMarkdownOutline } from '@/io/import';
 import { clipboardItems, readClipboardText, subtreeItems, writeClipboard, writeClipboardData } from '@/io/clipboard';
 import type { OutlineItem } from '@/io/types';
-import { ancestorIds, newId, nextVisible, previousVisible, visibleRows, type TreeReader } from '@/model';
+import { ancestorIds, newId, type TreeReader } from '@/model';
 import type { SearchIndex } from '@/search';
+import { pageRows, toggleFilterRow } from '@/search/filter';
 import type { Caret, UiStore } from '@/store/ui-store';
 import type { NavigateFunction } from 'react-router';
 
@@ -25,6 +26,12 @@ export interface OutlineActions {
   setAllCollapsed(underId: string | null, collapsed: boolean, includeSelf?: boolean): void;
   /** Collapse everything on the page if anything is open, else expand everything. */
   toggleAll(): void;
+  /** Show the in-place search bar and put the caret in it. */
+  openFilter(): void;
+  /** Leave the in-place search: the page shows everything again. */
+  closeFilter(): void;
+  /** While searching in place: open or close a row's children for this search only. */
+  toggleFilterRow(id: string): void;
   /** Zoom to the node's parent and focus it (search results, links). */
   revealNode(id: string): void;
   /** Run the i-th command of the open slash menu. */
@@ -70,9 +77,51 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
     return true;
   };
 
-  const prevOf = (id: string): string | null => previousVisible(tree, rootId, id) ?? rootId;
-  const nextOf = (id: string): string | null =>
-    id === rootId ? (visibleRows(tree, rootId)[0]?.id ?? null) : nextVisible(tree, rootId, id);
+  /** The rows on screen, in order: filtered while a search is on. */
+  const rowsNow = () => pageRows(tree, rootId, ui.getState().filter);
+  const previousVisible = (id: string): string | null => {
+    const rows = rowsNow();
+    const i = rows.findIndex((r) => r.id === id);
+    return i > 0 ? rows[i - 1]!.id : null;
+  };
+  const nextVisible = (id: string): string | null => {
+    const rows = rowsNow();
+    const i = rows.findIndex((r) => r.id === id);
+    return i >= 0 && i < rows.length - 1 ? rows[i + 1]!.id : null;
+  };
+
+  const prevOf = (id: string): string | null => previousVisible(id) ?? rootId;
+  const nextOf = (id: string): string | null => (id === rootId ? (rowsNow()[0]?.id ?? null) : nextVisible(id));
+
+  const openFilter = () => {
+    session.flush();
+    ui.blur();
+    ui.setSelection(null);
+    if (!ui.getState().filter) ui.setFilter({ query: '', keep: new Set(), open: new Map() });
+    requestAnimationFrame(() => {
+      const input = document.querySelector<HTMLInputElement>('[data-testid="filter-input"]');
+      input?.focus();
+      input?.select();
+    });
+  };
+
+  const closeFilter = () => {
+    if (!ui.getState().filter) return;
+    const { focus } = ui.getState();
+    ui.setFilter(null);
+    // The edited row may now sit under a collapsed parent: open the way to it, as the search did.
+    if (focus && focus.id !== rootId) {
+      const chain = ancestorIds(tree, focus.id);
+      const below = rootId === null ? chain : chain.slice(0, Math.max(0, chain.indexOf(rootId)));
+      const closed = below.filter((a) => tree.get(a)?.collapsed);
+      if (closed.length > 0) engine.batch(closed.map((a): Command => ({ type: 'toggleCollapse', id: a, collapsed: false })), 'expand');
+    }
+  };
+
+  const toggleFilterRowFn = (id: string) => {
+    const filter = ui.getState().filter;
+    if (filter) ui.setFilter(toggleFilterRow(tree, rootId, filter, id));
+  };
 
   const focusPrev = (id: string, caret: Caret) => {
     const prev = prevOf(id);
@@ -104,7 +153,7 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
     // A focused node that just got hidden hands the caret to the ancestor that hides it.
     const focus = ui.getState().focus;
     if (!collapsed || !focus || focus.id === rootId) return;
-    const visible = new Set(visibleRows(tree, rootId).map((r) => r.id));
+    const visible = new Set(rowsNow().map((r) => r.id));
     if (visible.has(focus.id)) return;
     const holder = ancestorIds(tree, focus.id).find((a) => visible.has(a));
     if (holder) ui.focusNode(holder, { kind: 'end' });
@@ -114,7 +163,7 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
   const toggleAll = () => setAllCollapsed(rootId, hasOpenParent(tree, rootId));
 
   const selectRange = (anchor: string, head: string) => {
-    const rows = visibleRows(tree, rootId).map((r) => r.id);
+    const rows = rowsNow().map((r) => r.id);
     const a = rows.indexOf(anchor);
     const h = rows.indexOf(head);
     if (a < 0 || h < 0) return ui.setSelection(null);
@@ -337,10 +386,16 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
         focusNext(id, { kind: 'start' });
         return true;
       case 'collapse':
-      case 'expand':
+      case 'expand': {
         if (isTitle) return true;
+        const row = ui.getState().filter ? rowsNow().find((r) => r.id === id) : undefined;
+        if (row?.open !== undefined) {
+          if (row.open === (key === 'collapse')) toggleFilterRowFn(id);
+          return true;
+        }
         engine.execute({ type: 'toggleCollapse', id, collapsed: key === 'collapse' });
         return true;
+      }
       case 'moveUp':
       case 'moveDown': {
         if (isTitle) return true;
@@ -366,14 +421,14 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
       case 'selectUp':
       case 'selectDown': {
         if (isTitle) return true;
-        const target = key === 'selectUp' ? previousVisible(tree, rootId, id) : nextVisible(tree, rootId, id);
+        const target = key === 'selectUp' ? previousVisible(id) : nextVisible(id);
         session.flush();
         ui.blur();
         selectRange(id, target ?? id);
         return true;
       }
       case 'selectAll': {
-        const rows = visibleRows(tree, rootId);
+        const rows = rowsNow();
         if (rows.length === 0) return false;
         session.flush();
         ui.blur();
@@ -385,7 +440,7 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
 
   /** Selected nodes whose parent is not selected, in visible order. */
   const topLevelSelected = (ids: ReadonlySet<string>): string[] =>
-    visibleRows(tree, rootId)
+    rowsNow()
       .map((r) => r.id)
       .filter((id) => ids.has(id) && !ids.has(tree.get(id)?.parentId ?? ''));
 
@@ -393,7 +448,7 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
 
   /** Select these sibling subtrees (after a paste): their rows, from the first to the last one's last visible descendant. */
   const reselect = (ids: string[]) => {
-    const rows = visibleRows(tree, rootId);
+    const rows = rowsNow();
     const first = rows.findIndex((r) => r.id === ids[0]);
     let last = rows.findIndex((r) => r.id === ids[ids.length - 1]);
     if (first < 0 || last < 0) return ui.setSelection(null);
@@ -485,6 +540,12 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
   const handleGlobalKey = (e: KeyboardEvent): boolean => {
     const mod = e.metaKey || e.ctrlKey;
     if (ui.getState().searchOpen) return false;
+    // Ctrl/⌘+F searches this page in place, as Dynalist does; Ctrl/⌘+K jumps anywhere.
+    if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f') {
+      e.preventDefault();
+      openFilter();
+      return true;
+    }
     if (mod && e.key.toLowerCase() === 'k') {
       e.preventDefault();
       session.flush();
@@ -512,7 +573,12 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
     if (focus) return false;
 
     if (!selection) {
-      if (e.key === 'Enter' && visibleRows(tree, rootId).length === 0) {
+      if (e.key === 'Escape' && ui.getState().filter) {
+        e.preventDefault();
+        closeFilter();
+        return true;
+      }
+      if (e.key === 'Enter' && rowsNow().length === 0 && !ui.getState().filter) {
         e.preventDefault();
         createFirst();
         return true;
@@ -526,7 +592,7 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
     }
 
     const { anchor, head, ids } = selection;
-    const rows = visibleRows(tree, rootId).map((r) => r.id);
+    const rows = rowsNow().map((r) => r.id);
     const headIndex = rows.indexOf(head);
 
     if (mod && e.key.toLowerCase() === 'a') {
@@ -596,6 +662,9 @@ export function createOutlineActions({ engine, ui, session, search, rootId, navi
     createFirst,
     setAllCollapsed,
     toggleAll,
+    toggleFilterRow: toggleFilterRowFn,
+    openFilter,
+    closeFilter,
     undo: () => undoRedo('undo'),
     redo: () => undoRedo('redo'),
     zoomOut,
