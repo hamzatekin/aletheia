@@ -46,3 +46,33 @@ test('an empty zoomed page offers to create the first node; unknown ids show not
   await page.goto('/n/nope');
   await expect(page.locator('main')).toContainText('This node does not exist');
 });
+
+test('the top-bar button and Ctrl+Shift+. collapse and expand everything on the page', async ({ page }) => {
+  const toggle = page.getByTestId('toggle-all');
+  await expect(toggle).toHaveAttribute('aria-label', 'Collapse all');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-label', 'Expand all');
+  await expect(page.locator('[data-node-id]', { hasText: 'Write the outliner' })).toHaveCount(0);
+  await toggle.click();
+  await expect(page.locator('[data-node-id]', { hasText: 'Drag and drop' })).toHaveCount(1);
+
+  // Collapsing a nested node first still expands everything below it again.
+  await page.keyboard.press('Control+Shift+Period');
+  await expect(toggle).toHaveAttribute('aria-label', 'Expand all');
+  await page.keyboard.press('Control+Shift+Period');
+  await expect(page.locator('[data-node-id]', { hasText: 'Drag and drop' })).toHaveCount(1);
+});
+
+test('the node menu collapses and expands everything inside one node', async ({ page }) => {
+  const projects = page.locator('[data-node-id]', { hasText: 'Projects' }).first();
+  await projects.hover();
+  await projects.getByTestId('drag-grip').click();
+  await page.getByTestId('node-menu-collapse-all').click();
+  await expect(page.locator('[data-node-id]', { hasText: 'Write the outliner' })).toHaveCount(0);
+  // Other top-level nodes stay open.
+  await expect(page.locator('[data-node-id]', { hasText: 'Learn to juggle' })).toHaveCount(1);
+  await projects.hover();
+  await projects.getByTestId('drag-grip').click();
+  await page.getByTestId('node-menu-expand-all').click();
+  await expect(page.locator('[data-node-id]', { hasText: 'Drag and drop' })).toHaveCount(1);
+});
