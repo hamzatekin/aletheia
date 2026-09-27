@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router';
 import type { Engine } from '@/commands';
+import { CaptureRoute } from '@/app/CaptureRoute';
 import { EngineProvider } from '@/app/engine-context';
 import type { EditorSession } from '@/editor/session';
 import type { SearchIndex } from '@/search';
@@ -25,6 +26,8 @@ export function App({ engine, ui, session, search, settings, sync }: Props) {
         <Routes>
           <Route path="/" element={page} />
           <Route path="/n/:id" element={page} />
+          <Route path="/share" element={<CaptureRoute ui={ui} mode="share" />} />
+          <Route path="/capture" element={<CaptureRoute ui={ui} mode="capture" />} />
         </Routes>
       </BrowserRouter>
     </EngineProvider>

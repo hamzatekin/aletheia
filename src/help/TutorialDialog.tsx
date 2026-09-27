@@ -104,6 +104,7 @@ const TABS: Tab[] = [
             ['Tap the arrow on the right', 'Every line with children has one. ▸ expands a collapsed node, ▾ collapses an open one. Collapsed nodes also have a halo around the bullet.'],
             ['Tap a bullet', 'Zoom into that node. Tap Home or a crumb at the top to go back.'],
             ['Tap ☆ by the title', 'Star the page: it shows under Starred at the top of the sidebar.'],
+            ['Share → Aletheia', 'Once the app is installed, share a page or some text from any app: it lands at the top of your Inbox (a top-level line called Inbox, made for you the first time). Long-press the app icon for Add to Inbox, which opens a new line there to type into.'],
             ['Tap the magnifier', 'Search this page, top right. Only matching lines and the lines above them stay on screen.'],
             ['Long-press a line', 'Select it. Tap more lines to add or remove them, then use the bar at the bottom to indent, move, copy, cut, paste below or delete them all at once.'],
             ['Tap the ⇕ button', 'Next to the magnifier: collapse everything on the page, or expand it all.'],
