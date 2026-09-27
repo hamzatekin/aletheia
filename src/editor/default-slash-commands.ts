@@ -1,5 +1,5 @@
-import type { Command } from '@/commands';
-import { ancestorIds, descendantIds } from '@/model';
+import { setAllCollapsedCommands } from '@/commands';
+import { ancestorIds } from '@/model';
 import { downloadText, pickTextFile, safeFilename } from '@/io/browser';
 import { exportJson, exportMarkdown, exportOpml, parseBackup } from '@/io/export';
 import { importItems, parseMarkdownOutline, parseOpml } from '@/io/import';
@@ -8,11 +8,8 @@ import { registerSlashCommand, type SlashCommand, type SlashContext } from './sl
 
 function setCollapsedUnder(ctx: SlashContext, collapsed: boolean): void {
   const { tree } = ctx.engine;
-  const ids = ctx.rootId === null ? [...tree.all()].filter((n) => n.deletedAt === null).map((n) => n.id) : descendantIds(tree, ctx.rootId);
-  const commands: Command[] = ids
-    .filter((id) => tree.children(id).length > 0)
-    .map((id) => ({ type: 'toggleCollapse', id, collapsed }));
-  ctx.engine.batch(commands, collapsed ? 'collapseAll' : 'expandAll');
+  const commands = setAllCollapsedCommands(tree, ctx.rootId, collapsed);
+  if (commands.length > 0) ctx.engine.batch(commands, collapsed ? 'collapseAll' : 'expandAll');
   if (collapsed) {
     // The edited node is now hidden; keep the caret on its highest collapsed ancestor.
     const chain = ancestorIds(tree, ctx.nodeId);

@@ -44,7 +44,7 @@ function terminalFixes(tree: TreeReader, id: string): Command[] {
  * screens a sheet from the bottom of the screen, where a thumb reaches it.
  */
 export function NodeMenu({ id, hasChildren, collapsed, sheet = false }: { id: string; hasChildren: boolean; collapsed: boolean; sheet?: boolean }) {
-  const { engine, ui, session, rootId } = useOutline();
+  const { engine, ui, session, rootId, actions } = useOutline();
   const navigate = useNavigate();
   const ref = useRef<HTMLDivElement>(null);
   const close = () => ui.setMenu(null);
@@ -86,7 +86,11 @@ export function NodeMenu({ id, hasChildren, collapsed, sheet = false }: { id: st
       ? [{ id: 'note-collapse', label: noteCollapsed ? 'Expand note' : 'Collapse note', run: () => notePrefs.getState().toggleCollapsed(id) }]
       : []),
     ...(hasChildren
-      ? [{ id: 'collapse', label: collapsed ? 'Expand' : 'Collapse', hint: collapsed ? `${MOD}↓` : `${MOD}↑`, run: () => exec({ type: 'toggleCollapse', id }) }]
+      ? [
+          { id: 'collapse', label: collapsed ? 'Expand' : 'Collapse', hint: collapsed ? `${MOD}↓` : `${MOD}↑`, run: () => exec({ type: 'toggleCollapse', id }) },
+          { id: 'expand-all', label: 'Expand all inside', run: () => actions.setAllCollapsed(id, false, true) },
+          { id: 'collapse-all', label: 'Collapse all inside', run: () => actions.setAllCollapsed(id, true, true) },
+        ]
       : []),
     { id: 'indent', label: 'Indent', hint: 'Tab', run: () => exec({ type: 'indent', id }) },
     ...(canOutdent ? [{ id: 'outdent', label: 'Outdent', hint: 'Shift+Tab', run: () => exec({ type: 'outdent', id }) }] : []),
