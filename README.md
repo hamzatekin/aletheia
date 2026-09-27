@@ -1,5 +1,7 @@
 # Aletheia
 
+Working on the code (or an AI agent)? Start with [CLAUDE.md](CLAUDE.md).
+
 A minimal, keyboard-first outliner. One infinite hierarchical list; every line is a
 node with unlimited children. The tree is the source of truth; Markdown is the
 content and export format, never the storage format for hierarchy.
@@ -17,10 +19,13 @@ src/store         Zustand store: Map<id, Node> + childrenByParent index
 src/persistence   Repository interface, Dexie implementation, in-memory implementation
 src/commands      Typed commands, the engine (apply → persist → op log → undo/redo)
 src/editor        Markdown dialect (markdown-it) and sanitized static rendering
-src/tree-view     Virtualized outline, rows, bullets, breadcrumbs, zoom page
+src/tree-view     Virtualized outline, rows, bullets, breadcrumbs, zoom page;
+                  actions/ holds what the page does, one file per group
 src/app           Bootstrap (load + first-run seed) and the engine context
 src/search        MiniSearch index kept current from operations; Ctrl/⌘+K palette
 src/io            Markdown / OPML / JSON export, Markdown / OPML import, file helpers
+src/settings      Settings panel (appearance, sync)
+src/help          Tutorial dialog
 src/sync          Opt-in sync: wire format, outbox, sync service, browser triggers
 worker            Cloudflare Worker: the sync API on D1 (only `/api/*` runs it)
 ```
