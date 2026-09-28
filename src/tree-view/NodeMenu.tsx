@@ -38,7 +38,7 @@ function terminalFixes(tree: TreeReader, id: string): Command[] {
  * screens a sheet from the bottom of the screen, where a thumb reaches it.
  */
 export function NodeMenu({ id, hasChildren, collapsed, sheet = false }: { id: string; hasChildren: boolean; collapsed: boolean; sheet?: boolean }) {
-  const { engine, ui, session, rootId, actions } = useOutline();
+  const { engine, ui, session, rootId, actions, ai } = useOutline();
   const navigate = useNavigate();
   const ref = useRef<HTMLDivElement>(null);
   const close = () => ui.setMenu(null);
@@ -86,6 +86,7 @@ export function NodeMenu({ id, hasChildren, collapsed, sheet = false }: { id: st
           { id: 'collapse-all', label: 'Collapse all inside', run: () => actions.setAllCollapsed(id, true, true) },
         ]
       : []),
+    ...(ai?.available() ? [{ id: 'ai-title', label: 'Suggest title (AI)', run: () => void ai.suggestTitle(id) }] : []),
     {
       id: 'star',
       label: node.starredAt != null ? 'Unstar' : 'Star',

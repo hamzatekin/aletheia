@@ -23,6 +23,8 @@ export interface SlashCommand {
   keywords?: string;
   /** Section label shown in the menu. */
   group?: string;
+  /** Hide the command when this returns false (e.g. AI while sync is off). */
+  available?(): boolean;
   run(ctx: SlashContext): void | Promise<void>;
 }
 
@@ -39,6 +41,7 @@ export function registerSlashCommand(command: SlashCommand): () => void {
 
 export function slashCommands(query: string): SlashCommand[] {
   const q = query.trim().toLowerCase();
-  if (q === '') return [...registry];
-  return registry.filter((c) => `${c.title} ${c.keywords ?? ''}`.toLowerCase().includes(q));
+  const shown = registry.filter((c) => c.available?.() ?? true);
+  if (q === '') return shown;
+  return shown.filter((c) => `${c.title} ${c.keywords ?? ''}`.toLowerCase().includes(q));
 }

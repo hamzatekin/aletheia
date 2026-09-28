@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from 'react-router';
+import type { AiService } from '@/ai/service';
 import type { Engine } from '@/commands';
 import { CaptureRoute } from '@/app/CaptureRoute';
 import { EngineProvider } from '@/app/engine-context';
@@ -16,10 +17,11 @@ interface Props {
   search: SearchIndex;
   settings: SettingsStore;
   sync?: SyncService;
+  ai?: AiService;
 }
 
-export function App({ engine, ui, session, search, settings, sync }: Props) {
-  const page = <OutlinePage ui={ui} session={session} search={search} settings={settings} sync={sync} />;
+export function App({ engine, ui, session, search, settings, sync, ai }: Props) {
+  const page = <OutlinePage ui={ui} session={session} search={search} settings={settings} sync={sync} ai={ai} />;
   return (
     <EngineProvider value={engine}>
       <BrowserRouter>

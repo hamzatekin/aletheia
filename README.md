@@ -27,7 +27,8 @@ src/io            Markdown / OPML / JSON export, Markdown / OPML import, file he
 src/settings      Settings panel (appearance, sync)
 src/help          Tutorial dialog
 src/sync          Opt-in sync: wire format, outbox, sync service, browser triggers
-worker            Cloudflare Worker: the sync API on D1 (only `/api/*` runs it)
+src/ai            AI actions (Suggest title) through the Worker's relay proxy
+worker            Cloudflare Worker: the sync API on D1 and the AI proxy (only `/api/*` runs it)
 ```
 
 ## How a command runs
@@ -127,6 +128,24 @@ notes.
 Local development: `pnpm build && npx wrangler dev` serves the app and the
 API with a local D1 on :8787 (`pnpm dev` proxies `/api` to it). Reset local
 sync data with `npx wrangler d1 execute aletheia-sync --local --command "DELETE FROM spaces; DELETE FROM nodes;"`.
+
+## AI (optional)
+
+`POST /api/ai/complete` (`worker/ai.ts`) forwards `{ prompt }` to a Claude
+relay (`CLAUDE_RELAY_URL`, default `https://ai.hamzatekin.dev/v1/complete`)
+with the `CLAUDE_RELAY_TOKEN` secret, so the token never reaches the browser.
+The site is public, so the proxy only answers a request carrying the key of
+an existing sync space: AI works on devices with sync on. Set the secret with
+`npx wrangler secret put CLAUDE_RELAY_TOKEN` (or in the dashboard under the
+Worker's Settings → Variables and Secrets). Without it the proxy answers 503
+with a message saying so.
+
+The first action is **Suggest title**, in the row's ≡ menu and the `/` menu
+(both hidden while sync is off). It sends the node's note and the items under
+it, puts the answer in the row, and offers Undo; if the row was edited while
+waiting, it offers the title instead of overwriting. New actions: write the
+prompt next to `src/ai/suggest-title.ts`, add a method to `src/ai/service.ts`,
+and register it in `src/ai/slash-commands.ts` and `NodeMenu.tsx`.
 
 ## Installable app (PWA)
 
