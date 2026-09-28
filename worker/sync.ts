@@ -119,11 +119,26 @@ export function resetSchemaCache(): void {
   schemaReady = null;
 }
 
+/** The request's sync key (`Authorization: Bearer <key>`), or null when it is missing or too short. */
+function bearerKey(request: Request): string | null {
+  const key = /^Bearer (\S+)$/.exec(request.headers.get('Authorization') ?? '')?.[1];
+  return key && key.length >= MIN_KEY_LENGTH ? key : null;
+}
+
+/** Whether the request carries the key of an existing sync space (how other APIs know it is the owner). */
+export async function hasSyncSpace(request: Request, env: SyncEnv): Promise<boolean> {
+  const key = bearerKey(request);
+  if (!key) return false;
+  await ensureSchema(env.DB);
+  const exists = await env.DB.prepare('SELECT 1 AS ok FROM spaces WHERE id = ?1').bind(await sha256(key)).first();
+  return exists !== null;
+}
+
 export async function handleSync(request: Request, env: SyncEnv): Promise<Response> {
   const url = new URL(request.url);
   const route = `${request.method} ${url.pathname}`;
-  const key = /^Bearer (\S+)$/.exec(request.headers.get('Authorization') ?? '')?.[1];
-  if (!key || key.length < MIN_KEY_LENGTH) return json({ error: 'missing or short sync key' }, 401);
+  const key = bearerKey(request);
+  if (!key) return json({ error: 'missing or short sync key' }, 401);
   await ensureSchema(env.DB);
   const space = await sha256(key);
 

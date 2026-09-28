@@ -261,6 +261,7 @@ const TABS: Tab[] = [
             [<Code>/zoom</Code>, 'Zoom into the current node'],
             [<Code>/export</Code>, 'Export as Markdown, OPML or a JSON backup'],
             [<Code>/import</Code>, 'Import Markdown or OPML into this node, or restore a backup'],
+            [<Code>/suggest</Code>, 'Suggest title: AI names the row from its note and the items under it (Undo to put it back). Needs sync on.'],
             [<Code>/tutorial</Code>, 'Open this tutorial'],
           ]}
         />

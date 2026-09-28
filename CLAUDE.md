@@ -45,9 +45,10 @@ src/search/           Ctrl+K palette (MiniSearch) and Ctrl+F in-place filter
 src/io/               Markdown / OPML / JSON import and export, clipboard, WorkFlowy and terminal paste
 src/sync/             opt-in sync client: wire format, outbox, service, tabs, clock
 src/settings/         Settings panel (appearance, sync)
+src/ai/               AI actions (Suggest title) via the Worker's proxy to the Claude relay
 src/help/             tutorial dialog (lists every shortcut)
 src/app/              bootstrap, engine context, capture route (share target)
-worker/               Cloudflare Worker: only /api/* runs it; sync API on D1
+worker/               Cloudflare Worker: only /api/* runs it; sync API on D1, AI proxy (ai.ts)
 pwa/                  service worker and the Vite plugin that builds it
 e2e/                  Playwright specs; helpers.ts drives the app via window.__aletheia
 ```
@@ -84,6 +85,11 @@ the tree while a row may be mid-edit; the existing actions show the pattern.
   `sync/outbox.ts` and `engine.ts` (`sameNode`), and add a D1 column plus its
   migration in `worker/sync.ts` (`ensureSchema`). Old clients without the field
   must still be accepted.
+- **New AI action**: prompt builder beside `ai/suggest-title.ts`, a method on
+  the service in `ai/service.ts`, then entries in `ai/slash-commands.ts` and
+  `tree-view/NodeMenu.tsx`. The Worker proxy (`worker/ai.ts`) only answers
+  devices with a sync key and needs the `CLAUDE_RELAY_TOKEN` secret; never
+  commit the token.
 - **New appearance setting**: `store/settings-store.ts` (saved in localStorage,
   per device), UI in `settings/SettingsPanel.tsx`.
 

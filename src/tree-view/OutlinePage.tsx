@@ -1,5 +1,7 @@
 import { useEffect, useMemo, type MouseEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
+import { AiNotice } from '@/ai/AiNotice';
+import type { AiService } from '@/ai/service';
 import type { Engine } from '@/commands';
 import { plainText } from '@/editor/markdown';
 import type { EditorSession } from '@/editor/session';
@@ -30,10 +32,11 @@ interface Props {
   search: SearchIndex;
   settings: SettingsStore;
   sync?: SyncService | undefined;
+  ai?: AiService | undefined;
 }
 
 /** `/` shows the top level; `/n/:id` zooms into a node. */
-export function OutlinePage({ ui, session, search, settings, sync }: Props) {
+export function OutlinePage({ ui, session, search, settings, sync, ai }: Props) {
   const engine: Engine = useEngine();
   const { id } = useParams<{ id: string }>();
   const rootId = id ?? null;
@@ -46,8 +49,8 @@ export function OutlinePage({ ui, session, search, settings, sync }: Props) {
     [engine, ui, session, search, rootId, navigate],
   );
   const context = useMemo(
-    () => ({ engine, ui, session, search, actions, rootId }),
-    [engine, ui, session, search, actions, rootId],
+    () => ({ engine, ui, session, search, actions, rootId, ai }),
+    [engine, ui, session, search, actions, rootId, ai],
   );
 
   usePageEvents(actions, session, ui, settings);
@@ -86,6 +89,7 @@ export function OutlinePage({ ui, session, search, settings, sync }: Props) {
         <PageToolbar />
         <SettingsPanel settings={settings} sync={sync} />
         <TutorialDialog ui={ui} />
+        {ai && <AiNotice ai={ai} />}
         <div className="desk min-h-screen" onMouseDown={onBackgroundMouseDown}>
           <main className="book-page" onMouseDown={onBackgroundMouseDown}>
             <PageResizeHandles settings={settings} />
