@@ -197,6 +197,31 @@ body {
   background: var(--sidebar);
   border-left: 1px solid var(--line);
 }
+/* The solid strip behind the top buttons (TopBar.tsx). It matches the top of
+   the page: the desk above a book sheet, the page itself otherwise. Its height
+   stops where the page's own top padding or margin ends, so it never hides
+   text before you scroll. Docked sidebars (z-30) and the buttons (z-40) sit above it. */
+.top-bar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 20;
+  height: 3rem;
+  background: var(--page);
+  border-bottom: 1px solid transparent;
+  transition: border-color 120ms;
+}
+.top-bar[data-scrolled='true'] { border-bottom-color: var(--line); }
+@media (max-width: 639px) and (pointer: coarse) {
+  .top-bar { height: 3.25rem; }
+}
+@media (min-width: 640px) {
+  :root[data-book='true'] .top-bar { height: 3.5rem; background: var(--desk); }
+}
+@media (min-width: 640px) and (max-height: 539px) and (pointer: coarse) {
+  :root[data-book='true'] .top-bar { height: 3.25rem; }
+}
+/* Keyboard moves and find-in-page stop below the bar, not under it. */
+html { scroll-padding-top: 4rem; }
 .top-icon { transition: transform 150ms ease-out; }
 @media (min-width: 1024px) {
   .app-shell[data-settings='open'] .desk { padding-right: var(--settings-width); }

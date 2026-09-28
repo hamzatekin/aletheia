@@ -57,3 +57,10 @@ test('the top-right buttons sit above the book page, not on its edge', async ({ 
     expect(box.y + box.height).toBeLessThanOrEqual(sheet.y - 8);
   }
 });
+
+test('the solid top bar never covers the book page before scrolling', async ({ page }) => {
+  await gotoHome(page);
+  const bar = (await page.getByTestId('top-bar').boundingBox())!;
+  const sheet = (await page.locator('.book-page').boundingBox())!;
+  expect(bar.y + bar.height).toBeLessThanOrEqual(sheet.y);
+});

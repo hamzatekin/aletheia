@@ -10,6 +10,7 @@ import { takeCaretHandoff } from './caret-handoff';
 import { registerNoteFlush } from './note-flush';
 import { noteTableExtensions } from './note-table';
 import { isTerminalPaste, terminalToMarkdown } from '@/io/terminal';
+import { TOP_BAR_CLEARANCE_PX } from '@/tree-view/TopBar';
 
 const SAVE_DELAY_MS = 400;
 
@@ -102,6 +103,8 @@ export function RichNoteEditor({ id }: { id: string }) {
       ],
       content: known.current,
       editorProps: {
+        scrollThreshold: { top: TOP_BAR_CLEARANCE_PX, right: 0, bottom: 0, left: 0 },
+        scrollMargin: { top: TOP_BAR_CLEARANCE_PX, right: 5, bottom: 5, left: 5 },
         attributes: {
           class: 'prose-note row-note pb-0.5 text-muted outline-none',
           'data-editor': 'note',
