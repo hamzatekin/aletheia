@@ -178,3 +178,16 @@ test('settings open as a drawer from the right and close on a tap outside', asyn
   await page.touchscreen.tap(20, 400);
   await expect(panel).toBeHidden();
 });
+
+test('page settings that do nothing on a phone are hidden, and a tapped bullet keeps no halo', async ({ page }) => {
+  await gotoHome(page);
+  await page.getByLabel('Settings').first().tap();
+  await expect(page.getByText('Font size')).toBeVisible();
+  await expect(page.getByText('Page width')).toBeHidden();
+  await expect(page.getByText('Book page')).toBeHidden();
+  await page.getByLabel('Hide settings').tap();
+  // Tap-to-hover leaves :hover on the bullet; the hover halo must not show on touch.
+  const dot = row(page, 'Plant a tree').locator('.bullet-dot').first();
+  await dot.hover();
+  await expect(dot).toHaveCSS('box-shadow', 'none');
+});

@@ -345,7 +345,7 @@ export function TutorialDialog({ ui }: Props) {
         className="flex h-[min(38rem,calc(100vh-1.5rem))] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-surface text-ink shadow-2xl sm:flex-row"
       >
         <nav
-          className="flex shrink-0 gap-1 overflow-x-auto border-b border-line p-2 sm:w-48 sm:flex-col sm:border-r sm:border-b-0 sm:p-3"
+          className="tabs-scroll flex shrink-0 gap-1 overflow-x-auto border-b border-line p-2 sm:w-48 sm:flex-col sm:border-r sm:border-b-0 sm:p-3"
           role="tablist"
           aria-label="Tutorial topics"
         >
@@ -356,7 +356,10 @@ export function TutorialDialog({ ui }: Props) {
               type="button"
               role="tab"
               aria-selected={t.id === current.id}
-              onClick={() => setTab(t.id)}
+              onClick={(e) => {
+                setTab(t.id);
+                e.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+              }}
               className={
                 'shrink-0 rounded-md px-2 py-1.5 text-left text-sm whitespace-nowrap ' +
                 (t.id === current.id ? 'bg-active font-medium' : 'text-muted hover:bg-hover')

@@ -38,12 +38,22 @@ test('settings dock on the right like the outline and keep the page usable', asy
   expect(Math.round(box.x + box.width)).toBe(1280);
   expect(box.height).toBe(800);
   // The top-right buttons move over beside the panel.
-  const gear = (await page.getByRole('button', { name: 'Settings', exact: true }).boundingBox())!;
-  expect(gear.x + gear.width).toBeLessThanOrEqual(box.x);
+  // They slide over in 150ms, so wait for them to land.
+  const gear = page.getByRole('button', { name: 'Settings', exact: true });
+  await expect.poll(async () => { const g = (await gear.boundingBox())!; return g.x + g.width; }).toBeLessThanOrEqual(box.x);
   // Clicking the page leaves it open, so changes can be watched live.
   await page.locator('.row-text', { hasText: 'Plant a tree' }).first().click();
   await expect(panel).toBeVisible();
   await expect(page.getByTestId('outline-sidebar')).toBeVisible();
   await panel.getByRole('button', { name: 'Hide settings' }).click();
   await expect(panel).toBeHidden();
+});
+
+test('the top-right buttons sit above the book page, not on its edge', async ({ page }) => {
+  await gotoHome(page);
+  const sheet = (await page.locator('.book-page').boundingBox())!;
+  for (const icon of await page.locator('.top-icon').all()) {
+    const box = (await icon.boundingBox())!;
+    expect(box.y + box.height).toBeLessThanOrEqual(sheet.y - 8);
+  }
 });
