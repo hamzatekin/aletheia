@@ -52,6 +52,8 @@ export interface UiState {
   /** The in-place search on this page (the bar is shown while it is set, even when empty). */
   filter: Filter | null;
   helpOpen: boolean;
+  /** The settings sidebar on the right. */
+  settingsOpen: boolean;
   dropIndicator: DropIndicator | null;
   /** Id of the node being dragged, if any. */
   dragging: string | null;
@@ -66,6 +68,7 @@ export interface UiState {
   setSearchOpen(open: boolean): void;
   setFilter(filter: Filter | null): void;
   setHelpOpen(open: boolean): void;
+  setSettingsOpen(open: boolean): void;
   setMenu(id: string | null): void;
 }
 
@@ -80,6 +83,7 @@ export interface UiStore extends StoreApi<UiState> {
   setSearchOpen(open: boolean): void;
   setFilter(filter: Filter | null): void;
   setHelpOpen(open: boolean): void;
+  setSettingsOpen(open: boolean): void;
   setMenu(id: string | null): void;
 }
 
@@ -91,6 +95,7 @@ export function createUiStore(): UiStore {
     searchOpen: false,
     filter: null,
     helpOpen: false,
+    settingsOpen: false,
     dropIndicator: null,
     dragging: null,
     menu: null,
@@ -113,6 +118,7 @@ export function createUiStore(): UiStore {
     setSearchOpen: (searchOpen) => set({ searchOpen }),
     setFilter: (filter) => set({ filter }),
     setHelpOpen: (helpOpen) => set({ helpOpen }),
+    setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
     setMenu: (menu) => set({ menu }),
   }));
   return Object.assign(store, {
@@ -125,6 +131,7 @@ export function createUiStore(): UiStore {
     setSearchOpen: (open: boolean) => store.getState().setSearchOpen(open),
     setFilter: (filter: Filter | null) => store.getState().setFilter(filter),
     setHelpOpen: (open: boolean) => store.getState().setHelpOpen(open),
+    setSettingsOpen: (open: boolean) => store.getState().setSettingsOpen(open),
     setMenu: (id: string | null) => store.getState().setMenu(id),
   });
 }
