@@ -11,6 +11,7 @@ import { FilterBar } from '@/search/FilterBar';
 import { useEngine } from '@/app/engine-context';
 import { TutorialDialog } from '@/help/TutorialDialog';
 import { SettingsPanel } from '@/settings/SettingsPanel';
+import { SyncIndicator } from '@/settings/SyncIndicator';
 import type { SyncService } from '@/sync/service';
 import { useSettings, type SettingsStore } from '@/store/settings-store';
 import type { UiStore } from '@/store/ui-store';
@@ -87,6 +88,7 @@ export function OutlinePage({ ui, session, search, settings, sync, ai }: Props) 
           </button>
         )}
         <PageToolbar />
+        {sync && <SyncIndicator sync={sync} />}
         <SettingsPanel settings={settings} sync={sync} />
         <TutorialDialog ui={ui} />
         {ai && <AiNotice ai={ai} />}

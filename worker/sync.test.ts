@@ -288,8 +288,15 @@ describe('sync between two devices', () => {
     for (let i = 0; i < 1234; i++) a.create(`n${i}`);
     const key = await a.sync.enable();
     const b = device(2_000_000);
+    const counts: number[] = [];
+    b.sync.state.subscribe((st) => {
+      if (st.download) counts.push(st.download.received);
+    });
     await b.sync.join(key, 'replace');
     expect(b.shape()).toHaveLength(1234);
+    // Progress for the page to show while joining, cleared when done.
+    expect(counts).toEqual(expect.arrayContaining([0, 500, 1000, 1234]));
+    expect(b.sync.state.getState().download).toBeNull();
     expect(b.shape()).toEqual(a.shape());
   });
 
