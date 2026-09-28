@@ -192,7 +192,8 @@ function StatusLine({ state }: { state: SyncState }) {
   }
 }
 
-function ago(at: number): string {
+/** "just now", "40s ago", "5 min ago", or the date. */
+export function ago(at: number): string {
   const s = Math.round((Date.now() - at) / 1000);
   if (s < 10) return 'just now';
   if (s < 60) return `${s}s ago`;

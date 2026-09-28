@@ -15,6 +15,8 @@ export interface SyncState {
   /** The key this device used before sync was turned off here, to turn it back on. */
   lastKey: string | null;
   lastSyncedAt: number | null;
+  /** While joining downloads the synced notes: how many have arrived so far. */
+  download: { received: number } | null;
   error: string | null;
   /** A key from an opened sync link, waiting for the user to confirm joining. */
   pendingJoinKey: string | null;
@@ -97,7 +99,7 @@ export class SyncService {
     this.afterReplace = opts.afterReplace ?? (() => {});
     this.beforeApply = opts.beforeApply ?? (() => {});
     this.lock = opts.lock ?? ((work) => work());
-    this.state = createStore<SyncState>(() => ({ status: 'off', key: null, lastKey: null, lastSyncedAt: null, error: null, pendingJoinKey: null }));
+    this.state = createStore<SyncState>(() => ({ status: 'off', key: null, lastKey: null, lastSyncedAt: null, error: null, pendingJoinKey: null, download: null }));
     this.unsubscribe = engine.onOperation((op) => {
       if (op.type === REMOTE_OP || op.type === PEER_OP) return;
       if (this.recording) {
@@ -160,21 +162,27 @@ export class SyncService {
    * the synced ones; `merge` uploads this device's notes into the space too.
    */
   async join(key: string, mode: 'replace' | 'merge'): Promise<void> {
-    if (!(await this.api.checkSpace(key))) throw new SyncServerError('That sync link is not valid on this server.', 404);
-    if (mode === 'replace') {
-      this.repo.setTracking(false);
-      await this.engine.replaceAll([]);
-      await this.repo.clearOutbox();
-      this.afterReplace();
-    } else {
-      await this.engine.flush();
-      await this.repo.enqueue(entriesForAll(this.engine.tree.all()));
+    // Getting every synced note can take a while; the page shows progress meanwhile.
+    this.state.setState({ download: { received: 0 } });
+    try {
+      if (!(await this.api.checkSpace(key))) throw new SyncServerError('That sync link is not valid on this server.', 404);
+      if (mode === 'replace') {
+        this.repo.setTracking(false);
+        await this.engine.replaceAll([]);
+        await this.repo.clearOutbox();
+        this.afterReplace();
+      } else {
+        await this.engine.flush();
+        await this.repo.enqueue(entriesForAll(this.engine.tree.all()));
+      }
+      this.repo.setTracking(true);
+      await this.repo.setMeta(META_CURSOR, 0);
+      await this.repo.setMeta(META_KEY, key);
+      this.state.setState({ key, status: 'idle', error: null, pendingJoinKey: null });
+      await this.sync();
+    } finally {
+      this.state.setState({ download: null });
     }
-    this.repo.setTracking(true);
-    await this.repo.setMeta(META_CURSOR, 0);
-    await this.repo.setMeta(META_KEY, key);
-    this.state.setState({ key, status: 'idle', error: null, pendingJoinKey: null });
-    await this.sync();
   }
 
   /** Turn sync back on here with the key it had, merging what changed meanwhile. */
@@ -303,6 +311,8 @@ export class SyncService {
       const page = await this.api.pull(key, cursor, PULL_PAGE);
       if (this.key !== key) return;
       await this.applyRemote(page.nodes);
+      const { download } = this.state.getState();
+      if (download) this.state.setState({ download: { received: download.received + page.nodes.length } });
       await this.engine.flush(); // nodes are on disk before the cursor moves past them
       cursor = page.cursor;
       await this.repo.setMeta(META_CURSOR, cursor);
