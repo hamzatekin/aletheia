@@ -159,41 +159,44 @@ export function SettingsPanel({ settings, ui, sync }: Props) {
 
               <Slider label="Font size" value={s.fontSize} format={(v) => `${v}px`} limits={LIMITS.fontSize} onChange={(v) => update({ fontSize: v })} />
               <Slider label="Line spacing" value={s.lineHeight} format={(v) => v.toFixed(2)} limits={LIMITS.lineHeight} onChange={(v) => update({ lineHeight: v })} />
-              <Field label="Page shape">
-                <div className="grid grid-cols-2 gap-1">
-                  {(['portrait', 'landscape'] as const).map((shape) => (
-                    <button
-                      key={shape}
-                      type="button"
-                      onClick={() => update({ pageShape: shape })}
-                      className={
-                        'flex items-center justify-center gap-2 rounded border px-2 py-1.5 text-xs capitalize ' +
-                        (s.pageShape === shape ? 'border-accent bg-selection text-accent' : 'border-line hover:bg-hover')
-                      }
-                      aria-pressed={s.pageShape === shape}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className={'inline-block rounded-[2px] border border-current ' + (shape === 'portrait' ? 'h-3.5 w-2.5' : 'h-2.5 w-3.5')}
-                      />
-                      {shape}
-                    </button>
-                  ))}
-                </div>
-              </Field>
-              {s.pageShape === 'landscape' ? (
-                <Slider
-                  label="Page width"
-                  value={s.landscapeWidth}
-                  format={(v) => `${v}px`}
-                  limits={LIMITS.landscapeWidth}
-                  onChange={(v) => update({ landscapeWidth: v })}
-                />
-              ) : (
-                <Slider label="Page width" value={s.pageWidth} format={(v) => `${v}px`} limits={LIMITS.pageWidth} onChange={(v) => update({ pageWidth: v })} />
-              )}
+              {/* Narrow screens always use the full width, so the page controls change nothing there. */}
+              <div className="max-sm:hidden">
+                <Field label="Page shape">
+                  <div className="grid grid-cols-2 gap-1">
+                    {(['portrait', 'landscape'] as const).map((shape) => (
+                      <button
+                        key={shape}
+                        type="button"
+                        onClick={() => update({ pageShape: shape })}
+                        className={
+                          'flex items-center justify-center gap-2 rounded border px-2 py-1.5 text-xs capitalize ' +
+                          (s.pageShape === shape ? 'border-accent bg-selection text-accent' : 'border-line hover:bg-hover')
+                        }
+                        aria-pressed={s.pageShape === shape}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={'inline-block rounded-[2px] border border-current ' + (shape === 'portrait' ? 'h-3.5 w-2.5' : 'h-2.5 w-3.5')}
+                        />
+                        {shape}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+                {s.pageShape === 'landscape' ? (
+                  <Slider
+                    label="Page width"
+                    value={s.landscapeWidth}
+                    format={(v) => `${v}px`}
+                    limits={LIMITS.landscapeWidth}
+                    onChange={(v) => update({ landscapeWidth: v })}
+                  />
+                ) : (
+                  <Slider label="Page width" value={s.pageWidth} format={(v) => `${v}px`} limits={LIMITS.pageWidth} onChange={(v) => update({ pageWidth: v })} />
+                )}
 
-              <Toggle label="Book page" hint="Show the text on a sheet of paper" checked={s.bookPage} onChange={(v) => update({ bookPage: v })} />
+                <Toggle label="Book page" hint="Show the text on a sheet of paper" checked={s.bookPage} onChange={(v) => update({ bookPage: v })} />
+              </div>
               <Toggle label="Outline sidebar" hint="Ctrl+\ toggles it" checked={s.sidebarOpen} onChange={(v) => update({ sidebarOpen: v })} />
               <Slider label="Outline levels shown" value={s.outlineDepth} format={(v) => String(v)} limits={LIMITS.outlineDepth} onChange={(v) => update({ outlineDepth: v })} />
 

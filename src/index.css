@@ -104,18 +104,26 @@ body {
   height: calc(var(--font-size) * 0.4);
 }
 /* A halo marks collapsed parents; hovering any bullet shows a softer one. */
-.group\/bullet:hover .bullet-dot {
-  box-shadow: 0 0 0 calc(var(--font-size) * 0.26) var(--halo-hover);
-}
 .bullet-dot.bullet-collapsed {
   box-shadow: 0 0 0 calc(var(--font-size) * 0.26) var(--halo);
 }
-.grip:hover, .grip[aria-expanded='true'] {
+.grip[aria-expanded='true'] {
   background: var(--halo-hover);
   color: var(--muted);
 }
-.group\/bullet:hover .bullet-dot.bullet-collapsed {
-  box-shadow: 0 0 0 calc(var(--font-size) * 0.26) var(--halo-hover);
+/* Only where a mouse hovers: a phone keeps :hover on the last thing tapped,
+   which left a halo on the bullet you had zoomed into. */
+@media (hover: hover) {
+  .group\/bullet:hover .bullet-dot {
+    box-shadow: 0 0 0 calc(var(--font-size) * 0.26) var(--halo-hover);
+  }
+  .grip:hover {
+    background: var(--halo-hover);
+    color: var(--muted);
+  }
+  .group\/bullet:hover .bullet-dot.bullet-collapsed {
+    box-shadow: 0 0 0 calc(var(--font-size) * 0.26) var(--halo-hover);
+  }
 }
 
 /* The text column. In book mode it is a sheet of paper resting on the desk. */
@@ -132,9 +140,11 @@ body {
 @media (min-width: 640px) {
   .book-page { padding: 3rem 2.5rem 6rem 5rem; }
 }
+/* The top margin clears the row of buttons at the top right (12px down, 34px
+   tall), so their hover background never touches the sheet. */
 :root[data-book='true'] .book-page {
-  min-height: calc(100vh - 5rem);
-  margin: 2.5rem auto;
+  min-height: calc(100vh - 6rem);
+  margin: 3.5rem auto 2.5rem;
   border-radius: 3px;
   box-shadow:
     0 1px 2px rgb(0 0 0 / 0.06),
@@ -160,6 +170,14 @@ body {
 @media (max-width: 639px) and (pointer: coarse) {
   .book-page,
   :root[data-book='true'] .book-page { padding: 3.25rem 0.75rem 6rem 1.75rem; }
+}
+/* A phone turned sideways is wide but short: drop the desk margin above and
+   below the sheet and the tall book padding, so the outline starts near the top. */
+@media (min-width: 640px) and (max-height: 539px) and (pointer: coarse) {
+  :root[data-book='true'] .book-page { margin: 0 auto; border-radius: 0; min-height: 100vh; }
+  .book-page,
+  :root[data-book='true'] .book-page,
+  :root[data-shape='landscape'][data-book='true'] .book-page { padding: 3.25rem 2rem 6rem 3rem; }
 }
 
 /* Leave room for the outline sidebar on wide screens. */
@@ -367,6 +385,16 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 .crumbs-scroll::-webkit-scrollbar { display: none; }
+/* The tutorial's topic tabs scroll sideways on phones; fade the right edge so
+   the cut-off tab reads as "more this way". The padding lets the last tab clear it. */
+@media (max-width: 639px) {
+  .tabs-scroll {
+    scrollbar-width: none;
+    padding-right: 2rem;
+    mask-image: linear-gradient(to left, transparent, #000 2rem);
+  }
+  .tabs-scroll::-webkit-scrollbar { display: none; }
+}
 .crumbs-scroll[data-overflow-left='true'] {
   mask-image: linear-gradient(to right, transparent, #000 1.5rem);
 }
