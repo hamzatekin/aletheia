@@ -7,6 +7,7 @@ import type { Engine } from '@/commands';
 import type { Caret } from '@/store/ui-store';
 import { markdownOptions, plainText } from './markdown';
 import { OutlinerKeymap, type OutlineKey, type OutlinerKeymapStorage } from './outliner-keymap';
+import { TOP_BAR_CLEARANCE_PX } from '@/tree-view/TopBar';
 
 /** Content is one paragraph of inline Markdown; no block structure. */
 const SingleLineDocument = Node.create({ name: 'doc', topNode: true, content: 'paragraph' });
@@ -84,6 +85,9 @@ export class EditorSession {
       ],
       editorProps: {
         attributes: { class: 'node-content outline-none', spellcheck: 'true' },
+        // Keep the caret clear of the solid bar at the top of the window.
+        scrollThreshold: { top: TOP_BAR_CLEARANCE_PX, right: 0, bottom: 0, left: 0 },
+        scrollMargin: { top: TOP_BAR_CLEARANCE_PX, right: 5, bottom: 5, left: 5 },
         handlePaste: (_view, event) => {
           const text = event.clipboardData?.getData('text/plain') ?? '';
           const json = event.clipboardData?.getData(CLIP_TYPE) || null;

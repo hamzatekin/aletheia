@@ -18,6 +18,7 @@ import { useUiStore, type UiStore } from '@/store/ui-store';
 import { createOutlineActions } from './actions';
 import { Breadcrumbs } from './Breadcrumbs';
 import { Outline } from './Outline';
+import { TopBar } from './TopBar';
 import { MobileToolbar, SelectionBar } from './MobileToolbar';
 import { OutlineProvider } from './outline-context';
 import { OutlineSidebar, SidebarIcon } from './OutlineSidebar';
@@ -76,6 +77,7 @@ export function OutlinePage({ ui, session, search, settings, sync, ai }: Props) 
   return (
     <OutlineProvider value={context}>
       <div className="app-shell" data-sidebar={sidebarOpen ? 'open' : 'closed'} data-settings={settingsOpen ? 'open' : 'closed'}>
+        <TopBar />
         <OutlineSidebar settings={settings} rootId={rootId} />
         {!sidebarOpen && (
           <button

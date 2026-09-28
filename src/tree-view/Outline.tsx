@@ -5,6 +5,7 @@ import { Row } from './Row';
 import { useOutline } from './outline-context';
 import { usePageRows } from './use-outline';
 import { useDropMonitor } from './use-dnd';
+import { TOP_BAR_CLEARANCE_PX } from './TopBar';
 
 interface Props {
   rootId: string | null;
@@ -39,6 +40,8 @@ export function Outline({ rootId }: Props) {
     overscan: 12,
     // Distance from the top of the document; the page sheet is positioned, so offsetTop alone is not enough.
     scrollMargin: listRef.current ? listRef.current.getBoundingClientRect().top + window.scrollY : 0,
+    // Rows scrolled into view stop below the solid bar at the top.
+    scrollPaddingStart: TOP_BAR_CLEARANCE_PX,
     getItemKey: (index) => rows[index]!.id,
     rangeExtractor,
   });

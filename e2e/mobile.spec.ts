@@ -191,3 +191,19 @@ test('page settings that do nothing on a phone are hidden, and a tapped bullet k
   await dot.hover();
   await expect(dot).toHaveCSS('box-shadow', 'none');
 });
+
+test('text scrolls under a solid bar behind the top buttons, not through it', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 500 });
+  await gotoHome(page);
+  const bar = page.getByTestId('top-bar');
+  const box = (await bar.boundingBox())!;
+  // At the top nothing is hidden: the first line starts below the bar.
+  const first = (await page.locator('[data-node-id] .node-content').first().boundingBox())!;
+  expect(first.y).toBeGreaterThanOrEqual(box.y + box.height);
+  await page.evaluate(() => window.scrollBy(0, 150));
+  await expect(bar).toHaveAttribute('data-scrolled', 'true');
+  // Rows now under the bar are covered by it, and the bar is opaque.
+  const hit = await page.evaluate(({ y }) => document.elementFromPoint(100, y)?.getAttribute('data-testid'), { y: box.height / 2 });
+  expect(hit).toBe('top-bar');
+  expect(await bar.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toMatch(/rgba\(.*, 0\)|transparent/);
+});
