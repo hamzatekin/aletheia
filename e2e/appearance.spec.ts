@@ -28,3 +28,22 @@ test('outline sidebar zooms into a node and can be hidden', async ({ page }) => 
   await page.getByRole('button', { name: 'Show outline' }).click();
   await expect(sidebar).toBeVisible();
 });
+
+test('settings dock on the right like the outline and keep the page usable', async ({ page }) => {
+  await gotoHome(page);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const panel = page.getByTestId('settings-panel');
+  await expect(panel).toBeVisible();
+  const box = (await panel.boundingBox())!;
+  expect(Math.round(box.x + box.width)).toBe(1280);
+  expect(box.height).toBe(800);
+  // The top-right buttons move over beside the panel.
+  const gear = (await page.getByRole('button', { name: 'Settings', exact: true }).boundingBox())!;
+  expect(gear.x + gear.width).toBeLessThanOrEqual(box.x);
+  // Clicking the page leaves it open, so changes can be watched live.
+  await page.locator('.row-text', { hasText: 'Plant a tree' }).first().click();
+  await expect(panel).toBeVisible();
+  await expect(page.getByTestId('outline-sidebar')).toBeVisible();
+  await panel.getByRole('button', { name: 'Hide settings' }).click();
+  await expect(panel).toBeHidden();
+});

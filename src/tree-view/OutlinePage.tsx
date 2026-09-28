@@ -14,7 +14,7 @@ import { SettingsPanel } from '@/settings/SettingsPanel';
 import { SyncIndicator } from '@/settings/SyncIndicator';
 import type { SyncService } from '@/sync/service';
 import { useSettings, type SettingsStore } from '@/store/settings-store';
-import type { UiStore } from '@/store/ui-store';
+import { useUiStore, type UiStore } from '@/store/ui-store';
 import { createOutlineActions } from './actions';
 import { Breadcrumbs } from './Breadcrumbs';
 import { Outline } from './Outline';
@@ -64,6 +64,7 @@ export function OutlinePage({ ui, session, search, settings, sync, ai }: Props) 
   }, [root, missing]);
 
   const sidebarOpen = useSettings(settings, (s) => s.sidebarOpen);
+  const settingsOpen = useUiStore(ui, (s) => s.settingsOpen);
 
   const onBackgroundMouseDown = (e: MouseEvent<HTMLElement>) => {
     if (e.target !== e.currentTarget) return;
@@ -74,7 +75,7 @@ export function OutlinePage({ ui, session, search, settings, sync, ai }: Props) 
 
   return (
     <OutlineProvider value={context}>
-      <div className="app-shell" data-sidebar={sidebarOpen ? 'open' : 'closed'}>
+      <div className="app-shell" data-sidebar={sidebarOpen ? 'open' : 'closed'} data-settings={settingsOpen ? 'open' : 'closed'}>
         <OutlineSidebar settings={settings} rootId={rootId} />
         {!sidebarOpen && (
           <button
@@ -89,7 +90,7 @@ export function OutlinePage({ ui, session, search, settings, sync, ai }: Props) 
         )}
         <PageToolbar />
         {sync && <SyncIndicator sync={sync} />}
-        <SettingsPanel settings={settings} sync={sync} />
+        <SettingsPanel settings={settings} ui={ui} sync={sync} />
         <TutorialDialog ui={ui} />
         {ai && <AiNotice ai={ai} />}
         <div className="desk min-h-screen" onMouseDown={onBackgroundMouseDown}>

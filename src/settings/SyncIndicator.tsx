@@ -30,7 +30,7 @@ export function SyncIndicator({ sync }: { sync: SyncService }) {
           onClick={() => void sync.sync()}
           onMouseDown={(e) => e.preventDefault()}
           className={
-            'fixed top-3 right-43 z-40 flex size-[34px] items-center justify-center rounded-md hover:bg-hover hover:text-ink ' +
+            'top-icon fixed top-3 right-43 z-40 flex size-[34px] items-center justify-center rounded-md hover:bg-hover hover:text-ink ' +
             (state.status === 'error' ? 'text-danger' : 'text-muted')
           }
           aria-label={label(state, syncing)}

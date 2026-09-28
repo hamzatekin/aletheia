@@ -24,7 +24,7 @@ export function PageToolbar() {
         onClick={() => actions.toggleAll()}
         onMouseDown={(e) => e.preventDefault()}
         disabled={!anyParent || filtering}
-        className="fixed top-3 right-33 z-40 flex size-[34px] items-center justify-center rounded-md text-muted hover:bg-hover hover:text-ink disabled:opacity-40"
+        className="top-icon fixed top-3 right-33 z-40 flex size-[34px] items-center justify-center rounded-md text-muted hover:bg-hover hover:text-ink disabled:opacity-40"
         aria-label={anyOpen ? 'Collapse all' : 'Expand all'}
         title={(anyOpen ? 'Collapse all' : 'Expand all') + ' (Ctrl+Shift+.)'}
         data-testid="toggle-all"
@@ -38,7 +38,7 @@ export function PageToolbar() {
         type="button"
         onClick={() => (ui.getState().filter ? actions.closeFilter() : actions.openFilter())}
         onMouseDown={(e) => e.preventDefault()}
-        className="fixed top-3 right-23 z-40 flex size-[34px] items-center justify-center rounded-md text-muted hover:bg-hover hover:text-ink"
+        className="top-icon fixed top-3 right-23 z-40 flex size-[34px] items-center justify-center rounded-md text-muted hover:bg-hover hover:text-ink"
         aria-label="Search"
         aria-pressed={filterOn}
         title="Search this page (Ctrl+F). Ctrl+K jumps anywhere."
@@ -56,7 +56,7 @@ export function PageToolbar() {
           ui.blur();
           ui.setHelpOpen(true);
         }}
-        className="fixed top-3 right-13 z-40 flex size-[34px] items-center justify-center rounded-md text-[15px] font-semibold text-muted hover:bg-hover hover:text-ink"
+        className="top-icon fixed top-3 right-13 z-40 flex size-[34px] items-center justify-center rounded-md text-[15px] font-semibold text-muted hover:bg-hover hover:text-ink"
         aria-label="Tutorial"
         title="Tutorial (Ctrl+/)"
       >

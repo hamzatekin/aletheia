@@ -55,13 +55,14 @@ export function OutlineSidebar({ settings, rootId }: Props) {
 
   return (
     <>
+      {/* Narrow screens: a drawer above everything, the top-right buttons included. */}
       <div
-        className="fixed inset-0 z-20 bg-black/20 lg:hidden"
+        className="fixed inset-0 z-50 bg-black/20 lg:hidden"
         aria-hidden="true"
         onMouseDown={() => settings.getState().update({ sidebarOpen: false })}
       />
       <aside
-        className="sidebar fixed inset-y-0 left-0 z-30 flex flex-col shadow-xl lg:shadow-none"
+        className="sidebar fixed inset-y-0 left-0 z-50 flex flex-col shadow-xl lg:z-30 lg:shadow-none"
         aria-label="Document outline"
         data-testid="outline-sidebar"
         onClick={closeIfNarrow}
@@ -203,11 +204,12 @@ const Item = memo(function Item({ id, depth }: { id: string; depth: number }) {
   );
 });
 
-export function SidebarIcon() {
+/** A panel icon; `side` says which edge the sidebar sits on. */
+export function SidebarIcon({ side = 'left' }: { side?: 'left' | 'right' }) {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
       <rect x="1.75" y="2.25" width="12.5" height="11.5" rx="2" />
-      <path d="M6 2.5v11" />
+      <path d={side === 'left' ? 'M6 2.5v11' : 'M10 2.5v11'} />
     </svg>
   );
 }

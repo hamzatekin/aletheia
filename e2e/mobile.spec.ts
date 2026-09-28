@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { focused, gotoHome, outline, row } from './helpers';
 
 // A phone: touch screen, no hover, no Tab key.
@@ -135,4 +135,46 @@ test('the collapse-all button works with a tap', async ({ page }) => {
   await expect(row(page, 'Write the outliner')).toHaveCount(0);
   await page.getByRole('button', { name: 'Expand all' }).tap();
   await expect(row(page, 'Drag and drop')).toBeVisible();
+});
+
+/** Waits for a drawer's slide-in to finish so its box is final. */
+async function settled(locator: Locator) {
+  await locator.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+}
+
+test('the open outline drawer covers the top-right buttons', async ({ page }) => {
+  await gotoHome(page);
+  await page.getByRole('button', { name: 'Show outline' }).tap();
+  const sidebar = page.getByTestId('outline-sidebar');
+  await settled(sidebar);
+  // The collapse-all button sits where the drawer is; a tap there lands on the drawer.
+  const box = (await page.getByTestId('toggle-all').boundingBox())!;
+  const drawer = (await sidebar.boundingBox())!;
+  expect(box.x).toBeLessThan(drawer.x + drawer.width);
+  const hit = await page.evaluate(({ x, y }) => !!document.elementFromPoint(x, y)?.closest('[data-testid=outline-sidebar]'), {
+    x: box.x + box.width / 2,
+    y: box.y + box.height / 2,
+  });
+  expect(hit).toBe(true);
+});
+
+test('settings open as a drawer from the right and close on a tap outside', async ({ page }) => {
+  await gotoHome(page);
+  await page.getByRole('button', { name: 'Settings' }).tap();
+  const panel = page.getByTestId('settings-panel');
+  await settled(panel);
+  const box = (await panel.boundingBox())!;
+  expect(box.y).toBe(0);
+  expect(box.height).toBe(844);
+  expect(Math.round(box.x + box.width)).toBe(390);
+  // The top-right buttons are under the drawer, not on top of it.
+  expect(await hitAtCenter(page, '[data-testid=settings-panel]')).toBe(true);
+  const gear = (await page.getByRole('button', { name: 'Settings', exact: true }).boundingBox())!;
+  const onGear = await page.evaluate(({ x, y }) => !!document.elementFromPoint(x, y)?.closest('[data-testid=settings-panel]'), {
+    x: gear.x + gear.width / 2,
+    y: gear.y + gear.height / 2,
+  });
+  expect(onGear).toBe(true);
+  await page.touchscreen.tap(20, 400);
+  await expect(panel).toBeHidden();
 });
