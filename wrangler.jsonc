@@ -15,6 +15,11 @@
   // Sync storage. No database_id: `wrangler deploy` creates the database on
   // first deploy. The Worker creates its tables itself.
   "d1_databases": [{ "binding": "DB", "database_name": "aletheia-sync" }],
+  // Deploys keep variables added in the Cloudflare dashboard instead of
+  // wiping them. Tokens never go in "vars" (this file is public): set
+  // CLAUDE_RELAY_TOKEN as a secret (`npx wrangler secret put CLAUDE_RELAY_TOKEN`
+  // or the dashboard's Secret type). Deploys never touch secrets.
+  "keep_vars": true,
   "vars": {
     // Sync spaces this deployment accepts. 1 = the first device to turn sync
     // on owns it; everyone else gets "already has its sync space".

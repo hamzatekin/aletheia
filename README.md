@@ -137,8 +137,10 @@ with the `CLAUDE_RELAY_TOKEN` secret, so the token never reaches the browser.
 The site is public, so the proxy only answers a request carrying the key of
 an existing sync space: AI works on devices with sync on. Set the secret with
 `npx wrangler secret put CLAUDE_RELAY_TOKEN` (or in the dashboard under the
-Worker's Settings → Variables and Secrets). Without it the proxy answers 503
-with a message saying so.
+Worker's Settings → Variables and Secrets, type **Secret**, not Text). Deploys
+never remove secrets; `keep_vars` in `wrangler.jsonc` also keeps plain
+variables added in the dashboard. Without it the proxy answers 503 with a
+message saying so.
 
 The first action is **Suggest title**, in the row's ≡ menu and the `/` menu
 (both hidden while sync is off). It sends the node's note and the items under
