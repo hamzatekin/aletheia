@@ -8,6 +8,7 @@ import { httpComplete } from './ai/client';
 import { registerAiSlashCommands } from './ai/slash-commands';
 import { createAiService } from './ai/service';
 import { bootstrap } from './app/bootstrap';
+import { createRelatedService } from './related/service';
 import { EditorSession } from './editor/session';
 import { SearchIndex } from './search';
 import { applySettings, createSettingsStore, loadSettings } from './store/settings-store';
@@ -44,7 +45,10 @@ await sync.start();
 sync.setPendingJoin(takeKeyFromLocation());
 watchBrowser(sync);
 connectTabs(engine, sync);
-const ai = createAiService({ engine, session, key: () => sync.state.getState().key, complete: httpComplete() });
+const syncKey = () => sync.state.getState().key;
+const complete = httpComplete();
+const ai = createAiService({ engine, session, key: syncKey, complete });
+const related = createRelatedService({ engine, session, search, key: syncKey, complete });
 registerAiSlashCommands(ai);
 // On narrow screens the sidebar would cover the page, so start with it hidden (without saving that).
 const saved = loadSettings();
@@ -61,11 +65,11 @@ settings.subscribe(apply);
 darkQuery.addEventListener('change', apply);
 if (import.meta.env.DEV) {
   // Test hook: Playwright drives the engine directly to build large trees.
-  (window as unknown as { __aletheia: unknown }).__aletheia = { engine, ui, session, search, settings, sync, ai };
+  (window as unknown as { __aletheia: unknown }).__aletheia = { engine, ui, session, search, settings, sync, ai, related };
 }
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App engine={engine} ui={ui} session={session} search={search} settings={settings} sync={sync} ai={ai} />
+    <App engine={engine} ui={ui} session={session} search={search} settings={settings} sync={sync} ai={ai} related={related} />
   </StrictMode>,
 );
 // Installed app (PWA): lets it open offline. See pwa/sw.js.

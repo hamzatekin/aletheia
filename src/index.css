@@ -15,6 +15,7 @@
   --page-width: 720px;
   --sidebar-width: 272px;
   --settings-width: 320px;
+  --related-width: 380px;
   --accent: light-dark(#2563eb, #60a5fa);
 
   /* Every UI color is derived from the theme's page, ink and accent, so any
@@ -227,6 +228,51 @@ html { scroll-padding-top: 4rem; }
   .app-shell[data-settings='open'] .desk { padding-right: var(--settings-width); }
   .app-shell[data-settings='open'] .top-icon { transform: translateX(calc(-1 * var(--settings-width))); }
 }
+/* Related (RelatedPanel.tsx): docked on the right like Settings on wide
+   screens, a drawer below that, and a sheet from the bottom on phones. */
+.related-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(var(--related-width), calc(100vw - 3rem));
+  background: var(--sidebar);
+  border-left: 1px solid var(--line);
+}
+@media (min-width: 1024px) {
+  .app-shell[data-related='open'] .desk { padding-right: var(--related-width); }
+  .app-shell[data-related='open'] .top-icon { transform: translateX(calc(-1 * var(--related-width))); }
+}
+@media (max-width: 639px) {
+  .related-panel {
+    top: auto;
+    left: 0;
+    width: auto;
+    height: 85dvh;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 0.75rem 0.75rem 0 0;
+  }
+}
+@media (max-width: 639px) and (prefers-reduced-motion: no-preference) {
+  .related-panel { animation: sheet-from-bottom 180ms ease-out; }
+}
+@media (min-width: 640px) and (max-width: 1023px) and (prefers-reduced-motion: no-preference) {
+  .related-panel { animation: drawer-from-right 160ms ease-out; }
+}
+@keyframes sheet-from-bottom { from { transform: translateY(100%); } }
+.related-answer ul { list-style: disc; }
+.related-answer a[href^='#cite-'] {
+  display: inline-block;
+  margin: 0 0.1em;
+  padding: 0 0.4em;
+  border-radius: 0.25rem;
+  font-size: 0.8em;
+  line-height: 1.5;
+  text-decoration: none;
+  background: var(--selection);
+}
+
 /* Below that both sidebars are drawers over the page; slide them in. */
 @media (max-width: 1023px) and (prefers-reduced-motion: no-preference) {
   .sidebar { animation: drawer-from-left 160ms ease-out; }

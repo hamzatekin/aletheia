@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react';
 import type { AiService } from '@/ai/service';
 import type { Engine } from '@/commands';
 import type { EditorSession } from '@/editor/session';
+import type { RelatedService } from '@/related/service';
 import type { SearchIndex } from '@/search';
 import type { UiStore } from '@/store/ui-store';
 import type { OutlineActions } from './actions';
@@ -15,6 +16,8 @@ export interface OutlineContextValue {
   rootId: string | null;
   /** AI actions; missing in tests that render the page without them. */
   ai?: AiService | undefined;
+  /** The Related panel; missing in tests that render the page without it. */
+  related?: RelatedService | undefined;
 }
 
 const OutlineContext = createContext<OutlineContextValue | null>(null);

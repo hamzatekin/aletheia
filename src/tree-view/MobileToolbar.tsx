@@ -6,7 +6,7 @@ import { useOutline } from './outline-context';
 import { useCoarsePointer } from './use-coarse-pointer';
 
 /** Height of the on-screen keyboard (or anything else covering the bottom of the window). */
-function useKeyboardInset(): number {
+export function useKeyboardInset(): number {
   const [inset, setInset] = useState(0);
   useEffect(() => {
     const vv = window.visualViewport;

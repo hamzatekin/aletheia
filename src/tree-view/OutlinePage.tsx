@@ -1,4 +1,6 @@
 import { useEffect, useMemo, type MouseEvent } from 'react';
+import { useStore } from 'zustand';
+import { createStore } from 'zustand/vanilla';
 import { Link, useNavigate, useParams } from 'react-router';
 import { AiNotice } from '@/ai/AiNotice';
 import type { AiService } from '@/ai/service';
@@ -9,6 +11,8 @@ import type { SearchIndex } from '@/search';
 import { SearchPalette } from '@/search/SearchPalette';
 import { FilterBar } from '@/search/FilterBar';
 import { useEngine } from '@/app/engine-context';
+import { RelatedButton, RelatedPanel } from '@/related/RelatedPanel';
+import type { RelatedService } from '@/related/service';
 import { TutorialDialog } from '@/help/TutorialDialog';
 import { SettingsPanel } from '@/settings/SettingsPanel';
 import { SyncIndicator } from '@/settings/SyncIndicator';
@@ -35,10 +39,14 @@ interface Props {
   settings: SettingsStore;
   sync?: SyncService | undefined;
   ai?: AiService | undefined;
+  related?: RelatedService | undefined;
 }
 
+/** Stands in for the Related panel's state when there is none (tests). */
+const closedPanel = createStore(() => ({ open: false }));
+
 /** `/` shows the top level; `/n/:id` zooms into a node. */
-export function OutlinePage({ ui, session, search, settings, sync, ai }: Props) {
+export function OutlinePage({ ui, session, search, settings, sync, ai, related }: Props) {
   const engine: Engine = useEngine();
   const { id } = useParams<{ id: string }>();
   const rootId = id ?? null;
@@ -51,8 +59,8 @@ export function OutlinePage({ ui, session, search, settings, sync, ai }: Props) 
     [engine, ui, session, search, rootId, navigate],
   );
   const context = useMemo(
-    () => ({ engine, ui, session, search, actions, rootId, ai }),
-    [engine, ui, session, search, actions, rootId, ai],
+    () => ({ engine, ui, session, search, actions, rootId, ai, related }),
+    [engine, ui, session, search, actions, rootId, ai, related],
   );
 
   usePageEvents(actions, session, ui, settings);
@@ -60,12 +68,31 @@ export function OutlinePage({ ui, session, search, settings, sync, ai }: Props) 
   // A search belongs to the page it was typed on; zooming elsewhere leaves it.
   useEffect(() => () => ui.setFilter(null), [ui, rootId]);
 
+  // The Related panel follows the zoomed item.
+  useEffect(() => related?.setPageRoot(rootId), [related, rootId]);
+
+  // Related and Settings share the right side: opening one closes the other.
+  useEffect(() => {
+    if (!related) return;
+    const offRelated = related.state.subscribe((s, prev) => {
+      if (s.open && !prev.open) ui.setSettingsOpen(false);
+    });
+    const offUi = ui.subscribe((s, prev) => {
+      if (s.settingsOpen && !prev.settingsOpen) related.hide();
+    });
+    return () => {
+      offRelated();
+      offUi();
+    };
+  }, [related, ui]);
+
   useEffect(() => {
     document.title = root && !missing ? plainText(root.content) || 'Untitled' : 'Aletheia';
   }, [root, missing]);
 
   const sidebarOpen = useSettings(settings, (s) => s.sidebarOpen);
   const settingsOpen = useUiStore(ui, (s) => s.settingsOpen);
+  const relatedOpen = useStore(related?.state ?? closedPanel, (s) => s.open);
 
   const onBackgroundMouseDown = (e: MouseEvent<HTMLElement>) => {
     if (e.target !== e.currentTarget) return;
@@ -76,7 +103,7 @@ export function OutlinePage({ ui, session, search, settings, sync, ai }: Props) 
 
   return (
     <OutlineProvider value={context}>
-      <div className="app-shell" data-sidebar={sidebarOpen ? 'open' : 'closed'} data-settings={settingsOpen ? 'open' : 'closed'}>
+      <div className="app-shell" data-sidebar={sidebarOpen ? 'open' : 'closed'} data-settings={settingsOpen ? 'open' : 'closed'} data-related={relatedOpen ? 'open' : 'closed'}>
         <TopBar />
         <OutlineSidebar settings={settings} rootId={rootId} />
         {!sidebarOpen && (
@@ -94,6 +121,8 @@ export function OutlinePage({ ui, session, search, settings, sync, ai }: Props) 
         {sync && <SyncIndicator sync={sync} />}
         <SettingsPanel settings={settings} ui={ui} sync={sync} />
         <TutorialDialog ui={ui} />
+        {related && <RelatedButton related={related} />}
+        {related && <RelatedPanel related={related} />}
         {ai && <AiNotice ai={ai} />}
         <div className="desk min-h-screen" onMouseDown={onBackgroundMouseDown}>
           <main className="book-page" onMouseDown={onBackgroundMouseDown}>

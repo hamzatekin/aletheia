@@ -4,6 +4,7 @@ import type { Engine } from '@/commands';
 import { CaptureRoute } from '@/app/CaptureRoute';
 import { EngineProvider } from '@/app/engine-context';
 import type { EditorSession } from '@/editor/session';
+import type { RelatedService } from '@/related/service';
 import type { SearchIndex } from '@/search';
 import type { SettingsStore } from '@/store/settings-store';
 import type { SyncService } from '@/sync/service';
@@ -18,10 +19,11 @@ interface Props {
   settings: SettingsStore;
   sync?: SyncService;
   ai?: AiService;
+  related?: RelatedService;
 }
 
-export function App({ engine, ui, session, search, settings, sync, ai }: Props) {
-  const page = <OutlinePage ui={ui} session={session} search={search} settings={settings} sync={sync} ai={ai} />;
+export function App({ engine, ui, session, search, settings, sync, ai, related }: Props) {
+  const page = <OutlinePage ui={ui} session={session} search={search} settings={settings} sync={sync} ai={ai} related={related} />;
   return (
     <EngineProvider value={engine}>
       <BrowserRouter>

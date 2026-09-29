@@ -46,6 +46,7 @@ src/io/               Markdown / OPML / JSON import and export, clipboard, WorkF
 src/sync/             opt-in sync client: wire format, outbox, service, tabs, clock
 src/settings/         Settings panel (appearance, sync)
 src/ai/               AI actions (Suggest title) via the Worker's proxy to the Claude relay
+src/related/          Related panel: rows elsewhere about an item (text matches, then AI), chat about it
 src/help/             tutorial dialog (lists every shortcut)
 src/app/              bootstrap, engine context, capture route (share target)
 worker/               Cloudflare Worker: only /api/* runs it; sync API on D1, AI proxy (ai.ts)

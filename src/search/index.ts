@@ -55,6 +55,15 @@ export class SearchIndex {
     return this.mini.search(q).slice(0, limit).map((r: SearchResult) => ({ id: r.id as string, score: r.score }));
   }
 
+  /** Rows matching any of `terms` (best first); `boost` weighs some terms more, like the item's title words. */
+  searchAny(terms: readonly string[], boost: (term: string) => number = () => 1, limit = 40): Hit[] {
+    if (terms.length === 0) return [];
+    return this.mini
+      .search(terms.join(' '), { combineWith: 'OR', prefix: (t) => t.length >= 5, fuzzy: (t) => (t.length >= 6 ? 0.15 : false), boostTerm: boost })
+      .slice(0, limit)
+      .map((r: SearchResult) => ({ id: r.id as string, score: r.score }));
+  }
+
   get size(): number {
     return this.mini.documentCount;
   }

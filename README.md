@@ -28,6 +28,7 @@ src/settings      Settings panel (appearance, sync)
 src/help          Tutorial dialog
 src/sync          Opt-in sync: wire format, outbox, sync service, browser triggers
 src/ai            AI actions (Suggest title) through the Worker's relay proxy
+src/related       Related panel: what else is about an item, and a chat about it
 worker            Cloudflare Worker: the sync API on D1 and the AI proxy (only `/api/*` runs it)
 ```
 
@@ -150,6 +151,28 @@ it, puts the answer in the row, and offers Undo; if the row was edited while
 waiting, it offers the title instead of overwriting. New actions: write the
 prompt next to `src/ai/suggest-title.ts`, add a method to `src/ai/service.ts`,
 and register it in `src/ai/slash-commands.ts` and `NodeMenu.tsx`.
+
+## Related panel
+
+For the item you're on (the zoomed item, or any row via ≡ → Show related),
+`src/related/` lists what else in the outline is about it, with no tags or
+links. `find.ts` runs an OR search of the item's title words (weighed more),
+note and children over the MiniSearch index, leaving out the item, its rows
+and its parents; that list shows at once and gives the top button its count.
+With sync on, `prompts.ts` then sends AI the item plus the rest of the
+outline as numbered, indented rows (text matches and their parents first,
+then level by level up to about 40k characters) and reads back up to 10
+picks with a reason, cached per item until Look again. Once AI has looked,
+rows it did not pick sit under "N more rows share words with it".
+
+The chat at the bottom sends the item as `[0]` and the listed rows as `[1]`,
+`[2]`…, plus the last few turns; answers cite rows as `[n]`, which the panel
+turns into jumps. The quick buttons (Next steps, What do I know?,
+Duplicates?) are canned questions. Add to outline puts an answer's bullets
+(or paragraphs) under the item as one undo step; Move here moves a related
+row under the item. Both have Undo in the panel. The panel docks on the
+right on wide screens (it and Settings close each other), is a drawer below
+1024px, and a sheet from the bottom on phones.
 
 ## Installable app (PWA)
 
