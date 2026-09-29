@@ -250,6 +250,10 @@ const TABS: Tab[] = [
             [<Keys k="Mod+K" />, 'Jump anywhere: search every node, ↑ ↓ to pick, Enter to go there, Esc to close.'],
           ]}
         />
+        <H>Related</H>
+        <P>
+          The linked-dots button at the top (or Show related in an item's ≡ menu) lists what else in your notes is about the item you're on, with no tags or links needed. Rows sharing its words show at once; with sync on, AI adds rows related by meaning and says why. Tap a row to peek at it, Go there to zoom in, or Move here to put it under this item. Ask AI about the item and those rows at the bottom, or tap Next steps; Add to outline puts an answer's bullets under the item (Undo takes them back).
+        </P>
         <H>Slash commands</H>
         <P>
           Type <Code>/</Code> while editing a line or a rendered note to insert formatting or run AI on it. Actions on the node itself are in its ≡ menu; import and export are in Settings. Keep typing to filter, ↑ ↓ to pick, Enter to run, Esc to close.
