@@ -157,6 +157,23 @@ export function importItems(engine: Engine, parentId: string | null, items: Outl
   return engine.batch(importCommands(parentId, items, after), 'import');
 }
 
+/**
+ * Import as one new node at the top of Home, named after the import, with the
+ * imported items under it (one undo step). Returns the new node's id.
+ */
+export function importAsTopNode(engine: Engine, title: string, items: OutlineItem[]): string | null {
+  const [head, ...rest] = importCommands(null, [{ content: title, note: '', children: items }]);
+  if (head?.type !== 'createNode') return null;
+  const outcome = engine.batch([{ ...head, at: 'first' }, ...rest], 'import');
+  return outcome.ok ? head.id : null;
+}
+
+/** The name of an imported file's node: where it came from and when, e.g. "Imported from notes.opml, 29 Sep 2026". */
+export function importTitle(fileName: string, date: Date): string {
+  const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getMonth()];
+  return `Imported from ${fileName}, ${date.getDate()} ${month} ${date.getFullYear()}`;
+}
+
 export function countItems(items: OutlineItem[]): number {
   return items.reduce((n, i) => n + 1 + countItems(i.children), 0);
 }

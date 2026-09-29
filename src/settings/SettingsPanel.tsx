@@ -13,6 +13,7 @@ import { notePrefs, useNotePrefs } from '@/store/note-prefs';
 import type { SyncService } from '@/sync/service';
 import { useUiStore, type UiStore } from '@/store/ui-store';
 import { SidebarIcon } from '@/tree-view/OutlineSidebar';
+import { DataSection } from './DataSection';
 import { SyncSection } from './SyncSection';
 
 interface Props {
@@ -208,6 +209,7 @@ export function SettingsPanel({ settings, ui, sync }: Props) {
               />
 
               <p className="mt-3 text-xs text-muted">Appearance is saved in this browser only.</p>
+              <DataSection />
             </div>
           </aside>
         </>

@@ -140,6 +140,16 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
     if (longPress.current) clearTimeout(longPress.current.timer);
   };
 
+  // On phones the bullet opens this menu; leaving the text first closes the keyboard, so the sheet has the screen.
+  const bulletMenu = {
+    open: menuOpen,
+    toggle: () => {
+      session.flush();
+      ui.blur();
+      ui.setMenu(menuOpen ? null : id);
+    },
+  };
+
   const onNoteMouseDown = (e: MouseEvent<HTMLDivElement>) => pressText(e, 'note');
 
   return (
@@ -201,7 +211,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
       </button>
       {menuOpen && (
         <div className="absolute" style={{ left: depth * INDENT_PX - 68, top: 'var(--row-lh)' }}>
-          <NodeMenu id={id} hasChildren={hasChildren} collapsed={node.collapsed} sheet={coarse} />
+          <NodeMenu id={id} hasChildren={hasChildren} sheet={coarse} />
         </div>
       )}
       {/* On phones the arrow sits at the right end, so the gutter holds just the bullet. */}
@@ -211,7 +221,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
         ) : (
           <span className="w-5 shrink-0" />
         )}
-        <Bullet id={id} collapsedWithChildren={collapsed && hasChildren} handleRef={handleRef} />
+        <Bullet id={id} collapsedWithChildren={collapsed && hasChildren} handleRef={handleRef} menu={coarse ? bulletMenu : undefined} />
       </div>
       <div
         className="row-text min-w-0 flex-1 py-px"

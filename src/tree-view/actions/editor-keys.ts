@@ -12,7 +12,7 @@ type Parts = NavigationActions & FilterActions & SlashActions;
 /** Structural keys coming from the editor keymap (`OutlineKey`). Returns true if handled. */
 export function editorKeyHandler(ctx: ActionContext, parts: Parts): (key: OutlineKey) => boolean {
   const { engine, ui, session, rootId, navigate, tree } = ctx;
-  const { closeSlash, runSlash, undoRedo, createFirst, focusPrev, focusNext, zoomOut, toggleFilterRow } = parts;
+  const { closeSlash, openSlash, runSlash, undoRedo, createFirst, focusPrev, focusNext, zoomOut, toggleFilterRow } = parts;
 
   return (key) => {
     if (key === 'undo' || key === 'redo') {
@@ -27,16 +27,11 @@ export function editorKeyHandler(ctx: ActionContext, parts: Parts): (key: Outlin
     const slash = ui.getState().slash;
     if (key === 'slash') {
       // Sent just after a "/" was typed, so it sits right before the caret.
-      // Inside a word that already has ":" or "/" it is part of a URL or path.
-      const from = session.caretPos() - 1;
-      const { doc } = session.editor.state;
-      if (from < 1 || doc.textBetween(from, from + 1) !== '/') return false;
-      const word = /\S*$/.exec(doc.textBetween(1, from))![0];
-      if (!slash && !/[:/]/.test(word)) ui.setSlash({ from, query: '', index: 0 });
+      openSlash();
       return false;
     }
     if (slash) {
-      const count = slashCommands(slash.query).length;
+      const count = slashCommands(slash.query, 'content').length;
       switch (key) {
         case 'up':
           ui.setSlash({ ...slash, index: (slash.index - 1 + Math.max(count, 1)) % Math.max(count, 1) });

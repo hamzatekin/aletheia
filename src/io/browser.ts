@@ -10,8 +10,8 @@ export function downloadText(filename: string, text: string, mime = 'text/plain'
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/** Open a file picker and resolve with the chosen file's text (null if cancelled). */
-export function pickTextFile(accept: string): Promise<string | null> {
+/** Open a file picker and resolve with the chosen file's name and text (null if cancelled). */
+export function pickTextFile(accept: string): Promise<{ name: string; text: string } | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -20,7 +20,7 @@ export function pickTextFile(accept: string): Promise<string | null> {
     input.onchange = async () => {
       const file = input.files?.[0];
       input.remove();
-      resolve(file ? await file.text() : null);
+      resolve(file ? { name: file.name, text: await file.text() } : null);
     };
     input.oncancel = () => {
       input.remove();

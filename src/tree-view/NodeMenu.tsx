@@ -37,7 +37,7 @@ function terminalFixes(tree: TreeReader, id: string): Command[] {
  * The actions for a node: a dropdown under the row's ≡ grip, or on touch
  * screens a sheet from the bottom of the screen, where a thumb reaches it.
  */
-export function NodeMenu({ id, hasChildren, collapsed, sheet = false }: { id: string; hasChildren: boolean; collapsed: boolean; sheet?: boolean }) {
+export function NodeMenu({ id, hasChildren, sheet = false }: { id: string; hasChildren: boolean; sheet?: boolean }) {
   const { engine, ui, session, rootId, actions, ai } = useOutline();
   const navigate = useNavigate();
   const ref = useRef<HTMLDivElement>(null);
@@ -81,7 +81,6 @@ export function NodeMenu({ id, hasChildren, collapsed, sheet = false }: { id: st
       : []),
     ...(hasChildren
       ? [
-          { id: 'collapse', label: collapsed ? 'Expand' : 'Collapse', hint: collapsed ? `${MOD}↓` : `${MOD}↑`, run: () => exec({ type: 'toggleCollapse', id }) },
           { id: 'expand-all', label: 'Expand all inside', run: () => actions.setAllCollapsed(id, false, true) },
           { id: 'collapse-all', label: 'Collapse all inside', run: () => actions.setAllCollapsed(id, true, true) },
         ]

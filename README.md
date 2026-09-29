@@ -81,19 +81,21 @@ applies every engine operation incrementally. `Ctrl/⌘+K` opens the palette;
 choosing a hit expands collapsed ancestors, zooms to the parent and focuses
 the node.
 
-Typing `/` in a node opens the slash menu, backed by `registerSlashCommand`
-in `editor/slash-registry.ts`. Commands receive a context (engine, session,
-UI store, search index, navigate, zoom root, current node) and are filtered
-by title and keywords. Built in: bold, italic, code, link, collapse all,
-expand all, zoom in, export as Markdown / OPML / JSON backup, import
-Markdown / OPML into the current node, restore a JSON backup. New commands
-plug in as registry entries.
+Typing `/` in a node, or in a note in the rendered editor, opens the slash
+menu, backed by `registerSlashCommand` in `editor/slash-registry.ts`. Like
+WorkFlowy's, it only inserts into the text being edited: text formats (bold,
+italic, strikethrough, inline code, link) everywhere, block formats (headings,
+lists, quote, code block, table, divider) in notes, and AI actions. A command
+says where it is offered (`fields`) and receives the editor it was typed in,
+the field and the node. Actions on a node live in its menu (the ≡ grip, or a
+tap on the bullet on touch screens); app-wide ones live in Settings.
 
-Export writes the current zoom root as nested bullets (`content` as bullet
-text, `note` as an indented paragraph beneath), as OPML with `_note`, or the
-whole node table as JSON. Import parses nested bullets or OPML into the
-current node as one undo step. Pasting multi-line text into a node creates
-one node per line, nested by indentation.
+Settings → Import & export: import Markdown or OPML as one new node at the
+top of Home, named after the file and the date, with the file's items inside
+it (one undo step); download everything as nested Markdown bullets (`content`
+as bullet text, `note` as an indented paragraph beneath), as OPML with
+`_note`, or the whole node table as JSON; restore a JSON backup. Pasting
+multi-line text into a node creates one node per line, nested by indentation.
 
 ## Sync (opt-in)
 
