@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exportJson, exportMarkdown, exportOpml, parseBackup } from './export';
-import { countItems, importItems, parseMarkdownOutline } from './import';
+import { countItems, importAsTopNode, importItems, importTitle, parseMarkdownOutline } from './import';
 import { fixture, outline } from '@/test/helpers';
 
 describe('export', () => {
@@ -75,5 +75,16 @@ describe('importItems', () => {
     expect(outline(f)).toEqual([['P', ['x', ['y', ['y1']], 'z']]]);
     f.engine.undo();
     expect(outline(f)).toEqual([['P', ['x', 'z']]]);
+  });
+});
+
+describe('importAsTopNode', () => {
+  it('puts the import under one new node at the top of Home, as one undo step', () => {
+    const f = fixture(['A', 'B']);
+    const id = importAsTopNode(f.engine, importTitle('notes.md', new Date(2026, 8, 29)), parseMarkdownOutline('- y\n  - y1\n- z'));
+    expect(id).not.toBeNull();
+    expect(outline(f)).toEqual([['Imported from notes.md, 29 Sep 2026', [['y', ['y1']], 'z']], 'A', 'B']);
+    f.engine.undo();
+    expect(outline(f)).toEqual(['A', 'B']);
   });
 });

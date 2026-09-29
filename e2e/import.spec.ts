@@ -3,6 +3,30 @@ import { edit, gotoHome, outline } from './helpers';
 
 test.beforeEach(async ({ page }) => gotoHome(page));
 
+/** Import an OPML file from Settings; returns the new top item's title. */
+async function importOpml(page: Page, opml: string, name = 'w.opml'): Promise<string> {
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByTestId('data-section').getByRole('button', { name: 'OPML (WorkFlowy, Dynalist)' }).click();
+  await (await chooser).setFiles({ name, mimeType: 'text/xml', buffer: Buffer.from(opml) });
+  const top = () =>
+    page.evaluate(() => {
+      const { engine } = (window as any).__aletheia;
+      return engine.tree.get(engine.tree.children(null)[0]).content as string;
+    });
+  await expect.poll(top).toMatch(/^Imported from /);
+  return top();
+}
+
+test('an import lands as one new item at the top of Home, named after the file', async ({ page }) => {
+  const before = await outline(page);
+  const title = await importOpml(page, '<opml version="2.0"><body><outline text="one" /><outline text="two" /></body></opml>', 'notes.opml');
+  expect(title).toMatch(/^Imported from notes\.opml, \d{1,2} [A-Z][a-z]{2} \d{4}$/);
+  expect(await outline(page)).toEqual([[title, ['one', 'two']], ...before]);
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => outline(page)).toEqual(before);
+});
+
 test('a WorkFlowy OPML export imports with formatting, notes and completed items', async ({ page }) => {
   const opml = [
     '<?xml version="1.0"?>',
@@ -14,12 +38,8 @@ test('a WorkFlowy OPML export imports with formatting, notes and completed items
     '</outline>',
     '</body></opml>',
   ].join('\n');
-  await edit(page, 'Plant a tree');
-  const chooser = page.waitForEvent('filechooser');
-  await page.keyboard.type('/workflowy');
-  await page.keyboard.press('Enter');
-  await (await chooser).setFiles({ name: 'workflowy.opml', mimeType: 'text/xml', buffer: Buffer.from(opml) });
-  await expect.poll(() => outline(page, 'Plant a tree')).toEqual([
+  const title = await importOpml(page, opml, 'workflowy.opml');
+  await expect.poll(() => outline(page, title)).toEqual([
     ['**Reading** list', ['~~Dune~~', 'see [site](https://example.com)', 'Review summary']],
   ]);
   const note = await page.evaluate(() => {
@@ -34,24 +54,12 @@ test('a WorkFlowy code block becomes a code block in the note', async ({ page })
   const opml = '<opml version="2.0"><head><ownerEmail>me@example.com</ownerEmail></head><body>'
     + '<outline text="&lt;code&gt;Review summary&#10;&#10;1. Firms with no settings&#10;- The send check&lt;/code&gt;" />'
     + '</body></opml>';
-  await edit(page, 'Plant a tree');
-  const chooser = page.waitForEvent('filechooser');
-  await page.keyboard.type('/workflowy');
-  await page.keyboard.press('Enter');
-  await (await chooser).setFiles({ name: 'w.opml', mimeType: 'text/xml', buffer: Buffer.from(opml) });
+  await importOpml(page, opml);
   const imported = page.locator('[data-node-id]', { hasText: 'Review summary' }).last();
   await expect(imported.locator('.node-note pre code')).toHaveText('Review summary\n\n1. Firms with no settings\n- The send check');
   await page.mouse.click(5, 650);
   await imported.screenshot({ path: 'test-results/workflowy-code-block.png' });
 });
-
-async function importOpml(page: Page, opml: string) {
-  await edit(page, 'Plant a tree');
-  const chooser = page.waitForEvent('filechooser');
-  await page.keyboard.type('/workflowy');
-  await page.keyboard.press('Enter');
-  await (await chooser).setFiles({ name: 'w.opml', mimeType: 'text/xml', buffer: Buffer.from(opml) });
-}
 
 const answer = [
   '⏺ Here is how the options compare, from the easiest to the most work.',

@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Editor, Extension } from '@tiptap/core';
-import { Selection } from '@tiptap/pm/state';
+import { Plugin, Selection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown, type MarkdownStorage } from 'tiptap-markdown';
 import { useOutline } from '@/tree-view/outline-context';
@@ -9,10 +9,19 @@ import { markdownOptions } from './markdown';
 import { takeCaretHandoff } from './caret-handoff';
 import { registerNoteFlush } from './note-flush';
 import { noteTableExtensions } from './note-table';
+import { SlashList, slashPlacement } from './SlashMenu';
+import { opensSlashMenu, slashCommands } from './slash-registry';
 import { isTerminalPaste, terminalToMarkdown } from '@/io/terminal';
 import { TOP_BAR_CLEARANCE_PX } from '@/tree-view/TopBar';
 
 const SAVE_DELAY_MS = 400;
+
+/** The note's own "/" menu, open since a "/" was typed at document position `from`. */
+interface NoteSlash {
+  from: number;
+  query: string;
+  index: number;
+}
 
 function markdownOf(editor: Editor): string {
   return (editor.storage as unknown as { markdown: MarkdownStorage }).markdown.getMarkdown().replace(/\s+$/, '');
@@ -36,6 +45,13 @@ export function RichNoteEditor({ id }: { id: string }) {
    * Markdown (list markers, spacing), and that alone must not count as an edit.
    */
   const loaded = useRef('');
+  const [slash, setSlashState] = useState<NoteSlash | null>(null);
+  const slashRef = useRef<NoteSlash | null>(null);
+  const setSlash = (next: NoteSlash | null) => {
+    slashRef.current = next;
+    setSlashState(next);
+  };
+  const runSlashRef = useRef<(index: number) => void>(() => {});
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -57,18 +73,52 @@ export function RichNoteEditor({ id }: { id: string }) {
     const inFirstBlock = () => editor.state.selection.$from.index(0) === 0;
     const inLastBlock = () => editor.state.selection.$to.index(0) === editor.state.doc.childCount - 1;
 
+    // The "/" menu, as on the node's line: typing filters, arrows pick, Enter runs, Esc closes.
+    const slashItems = () => slashCommands(slashRef.current?.query ?? '', 'note');
+    const moveSlash = (step: number) => {
+      const open = slashRef.current!;
+      const count = Math.max(slashItems().length, 1);
+      setSlash({ ...open, index: (open.index + step + count) % count });
+      return true;
+    };
+    const runSlash = (index: number) => {
+      const open = slashRef.current;
+      const item = open && slashItems()[index];
+      setSlash(null);
+      if (!open || !item) return;
+      editor.chain().focus().deleteRange({ from: open.from, to: editor.state.selection.from }).run();
+      save();
+      void item.run({ engine, editor, field: 'note', nodeId: id });
+    };
+    runSlashRef.current = runSlash;
+    const syncSlash = () => {
+      const open = slashRef.current;
+      if (!open) return;
+      const { doc, selection } = editor.state;
+      const text = selection.empty && selection.from > open.from ? doc.textBetween(open.from, selection.from, '\n') : '';
+      if (!text.startsWith('/') || text.includes('/', 1) || text.includes('\n')) return setSlash(null);
+      if (text.slice(1) !== open.query) setSlash({ ...open, query: text.slice(1), index: 0 });
+    };
+
     const NoteKeys = Extension.create({
       name: 'noteKeys',
       priority: 1000,
       addKeyboardShortcuts() {
         return {
-          Escape: leave(toContent),
+          Escape: () => (slashRef.current ? (setSlash(null), true) : leave(toContent)()),
+          Enter: () => {
+            if (!slashRef.current) return false;
+            const count = slashItems().length;
+            if (count === 0) return (setSlash(null), false);
+            runSlash(Math.min(slashRef.current.index, count - 1));
+            return true;
+          },
           'Shift-Enter': leave(toContent),
-          ArrowUp: ({ editor: e }) => (inFirstBlock() && e.view.endOfTextblock('up') ? leave(toContent)() : false),
+          ArrowUp: ({ editor: e }) => slashRef.current ? moveSlash(-1) : (inFirstBlock() && e.view.endOfTextblock('up') ? leave(toContent)() : false),
           // At the end of a closing code block, ArrowDown first steps out of it
           // into a new paragraph (the code block's own rule), then leaves the note.
           ArrowDown: ({ editor: e }) =>
-            inLastBlock() && e.view.endOfTextblock('down') && !e.isActive('codeBlock')
+            slashRef.current ? moveSlash(1) : inLastBlock() && e.view.endOfTextblock('down') && !e.isActive('codeBlock')
               ? leave(() => actions.focusNext(id, { kind: 'start' }))()
               : false,
           Backspace: ({ editor: e }) => (e.isEmpty ? leave(toContent)() : false),
@@ -80,6 +130,23 @@ export function RichNoteEditor({ id }: { id: string }) {
           Tab: () => true,
           'Shift-Tab': () => true,
         };
+      },
+      addProseMirrorPlugins() {
+        return [
+          new Plugin({
+            props: {
+              // On the typed "/" rather than its key, so any keyboard layout and phone keyboards work.
+              handleTextInput: (_view, _from, _to, text) => {
+                if (text.endsWith('/'))
+                  queueMicrotask(() => {
+                    const from = editor.state.selection.from - 1;
+                    if (!slashRef.current && opensSlashMenu(editor, from)) setSlash({ from, query: '', index: 0 });
+                  });
+                return false;
+              },
+            },
+          }),
+        ];
       },
     });
 
@@ -123,7 +190,11 @@ export function RichNoteEditor({ id }: { id: string }) {
         if (timer) clearTimeout(timer);
         timer = setTimeout(save, SAVE_DELAY_MS);
       },
-      onBlur: () => save(),
+      onTransaction: () => syncSlash(),
+      onBlur: () => {
+        setSlash(null);
+        save();
+      },
     });
     editorRef.current = editor;
     loaded.current = markdownOf(editor);
@@ -162,5 +233,24 @@ export function RichNoteEditor({ id }: { id: string }) {
     loaded.current = markdownOf(editor);
   }, [stored]);
 
-  return <div ref={host} className="rich-note" />;
+  const slashItems = slash ? slashCommands(slash.query, 'note') : [];
+  const view = editorRef.current?.view;
+  // Placed in the note box (positioned), not a wrapper, which would cover the floating note header.
+  const container = host.current?.offsetParent;
+  const slashPlace = slash && view && container ? slashPlacement(view, slash.from, container, slashItems.length) : {};
+
+  return (
+    <>
+      <div ref={host} className="rich-note" />
+      {slash && (
+        <SlashList
+          items={slashItems}
+          index={Math.min(slash.index, Math.max(0, slashItems.length - 1))}
+          onPick={(i) => runSlashRef.current(i)}
+          onHover={(i) => setSlash({ ...slash, index: i })}
+          style={slashPlace}
+        />
+      )}
+    </>
+  );
 }

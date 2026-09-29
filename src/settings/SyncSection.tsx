@@ -202,7 +202,7 @@ export function ago(at: number): string {
   return new Date(at).toLocaleString();
 }
 
-function Button({ primary, disabled, onClick, children }: { primary?: boolean; disabled?: boolean; onClick?: () => void; children: ReactNode }) {
+export function Button({ primary, disabled, onClick, children }: { primary?: boolean; disabled?: boolean; onClick?: () => void; children: ReactNode }) {
   return (
     <button
       type={onClick ? 'button' : 'submit'}

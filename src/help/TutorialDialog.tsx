@@ -102,7 +102,7 @@ const TABS: Tab[] = [
           rows={[
             ['Tap a line', 'Start editing it. A toolbar appears above the keyboard.'],
             ['Tap the arrow on the right', 'Every line with children has one. ▸ expands a collapsed node, ▾ collapses an open one. Collapsed nodes also have a halo around the bullet.'],
-            ['Tap a bullet', 'Zoom into that node. Tap Home or a crumb at the top to go back.'],
+            ['Tap a bullet', 'Open the menu for that node: zoom in, note, star, move, duplicate, copy link, delete. Tap Home or a crumb at the top to go back.'],
             ['Tap ☆ by the title', 'Star the page: it shows under Starred at the top of the sidebar.'],
             ['Share → Aletheia', 'Once the app is installed, share a page or some text from any app: it lands at the top of your Inbox (a top-level line called Inbox, made for you the first time). Long-press the app icon for Add to Inbox, which opens a new line there to type into.'],
             ['Tap the magnifier', 'Search this page, top right. Only matching lines and the lines above them stay on screen.'],
@@ -117,7 +117,7 @@ const TABS: Tab[] = [
             ['↑  ↓', 'Move the node up or down among its siblings.'],
             ['Note', "Write in the node's note; tap again to go back to the node."],
             ['Undo  Redo', 'Take back the last change, or bring it back.'],
-            ['⋯', 'The node menu: zoom, collapse, duplicate, copy link, delete.'],
+            ['⋯', 'The same node menu as tapping the bullet.'],
             ['⌄', 'Stop editing and hide the keyboard.'],
           ]}
         />
@@ -146,7 +146,7 @@ const TABS: Tab[] = [
             [<Keys k="Mod+." />, 'Zoom into the node you are editing.'],
             [<Keys k="Mod+," />, 'Zoom out one level.'],
             ['Outline sidebar', 'Click any item to zoom straight to it.'],
-            ['☆ left of the page title', 'Star the page you are on, like WorkFlowy: it is listed under Starred at the top of the sidebar, on every synced device. The ≡ menu and /star do the same for any node; click the gold star in the sidebar to unstar.'],
+            ['☆ left of the page title', 'Star the page you are on, like WorkFlowy: it is listed under Starred at the top of the sidebar, on every synced device. The ≡ menu does the same for any node (on a phone, tap its bullet); click the gold star in the sidebar to unstar.'],
           ]}
         />
         <H>Move nodes</H>
@@ -252,17 +252,13 @@ const TABS: Tab[] = [
         />
         <H>Slash commands</H>
         <P>
-          Type <Code>/</Code> while editing to open the command menu. Keep typing to filter, ↑ ↓ to pick, Enter to run, Esc to close.
+          Type <Code>/</Code> while editing a line or a rendered note to insert formatting or run AI on it. Actions on the node itself are in its ≡ menu; import and export are in Settings. Keep typing to filter, ↑ ↓ to pick, Enter to run, Esc to close.
         </P>
         <Table
           rows={[
-            [<Code>/bold</Code>, 'Bold, Italic, Code, Link'],
-            [<Code>/collapse</Code>, 'Collapse all or Expand all on this page'],
-            [<Code>/zoom</Code>, 'Zoom into the current node'],
-            [<Code>/export</Code>, 'Export as Markdown, OPML or a JSON backup'],
-            [<Code>/import</Code>, 'Import Markdown or OPML into this node, or restore a backup'],
+            [<Code>/bold</Code>, 'Bold, Italic, Strikethrough, Inline code, Link. In a line or a note.'],
+            [<Code>/heading</Code>, 'In a note: Heading 1 to 3, Text, Bulleted list, Numbered list, Quote, Code block, Table, Divider.'],
             [<Code>/suggest</Code>, 'Suggest title: AI names the row from its note and the items under it (Undo to put it back). Needs sync on.'],
-            [<Code>/tutorial</Code>, 'Open this tutorial'],
           ]}
         />
       </>
@@ -276,11 +272,9 @@ const TABS: Tab[] = [
         <P>Your notes live only in this browser (no account, no server). Export a backup now and then so you never lose them.</P>
         <Table
           rows={[
-            ['/Export as Markdown', 'The current page as an indented Markdown list.'],
-            ['/Export as OPML', 'For other outliners such as Dynalist or Workflowy.'],
-            ['/Export JSON backup', 'Everything, exactly as stored.'],
-            ['/Import Markdown or OPML', 'Adds the file as children of the node you are on. For WorkFlowy, export as OPML: formatting and notes carry over, completed items come in struck through, and terminal output kept in code blocks comes in as readable Markdown.'],
-            ['/Restore JSON backup', 'Replaces everything with the backup.'],
+            ['Settings → Import', 'Markdown or OPML. The file comes in as one new item at the top of Home, named after the file and the date, with its contents inside. For WorkFlowy, export as OPML: formatting and notes carry over, completed items come in struck through, and terminal output kept in code blocks comes in as readable Markdown.'],
+            ['Settings → Download', 'Everything as an indented Markdown list, as OPML (for Dynalist or WorkFlowy), or as a JSON backup exactly as stored.'],
+            ['Settings → Restore backup', 'Replaces everything with a JSON backup.'],
             ['Paste several lines', 'Each line becomes a node, nested by its indentation, as one undo step.'],
           ]}
         />

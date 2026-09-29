@@ -82,6 +82,35 @@ test('the node menu opens as a bottom sheet from the toolbar', async ({ page }) 
   await expect(menu).toHaveCount(0);
 });
 
+test('tapping a bullet opens its menu, with Zoom in first and no Collapse', async ({ page }) => {
+  await gotoHome(page);
+  const projects = row(page, 'Projects');
+  await projects.getByTestId('bullet-menu').first().tap();
+  const menu = page.getByTestId('node-menu');
+  await expect(menu).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(menu.getByRole('menuitem').first()).toHaveText('Zoom in');
+  await expect(page.getByTestId('node-menu-collapse')).toHaveCount(0);
+  await expect(page.getByTestId('node-menu-star')).toHaveCount(1);
+  await expect(page.getByTestId('node-menu-collapse-all')).toHaveCount(1);
+  await page.screenshot({ path: 'test-results/menus-phone-bullet-menu.png' });
+  await page.getByTestId('node-menu-zoom').tap();
+  await expect(page.locator('h1')).toHaveText('Projects');
+});
+
+test('tapping a bullet while editing closes the keyboard and opens the menu', async ({ page }) => {
+  await gotoHome(page);
+  await row(page, 'Learn to juggle').locator('.node-content').first().tap();
+  await expect.poll(() => focused(page)).toBe('Learn to juggle:content');
+  await row(page, 'Learn to juggle').getByTestId('bullet-menu').first().tap();
+  await expect(page.getByTestId('node-menu')).toBeVisible();
+  expect(await focused(page)).toBeNull();
+  await page.getByTestId('node-menu-star').tap();
+  await expect(page.getByTestId('node-menu')).toHaveCount(0);
+  const starred = await page.evaluate(() => [...(window as any).__aletheia.engine.tree.all()].find((n: any) => n.content === 'Learn to juggle')?.starredAt);
+  expect(starred).toEqual(expect.any(Number));
+});
+
 test('search has a button, since phones have no Ctrl+F', async ({ page }) => {
   await gotoHome(page);
   await page.getByRole('button', { name: 'Search' }).tap();
@@ -123,7 +152,7 @@ test('phones use the full width and keep breadcrumbs on one scrolling line', asy
   await expect(nav).toHaveAttribute('data-overflow-left', 'true');
 
   // The bullet sits near the left edge and text starts soon after it.
-  const bullet = (await row(page, 'Child row').getByRole('link', { name: 'Zoom in' }).boundingBox())!;
+  const bullet = (await row(page, 'Child row').getByRole('link', { name: 'Node menu' }).boundingBox())!;
   expect(bullet.x).toBeLessThan(16);
   const text = (await row(page, 'Child row').locator('.node-content').first().boundingBox())!;
   expect(text.x).toBeLessThan(36);

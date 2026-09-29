@@ -14,13 +14,8 @@ test('the ? button opens the tutorial with tabs, Escape closes it', async ({ pag
   await expect(dialog).toHaveCount(0);
 });
 
-test('Ctrl+/ and the /tutorial command open it while editing', async ({ page }) => {
+test('Ctrl+/ opens it while editing', async ({ page }) => {
   await edit(page, 'Plant a tree');
   await page.keyboard.press('Control+/');
-  await expect(page.getByTestId('tutorial')).toBeVisible();
-  await page.keyboard.press('Escape');
-  await edit(page, 'Plant a tree');
-  await page.keyboard.type(' /tutorial');
-  await page.keyboard.press('Enter');
   await expect(page.getByTestId('tutorial')).toBeVisible();
 });

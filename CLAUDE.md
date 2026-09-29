@@ -80,6 +80,9 @@ the tree while a row may be mid-edit; the existing actions show the pattern.
   `tree-view/actions/`, expose it through `OutlineActions` in `index.ts` if
   components need it, and list the shortcut in `help/TutorialDialog.tsx`.
 - **New slash command**: add an entry in `editor/default-slash-commands.ts`.
+  The "/" menu only inserts into the text being edited (formats, note blocks,
+  AI). Node actions go in `tree-view/NodeMenu.tsx`; app-wide ones (import,
+  export) in `settings/DataSection.tsx`.
 - **New synced node field**: follow `starredAt`. Add it to `Node` and
   `NodeFields`, give it a group in `sync/wire.ts` (`GROUPS`), handle it in
   `sync/outbox.ts` and `engine.ts` (`sameNode`), and add a D1 column plus its

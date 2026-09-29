@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { edit, focused, gotoHome, outline, rowCount } from './helpers';
+import { edit, focused, gotoHome, outline } from './helpers';
 
 test.beforeEach(async ({ page }) => gotoHome(page));
 
@@ -25,19 +25,45 @@ test('search follows edits and Escape closes the palette', async ({ page }) => {
 
 test('the slash menu filters commands and runs the selected one', async ({ page }) => {
   await edit(page, 'Plant a tree');
-  await page.keyboard.type('/');
+  await page.keyboard.type(' /');
   await expect(page.locator('[data-testid=slash-menu]')).toBeVisible();
-  await page.keyboard.type('collapse');
-  await expect(page.locator('[data-testid=slash-item]')).toHaveCount(1);
+  await page.keyboard.type('ital');
+  await expect(page.locator('[data-testid=slash-item]')).toHaveText([/Italic/]);
   await page.keyboard.press('Enter');
-  await expect.poll(() => rowCount(page)).toBe(3);
   await expect(page.locator('[data-testid=slash-menu]')).toHaveCount(0);
-  // The query text was removed and focus moved to the visible ancestor.
-  expect(await focused(page)).toBe('Someday:content');
-  await expect.poll(() => outline(page, 'Someday')).toEqual(['Learn to juggle', 'Plant a tree']);
-  await page.keyboard.type('/expand');
+  // The query text was removed and what follows is italic.
+  await page.keyboard.type('soon');
+  await page.keyboard.press('Escape');
+  await expect.poll(() => outline(page, 'Someday')).toEqual(['Learn to juggle', 'Plant a tree *soon*']);
+});
+
+test('the slash menu only inserts: node and app actions are not in it', async ({ page }) => {
+  await edit(page, 'Plant a tree');
+  await page.keyboard.type(' /');
+  const titles = await page.locator('[data-testid=slash-item]').allTextContents();
+  expect(titles.join(' ')).not.toMatch(/Collapse|Expand|Zoom|Export|Import|Restore|Tutorial|Heading/);
+  expect(titles.join(' ')).toMatch(/Bold/);
+});
+
+test('"/" in a note inserts block formats', async ({ page }) => {
+  await edit(page, 'Plant a tree');
+  await page.keyboard.press('Shift+Enter');
+  const editor = page.locator('.ProseMirror[data-editor=note]');
+  await expect(editor).toBeFocused();
+  await page.keyboard.type('/head');
+  await expect(page.locator('[data-testid=slash-item]')).toHaveText([/Heading 1/, /Heading 2/, /Heading 3/]);
+  await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
-  await expect.poll(() => rowCount(page)).toBe(16);
+  await page.keyboard.type('Plan');
+  await expect(editor.locator('h2')).toHaveText('Plan');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('/bullet');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('dig');
+  await page.keyboard.press('Escape');
+  await expect
+    .poll(() => page.evaluate(() => [...(window as any).__aletheia.engine.tree.all()].find((n: any) => n.content === 'Plant a tree')?.note))
+    .toBe('## Plan\n\n- dig');
 });
 
 test('multi-line paste creates nested nodes as one undo step', async ({ page }) => {
