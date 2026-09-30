@@ -27,7 +27,10 @@ pnpm dev        dev server on :5173
   proxies `/api` to it).
 - There is no CI on GitHub. The "Workers Builds: aletheia" check fails
   instantly on every PR and is not caused by the code; don't block on it.
-  Production deploys from `main`.
+  Production deploys from `main`. Cloudflare sometimes misses a push to
+  `main` (no "Workers Builds" run on that commit at all, and the live
+  `assets/index-*.js` still matches the previous commit's build); the next
+  push to `main` deploys it.
 
 ## Where things are
 
