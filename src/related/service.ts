@@ -3,7 +3,7 @@ import { AiError, type Complete } from '@/ai/client';
 import type { Engine } from '@/commands';
 import type { EditorSession } from '@/editor/session';
 import { importCommands } from '@/io';
-import { previousSibling } from '@/model';
+import { descendantIds, isSelfOrDescendant, previousSibling, type TreeReader } from '@/model';
 import type { SearchIndex } from '@/search';
 import { excludedIds, textMatches, type RelatedItem } from './find';
 import { answerItems, chatPrompt, parseRelated, relatedPrompt, type ChatTurn } from './prompts';
@@ -32,7 +32,7 @@ export interface Chat {
 
 export interface RelatedState {
   open: boolean;
-  /** The item a row's menu asked about; null follows the zoomed item. */
+  /** The row you're on (last edited, selected, or picked from its menu); null means the zoomed item. */
   pinned: string | null;
   pageRoot: string | null;
   /** Rows sharing the item's words, found at once. */
@@ -49,9 +49,11 @@ export interface RelatedService {
   target(): string | null;
   /** Whether AI can be used here: the Worker only answers devices with sync on. */
   aiAvailable(): boolean;
-  /** The page zoomed to another item (null = Home). */
+  /** The page zoomed to another item (null = Home). The current row stays if it's on the new page. */
   setPageRoot(id: string | null): void;
-  /** Open the panel, about `id` when given (a row's menu), else the zoomed item. */
+  /** You moved to another row (clicked into it, selected it): the panel is about that row now. */
+  setCurrentRow(id: string): void;
+  /** Open the panel, about `id` when given (a row's menu), else the current row or the zoomed item. */
   show(id?: string): void;
   hide(): void;
   /** Ask AI for rows related by meaning; cached per item until asked again with `again`. */
@@ -81,6 +83,46 @@ interface Deps {
 
 /** Wait this long after the last edit before looking for text matches again. */
 const RECOMPUTE_MS = 500;
+/** Wait this long on a row before asking AI about it, so moving through rows doesn't ask about each one. */
+const SETTLE_MS = 700;
+/** AI's picks are kept on this device, per item, for this many items. */
+const SAVED_ITEMS = 300;
+const STORAGE_KEY = 'aletheia:related';
+
+interface Saved {
+  /** Fingerprint of the item when AI looked: its title, note and rows. A change makes AI look again. */
+  fp: string;
+  at: number;
+  items: RelatedItem[];
+}
+
+/** A short hash of what the item says; the rest of the outline is not part of it (Look again covers that). */
+export function fingerprint(tree: TreeReader, id: string): string {
+  const node = tree.get(id);
+  if (!node) return '';
+  const text = [node.content, node.note, ...descendantIds(tree, id).slice(0, 80).map((d) => tree.get(d)?.content ?? '')].join('\n');
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h * 33) ^ text.charCodeAt(i)) >>> 0;
+  return `${h.toString(36)}.${text.length}`;
+}
+
+function readSaved(): Record<string, Saved> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, Saved>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeSaved(saved: Record<string, Saved>): void {
+  const entries = Object.entries(saved).sort((a, b) => b[1].at - a[1].at).slice(0, SAVED_ITEMS);
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.fromEntries(entries)));
+  } catch {
+    // storage full or blocked: the picks just aren't kept
+  }
+}
 
 const idle = (): Found => ({ status: 'idle', items: [] });
 const emptyChat = (): Chat => ({ turns: [], busy: false });
@@ -98,6 +140,16 @@ export function createRelatedService({ engine, session, search, key, complete }:
   // Answers and chats per item, so coming back to an item shows them again.
   const found = new Map<string, Found>();
   const chats = new Map<string, Chat>();
+  /** AI's picks from earlier visits, kept while the item itself is unchanged. */
+  const savedFound = (id: string): Found | undefined => {
+    const saved = readSaved()[id];
+    return saved && saved.fp === fingerprint(engine.tree, id) ? { status: 'done', items: saved.items } : undefined;
+  };
+  let settle: ReturnType<typeof setTimeout> | null = null;
+  const findSoon = () => {
+    if (settle) clearTimeout(settle);
+    settle = setTimeout(() => void service.findMore(), SETTLE_MS);
+  };
 
   const target = () => {
     const { pinned, pageRoot } = state.getState();
@@ -114,7 +166,15 @@ export function createRelatedService({ engine, session, search, key, complete }:
   };
   const load = () => {
     const id = target();
-    state.setState({ ai: (id && found.get(id)) || idle(), chat: (id && chats.get(id)) || emptyChat(), moved: new Map() });
+    let f: Found | undefined;
+    if (id) {
+      // A finished answer holds only while the item is unchanged; one in flight or failed stays as it is.
+      const mem = found.get(id);
+      f = mem && mem.status !== 'done' ? mem : savedFound(id);
+      if (f) found.set(id, f);
+      else found.delete(id);
+    }
+    state.setState({ ai: f ?? idle(), chat: (id && chats.get(id)) || emptyChat(), moved: new Map() });
     recompute();
   };
   const setFound = (id: string, f: Found) => {
@@ -149,6 +209,8 @@ export function createRelatedService({ engine, session, search, key, complete }:
   const shown = () => {
     const all = list();
     const { ai, moved } = state.getState();
+    // While AI is still to look, word matches wait: showing them first only to tuck most away reads as a flash.
+    if (key() !== null && (ai.status === 'idle' || ai.status === 'busy')) return { main: all.filter((i) => ai.items.some((a) => a.id === i.id)), more: [] };
     if (ai.status !== 'done') return { main: all, more: [] };
     const picked = new Set(ai.items.map((i) => i.id));
     const main = all.filter((i) => picked.has(i.id) || moved.has(i.id));
@@ -164,16 +226,29 @@ export function createRelatedService({ engine, session, search, key, complete }:
 
     setPageRoot(id) {
       const s = state.getState();
-      if (s.pageRoot === id && s.pinned === null) return;
-      state.setState({ pageRoot: id, pinned: null });
+      if (s.pageRoot === id) return;
+      // Zooming out keeps the row you were on; zooming elsewhere is about the new page.
+      const onPage = s.pinned !== null && s.pinned !== id && (id === null || isSelfOrDescendant(engine.tree, id, s.pinned));
+      const before = target();
+      state.setState({ pageRoot: id, pinned: onPage ? s.pinned : null });
+      if (target() === before) return;
       load();
-      if (s.open) void service.findMore();
+      if (s.open) findSoon();
+    },
+
+    setCurrentRow(id) {
+      const s = state.getState();
+      const pinned = id === s.pageRoot ? null : id;
+      if (pinned === s.pinned) return;
+      state.setState({ pinned });
+      load();
+      if (s.open) findSoon();
     },
 
     show(id) {
       session.flush();
-      const pinned = id === undefined || id === state.getState().pageRoot ? null : id;
-      state.setState({ open: true, pinned });
+      if (id !== undefined) state.setState({ pinned: id === state.getState().pageRoot ? null : id });
+      state.setState({ open: true });
       load();
       void service.findMore();
     },
@@ -191,8 +266,10 @@ export function createRelatedService({ engine, session, search, key, complete }:
       setFound(id, { status: 'busy', items: cur?.items ?? [] });
       try {
         const { prompt, rows } = relatedPrompt(engine.tree, id, state.getState().text.map((t) => t.id));
+        const fp = fingerprint(engine.tree, id);
         const items = parseRelated(engine.tree, id, await complete(k, prompt), rows);
         setFound(id, { status: 'done', items });
+        writeSaved({ ...readSaved(), [id]: { fp, at: Date.now(), items } });
       } catch (e) {
         setFound(id, { status: 'error', items: cur?.items ?? [], error: e instanceof Error ? e.message : 'AI failed.' });
       }

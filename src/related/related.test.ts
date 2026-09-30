@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EditorSession } from '@/editor/session';
 import { SearchIndex } from '@/search';
 import { fixture } from '@/test/helpers';
 import { textMatches } from './find';
 import { answerItems, chatPrompt, linkCitations, outlineDigest, parseRelated, relatedPrompt } from './prompts';
-import { createRelatedService } from './service';
+import { createRelatedService, fingerprint } from './service';
 
 const session = { flush: () => {} } as unknown as EditorSession;
 
@@ -80,6 +80,10 @@ describe('chat helpers', () => {
 });
 
 describe('RelatedService', () => {
+  beforeEach(() => {
+    const data = new Map<string, string>();
+    vi.stubGlobal('localStorage', { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => data.set(k, v) });
+  });
   const setup = (complete: (prompt: string) => Promise<string>, key: string | null = 'k') => {
     const f = spec();
     const related = createRelatedService({ engine: f.engine, session, search: new SearchIndex(f.engine), key: () => key, complete: (_k, p) => complete(p) });
@@ -126,5 +130,50 @@ describe('RelatedService', () => {
     await related.ask('hi');
     expect(related.state.getState().chat.error).toMatch(/sync/);
     expect(related.list().length).toBeGreaterThan(0);
+  });
+
+  it('is about the row you are on, and keeps it when zooming out to a page that holds it', () => {
+    const { f, related } = setup(async () => '{"related":[]}');
+    related.setPageRoot(f.ids.Ideas!);
+    related.setCurrentRow(f.ids['Pricing FAQ']!);
+    expect(related.target()).toBe(f.ids['Pricing FAQ']);
+    related.setPageRoot(null);
+    expect(related.target()).toBe(f.ids['Pricing FAQ']);
+    // Zooming somewhere else is about that page.
+    related.setPageRoot(f.ids.Groceries!);
+    expect(related.target()).toBe(f.ids.Groceries);
+  });
+
+  it('holds word matches back until AI has looked, so nothing flashes and moves', async () => {
+    let answer!: (text: string) => void;
+    const { f, related } = setup(() => new Promise((r) => (answer = r)));
+    related.setPageRoot(f.ids['Launch pricing']!);
+    related.show();
+    expect(related.state.getState().ai.status).toBe('busy');
+    expect(related.shown().main).toEqual([]);
+    answer('{"related":[]}');
+    await vi.waitFor(() => expect(related.state.getState().ai.status).toBe('done'));
+    expect(related.shown().more.length).toBeGreaterThan(0);
+  });
+
+  it('keeps AI picks per row while the row is unchanged, and asks again once it changes', async () => {
+    const calls: string[] = [];
+    const { f, related } = setup(async (p) => (calls.push(p), '{"related":[{"row":1,"why":"x"}]}'));
+    const id = f.ids['Launch pricing']!;
+    related.setPageRoot(id);
+    related.show();
+    await vi.waitFor(() => expect(related.state.getState().ai.status).toBe('done'));
+    // A fresh start (reload) reads the saved picks: no second call.
+    const again = createRelatedService({ engine: f.engine, session, search: new SearchIndex(f.engine), key: () => 'k', complete: async (_k, p) => (calls.push(p), '{"related":[]}') });
+    again.setPageRoot(id);
+    again.show();
+    expect(again.state.getState().ai).toMatchObject({ status: 'done', items: [{ why: 'x' }] });
+    expect(calls).toHaveLength(1);
+    const before = fingerprint(f.engine.tree, id);
+    f.engine.execute({ type: 'updateNote', id, note: 'Decide by Friday' });
+    expect(fingerprint(f.engine.tree, id)).not.toBe(before);
+    again.hide();
+    again.show();
+    await vi.waitFor(() => expect(calls).toHaveLength(2));
   });
 });

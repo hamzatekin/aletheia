@@ -252,7 +252,7 @@ const TABS: Tab[] = [
         />
         <H>Related</H>
         <P>
-          The linked-dots button at the top (or Show related in an item's ≡ menu) lists what else in your notes is about the item you're on, with no tags or links needed. Rows sharing its words show at once; with sync on, AI adds rows related by meaning and says why. Tap a row to peek at it, Go there to zoom in, or Move here to put it under this item. Ask AI about the item and those rows at the bottom, or tap Next steps; Add to outline puts an answer's bullets under the item (Undo takes them back).
+          The linked-dots button at the top (or Show related in an item's ≡ menu) lists what else in your notes is about the row you're on (the one you last clicked into, else the page), with no tags or links needed. Rows sharing its words show at once; with sync on, AI adds rows related by meaning and says why. Tap a row to peek at it, Go there to zoom in, or Move here to put it under this item. Ask AI about the item and those rows at the bottom, or tap Next steps; Add to outline puts an answer's bullets under the item (Undo takes them back).
         </P>
         <H>Slash commands</H>
         <P>
