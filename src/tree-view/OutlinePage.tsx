@@ -79,6 +79,9 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, related }
     });
     const offUi = ui.subscribe((s, prev) => {
       if (s.settingsOpen && !prev.settingsOpen) related.hide();
+      // The panel is about the row you're on: the one you clicked into or selected.
+      const row = s.focus?.id ?? s.selection?.head;
+      if (row && row !== (prev.focus?.id ?? prev.selection?.head)) related.setCurrentRow(row);
     });
     return () => {
       offRelated();

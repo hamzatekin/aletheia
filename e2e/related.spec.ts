@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { gotoHome, outline, row } from './helpers';
+import { edit, gotoHome, outline, row } from './helpers';
 
 const KEY = 'k'.repeat(43);
 
@@ -138,6 +138,33 @@ test('Move here puts a related row under the item, and Undo puts it back', async
   await expect(row(page, 'Landing page should show the phone app')).toBeVisible();
   await item.getByRole('button', { name: 'Undo' }).click();
   await expect.poll(() => outline(page, 'Ideas')).toEqual(['Pricing: free tier plus $4 a month', 'Landing page should show the phone app', 'Dark theme for night reading']);
+});
+
+test('is about the row you click into, with grey rows while AI looks', async ({ page }) => {
+  // Wide enough for the panel to dock beside the page, so rows stay clickable.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const ids = await build(page);
+  await syncOn(page);
+  let release!: () => void;
+  const answered = new Promise<void>((r) => (release = r));
+  await page.route('**/api/ai/complete', async (route) => {
+    await answered;
+    await route.fulfill({ json: { text: '{"related":[]}', model: 'm', durationMs: 5 } });
+  });
+  await zoom(page, ids.Ideas!);
+  await edit(page, 'Dark theme for night reading');
+  await page.getByTestId('related-button').click();
+  const panel = page.getByTestId('related-panel');
+  await expect(panel.getByTestId('related-target')).toHaveText('to Dark theme for night reading');
+  await expect(panel.getByTestId('related-skeleton')).toBeVisible();
+  await expect(panel.getByTestId('related-item')).toHaveCount(0);
+  release();
+  await expect(panel.getByTestId('related-skeleton')).toHaveCount(0);
+  await expect(panel.getByText('Nothing else in your notes seems to be about this yet.')).toBeVisible();
+
+  // Clicking another row moves the panel to it.
+  await edit(page, 'Pricing: free tier plus $4 a month');
+  await expect(panel.getByTestId('related-target')).toHaveText('to Pricing: free tier plus $4 a month');
 });
 
 test.describe('on a phone', () => {

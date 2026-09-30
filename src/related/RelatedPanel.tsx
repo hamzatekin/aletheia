@@ -51,11 +51,9 @@ export function RelatedButton({ related }: { related: RelatedService }) {
       onMouseDown={(e) => e.preventDefault()}
       onClick={() => {
         if (open) return related.hide();
-        // At Home the row being edited is the one asked about.
-        const focus = ui.getState().focus?.id;
         session.flush();
         ui.blur();
-        related.show(related.state.getState().pageRoot === null && focus ? focus : undefined);
+        related.show();
       }}
       className={'top-icon fixed top-3 right-43 z-40 flex size-[34px] items-center justify-center rounded-md hover:bg-hover hover:text-ink ' + (open ? 'bg-active text-ink' : 'text-muted')}
       aria-label={count > 0 ? `Related (${count})` : 'Related'}
@@ -113,8 +111,10 @@ export function RelatedPanel({ related }: { related: RelatedService }) {
   if (!s.open) return null;
   const id = related.target();
   const item = id ? engine.tree.get(id) : undefined;
-  const { main, more } = related.shown();
   const ai = related.aiAvailable();
+  const { main, more } = related.shown();
+  // AI is still to answer for this row: show where results will land rather than word matches that would then move.
+  const looking = ai && (s.ai.status === 'idle' || s.ai.status === 'busy');
   const title = (rid: string) => plainText(engine.tree.get(rid)?.content ?? '').trim() || 'Untitled';
 
   const go = (rid: string) => {
@@ -155,7 +155,7 @@ export function RelatedPanel({ related }: { related: RelatedService }) {
             <p className="py-2 text-muted">Zoom into an item, or pick Related from an item's ≡ menu, to see what else in your notes is about it.</p>
           ) : (
             <>
-              {main.length === 0 && s.ai.status !== 'busy' && <p className="py-2 text-muted">Nothing else in your notes seems to be about this yet.</p>}
+              {main.length === 0 && (looking ? <Skeleton /> : <p className="py-2 text-muted">Nothing else in your notes seems to be about this yet.</p>)}
               <ul className="-mx-2" data-testid="related-list">
                 {[...main, ...(showMore ? more : [])].map((r) => (
                   <Result
@@ -275,7 +275,7 @@ function Result({ item, path, open, moved, onPeek, onGo, onPull, onUndo }: {
     <li className="rounded-md px-2 py-2 hover:bg-hover" data-testid="related-item" data-id={item.id}>
       <div className="cursor-pointer" onClick={onTitle} aria-expanded={open}>
         <div className="flex items-start gap-2">
-          <span className="min-w-0 flex-1 text-[0.95rem] leading-snug break-words" dangerouslySetInnerHTML={{ __html: renderInline(node.content) || 'Untitled' }} />
+          <span className="line-clamp-3 min-w-0 flex-1 text-[0.95rem] leading-snug break-words" dangerouslySetInnerHTML={{ __html: renderInline(node.content) || 'Untitled' }} />
           {item.duplicate && <span className="shrink-0 rounded bg-selection px-1.5 text-[11px] leading-5 text-accent">Duplicate?</span>}
         </div>
         {path !== '' && <div className="truncate text-xs text-faint">{path}</div>}
@@ -321,16 +321,32 @@ function LinkButton({ children, onClick, title }: { children: ReactNode; onClick
   );
 }
 
+/** Grey rows where the results will appear, while AI looks. */
+function Skeleton() {
+  return (
+    <div className="py-1" role="status" aria-label="Finding related items" data-testid="related-skeleton">
+      {[0.85, 0.6, 0.75].map((w, i) => (
+        <div key={i} className="mb-4 animate-pulse">
+          <div className="mb-1.5 h-3.5 rounded bg-active" style={{ width: `${w * 100}%` }} />
+          <div className="mb-1.5 h-2.5 w-1/3 rounded bg-active" />
+          <div className="h-2.5 w-1/2 rounded bg-active" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** How the search by meaning is going, or why it can't run here. */
 function AiStatus({ related, ai }: { related: RelatedService; ai: boolean }) {
   const found = useStore(related.state, (s) => s.ai);
   if (!ai) return <p className="mt-2 text-xs text-faint">Turn on sync in Settings to also find items related by meaning and ask AI about this.</p>;
-  if (found.status === 'busy')
+  if (found.status === 'busy' && found.items.length > 0)
     return (
       <p className="mt-2 flex items-center gap-2 text-xs text-muted" role="status" data-testid="related-busy">
-        <Spinner /> Finding more by meaning…
+        <Spinner /> Looking again…
       </p>
     );
+  if (found.status !== 'done' && found.status !== 'error') return null;
   if (found.status === 'error')
     return (
       <p className="mt-2 text-xs text-danger" role="alert">

@@ -154,7 +154,8 @@ and register it in `src/ai/slash-commands.ts` and `NodeMenu.tsx`.
 
 ## Related panel
 
-For the item you're on (the zoomed item, or any row via ≡ → Show related),
+For the row you're on (the one you last clicked into or selected, or picked
+via ≡ → Show related; else the zoomed item),
 `src/related/` lists what else in the outline is about it, with no tags or
 links. `find.ts` runs an OR search of the item's title words (weighed more),
 note and children over the MiniSearch index, leaving out the item, its rows
@@ -162,8 +163,14 @@ and its parents; that list shows at once and gives the top button its count.
 With sync on, `prompts.ts` then sends AI the item plus the rest of the
 outline as numbered, indented rows (text matches and their parents first,
 then level by level up to about 40k characters) and reads back up to 10
-picks with a reason, cached per item until Look again. Once AI has looked,
-rows it did not pick sit under "N more rows share words with it".
+picks with a reason. AI asks only once you have stayed on a row for a moment,
+and its picks are kept in localStorage per row with a fingerprint of the
+row's own text (title, note, rows under it): coming back is instant, an edit
+to the row makes AI look again, and Look again covers changes elsewhere.
+While AI looks the panel shows grey placeholder rows, not the word matches,
+which would otherwise show and then move. Once AI has looked, rows it did not
+pick sit under "N more rows share words with it"; without sync the word
+matches are the list.
 
 The chat at the bottom sends the item as `[0]` and the listed rows as `[1]`,
 `[2]`…, plus the last few turns; answers cite rows as `[n]`, which the panel
