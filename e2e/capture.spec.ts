@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { focused, gotoHome, outline } from './helpers';
+import { focused, gotoHome, outline, reloadApp } from './helpers';
 
 test('sharing a page to the app adds a titled link at the top of the Inbox', async ({ page }) => {
   await gotoHome(page);
@@ -10,8 +10,7 @@ test('sharing a page to the app adds a titled link at the top of the Inbox', asy
   expect((await outline(page))[0]).toEqual(['Inbox', ['[Mirrors in Workflowy](https://blog.workflowy.com/mirrors)']]);
 
   // Reloading the Inbox does not add it again; a second share goes on top.
-  await page.reload();
-  await page.locator('[data-testid=outline]').waitFor();
+  await reloadApp(page);
   await page.goto('/share?text=Buy%20bread');
   await expect(page.locator('h1')).toHaveText('Inbox');
   expect((await outline(page))[0]).toEqual(['Inbox', ['Buy bread', '[Mirrors in Workflowy](https://blog.workflowy.com/mirrors)']]);

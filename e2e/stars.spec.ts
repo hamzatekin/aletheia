@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { gotoHome } from './helpers';
+import { gotoHome, openNodeMenu, reloadApp, row } from './helpers';
 
 // Wide enough that the sidebar stays open beside the page.
 test.use({ viewport: { width: 1280, height: 800 } });
 test.beforeEach(async ({ page }) => gotoHome(page));
 
 test('star a page from its title; it is listed in the sidebar and unstars from there', async ({ page }) => {
-  await page.locator('[data-node-id]', { hasText: 'Reading list' }).first().locator('a[aria-label="Zoom in"]').click();
+  await row(page, 'Reading list').locator('a[aria-label="Zoom in"]').click();
   await expect(page.locator('h1')).toHaveText('Reading list');
   await page.locator('header[data-title]').hover();
   await page.getByTestId('page-star').click();
@@ -25,9 +25,7 @@ test('star a page from its title; it is listed in the sidebar and unstars from t
 });
 
 test('the node menu stars a node, and undo takes it back', async ({ page }) => {
-  const row = page.locator('[data-node-id]', { hasText: 'Someday' }).first();
-  await row.hover();
-  await row.getByTestId('drag-grip').click();
+  await openNodeMenu(page, 'Someday');
   await page.getByTestId('node-menu-star').click();
   if ((await page.getByTestId('outline-sidebar').count()) === 0) await page.getByRole('button', { name: 'Show outline' }).click();
   await expect(page.getByTestId('starred-item')).toHaveText(['Someday']);
@@ -42,8 +40,7 @@ test('stars survive a reload', async ({ page }) => {
     engine.execute({ type: 'toggleStar', id, starred: true });
   });
   await page.waitForTimeout(600);
-  await page.reload();
-  await page.locator('[data-testid=outline]').waitFor();
+  await reloadApp(page);
   if ((await page.getByTestId('outline-sidebar').count()) === 0) await page.getByRole('button', { name: 'Show outline' }).click();
   await expect(page.getByTestId('starred-item')).toHaveText(['Projects']);
 });

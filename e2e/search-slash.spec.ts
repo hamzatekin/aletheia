@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { edit, focused, gotoHome, outline } from './helpers';
+import { edit, focused, gotoHome, nodeByText, outline } from './helpers';
 
 test.beforeEach(async ({ page }) => gotoHome(page));
 
@@ -62,7 +62,7 @@ test('"/" in a note inserts block formats', async ({ page }) => {
   await page.keyboard.type('dig');
   await page.keyboard.press('Escape');
   await expect
-    .poll(() => page.evaluate(() => [...(window as any).__aletheia.engine.tree.all()].find((n: any) => n.content === 'Plant a tree')?.note))
+    .poll(async () => (await nodeByText(page, 'Plant a tree'))?.note)
     .toBe('## Plan\n\n- dig');
 });
 

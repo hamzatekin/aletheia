@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { edit, gotoHome, outline, row, rowCount } from './helpers';
+import { edit, gotoHome, outline, reloadApp, row, rowCount } from './helpers';
 
 test('edits, structure and collapse state survive a reload', async ({ page }) => {
   await gotoHome(page);
@@ -10,8 +10,7 @@ test('edits, structure and collapse state survive a reload', async ({ page }) =>
   await row(page, 'Welcome').getByRole('button', { name: 'Collapse', exact: true }).click();
   await expect.poll(() => rowCount(page)).toBe(13);
   await page.waitForTimeout(600); // idle-delay save
-  await page.reload();
-  await page.locator('[data-testid=outline]').waitFor();
+  await reloadApp(page);
   await expect.poll(() => rowCount(page)).toBe(13);
   expect(await outline(page, 'Someday')).toEqual([['Learn to juggle', ['Plant a tree tomorrow']]]);
 });

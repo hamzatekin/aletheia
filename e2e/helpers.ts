@@ -50,6 +50,46 @@ export function row(page: Page, text: string): Locator {
   return page.locator('[data-node-id]', { hasText: text }).first();
 }
 
+/** A node's stored fields, as the engine holds them. */
+export type NodeFields = {
+  id: string;
+  parentId: string | null;
+  content: string;
+  note: string;
+  collapsed: boolean;
+  starredAt: number | null;
+  deletedAt: number | null;
+};
+
+/** The first node in the tree whose content is exactly `text`, or undefined. */
+export function nodeByText(page: Page, text: string): Promise<NodeFields | undefined> {
+  return page.evaluate((text) => {
+    const n = [...(window as any).__aletheia.engine.tree.all()].find((n: any) => n.content === text);
+    return n && { id: n.id, parentId: n.parentId, content: n.content, note: n.note, collapsed: n.collapsed, starredAt: n.starredAt ?? null, deletedAt: n.deletedAt };
+  }, text);
+}
+
+/** Hover a row and click its grip to open the node menu. */
+export async function openNodeMenu(page: Page, text: string): Promise<void> {
+  await row(page, text).hover();
+  await row(page, text).locator('[data-testid=drag-grip]').click();
+  await expect(page.getByTestId('node-menu')).toBeVisible();
+}
+
+/** Reload the page and wait for the outline to be back. */
+export async function reloadApp(page: Page): Promise<void> {
+  await page.reload();
+  await page.locator('[data-testid=outline]').waitFor();
+}
+
+/** Pretend sync is on (the AI proxy only answers devices with a sync key); the sync API itself is stubbed out. */
+export async function syncOn(page: Page): Promise<string> {
+  const key = 'k'.repeat(43);
+  await page.route('**/api/sync/**', (route) => route.fulfill({ status: 503, json: { error: 'stub' } }));
+  await page.evaluate((key) => (window as any).__aletheia.sync.state.setState({ key, status: 'idle' }), key);
+  return key;
+}
+
 /** Click into a node's content to start editing it (caret at the click point, near the end). */
 export async function edit(page: Page, text: string): Promise<void> {
   const content = row(page, text).locator('.node-content').first();

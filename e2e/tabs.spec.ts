@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { edit, gotoHome, outline, row } from './helpers';
+import { edit, gotoHome, outline, reloadApp, row } from './helpers';
 
 // Two tabs share one IndexedDB but each keeps the tree in memory.
 test('an edit in one tab shows in the other, and the other does not save over it', async ({ page, context }) => {
@@ -18,8 +18,7 @@ test('an edit in one tab shows in the other, and the other does not save over it
   await other.keyboard.press('Escape');
   await expect.poll(() => outline(page, 'Someday')).toEqual(['Learn to juggle well', 'Plant a tree tomorrow']);
   await page.waitForTimeout(600);
-  await page.reload();
-  await page.locator('[data-testid=outline]').waitFor();
+  await reloadApp(page);
   expect(await outline(page, 'Someday')).toEqual(['Learn to juggle well', 'Plant a tree tomorrow']);
   await expect(row(other, 'Plant a tree tomorrow')).toBeVisible();
 });

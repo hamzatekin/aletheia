@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { edit, editorText, focused, gotoHome, outline, rowCount, setCaret } from './helpers';
+import { edit, editorText, focused, gotoHome, nodeByText, outline, reloadApp, row, rowCount, setCaret } from './helpers';
 
 test.beforeEach(async ({ page }) => gotoHome(page));
 
@@ -158,18 +158,14 @@ test('notes are edited rendered: Markdown shortcuts format as you type and save 
   await expect(note.locator('li strong')).toHaveText('hole');
   await page.keyboard.press('Escape');
   await expect.poll(() => focused(page)).toBe('Plant a tree:content');
-  const stored = await page.evaluate(() => {
-    const { engine } = (window as any).__aletheia;
-    return [...engine.tree.all()].find((n: any) => n.content === 'Plant a tree')?.note;
-  });
-  expect(stored).toBe('## Plan\n\n- dig a **hole**');
+  expect((await nodeByText(page, 'Plant a tree'))?.note).toBe('## Plan\n\n- dig a **hole**');
 });
 
 test('the note toggle switches between rendered and raw Markdown', async ({ page }) => {
   await edit(page, 'Plant a tree');
   await page.keyboard.press('Shift+Enter');
   await page.keyboard.type('some **bold**');
-  const toggle = page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first().locator('[data-testid=note-mode-toggle]');
+  const toggle = row(page, 'Plant a tree').locator('[data-testid=note-mode-toggle]');
   await expect(toggle).toHaveAttribute('title', 'Rendered. Click to edit as Markdown');
   await toggle.click();
   const raw = page.locator('textarea[data-editor=note]');
@@ -196,17 +192,17 @@ test('notes start collapsed, open when you edit them, and the default is a setti
     const node = [...engine.tree.all()].find((n: any) => n.content === 'Plant a tree');
     engine.execute({ type: 'updateNote', id: node.id, note: 'first line\n\nsecond line' });
   });
-  const row = page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first();
-  await expect(row.locator('.node-note')).toHaveText('first line …');
+  const plant = row(page, 'Plant a tree');
+  await expect(plant.locator('.node-note')).toHaveText('first line …');
 
   // Clicking in expands it for editing, and it stays open afterwards.
-  await row.locator('.node-note').click();
+  await plant.locator('.node-note').click();
   await expect(page.locator('.ProseMirror[data-editor=note]')).toBeFocused();
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
-  await expect(row.locator('.node-note p')).toHaveCount(2);
-  await page.reload();
-  await expect(page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first().locator('.node-note p')).toHaveCount(2);
+  await expect(plant.locator('.node-note p')).toHaveCount(2);
+  await reloadApp(page);
+  await expect(plant.locator('.node-note p')).toHaveCount(2);
 
   // Turning the setting off expands the other notes.
   const welcome = page.locator('[data-node-id]').filter({ has: page.locator('.node-note[data-collapsed]') }).first();
@@ -224,14 +220,14 @@ test('a note collapses to its first line and expands again', async ({ page }) =>
   await page.keyboard.type('second line');
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
-  const row = page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first();
-  await row.hover();
-  await row.locator('[data-testid=note-toggle]').click();
-  await expect(row.locator('.node-note')).toHaveText('first line …');
-  await page.reload();
-  await expect(page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first().locator('.node-note')).toHaveText('first line …');
-  await page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first().locator('[data-testid=note-toggle]').click();
-  await expect(page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first().locator('.node-note p')).toHaveCount(2);
+  const plant = row(page, 'Plant a tree');
+  await plant.hover();
+  await plant.locator('[data-testid=note-toggle]').click();
+  await expect(plant.locator('.node-note')).toHaveText('first line …');
+  await reloadApp(page);
+  await expect(plant.locator('.node-note')).toHaveText('first line …');
+  await plant.locator('[data-testid=note-toggle]').click();
+  await expect(plant.locator('.node-note p')).toHaveCount(2);
 });
 
 test('a note starts right under its node, and opening or leaving it moves nothing', async ({ page }) => {
@@ -251,14 +247,14 @@ test('a note starts right under its node, and opening or leaving it moves nothin
     engine.execute({ type: 'updateNote', id: node.id, note });
     return node.id as string;
   });
-  const row = page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first();
-  const viewNote = row.locator('.node-note');
+  const plant = row(page, 'Plant a tree');
+  const viewNote = plant.locator('.node-note');
   const before = (await viewNote.boundingBox())!;
-  const header = (await row.locator('.note-header').boundingBox())!;
+  const header = (await plant.locator('.note-header').boundingBox())!;
   // The note's card starts right under its node's text, with the icons inside
   // it, level with the note's first line.
-  const content = (await row.locator('.node-content').boundingBox())!;
-  const card = (await row.locator('.note-card').boundingBox())!;
+  const content = (await plant.locator('.node-content').boundingBox())!;
+  const card = (await plant.locator('.note-card').boundingBox())!;
   expect(card.y - (content.y + content.height)).toBeLessThanOrEqual(3);
   expect(Math.abs(header.y - before.y)).toBeLessThanOrEqual(2);
   expect(header.x + header.width).toBeLessThanOrEqual(card.x + card.width);
@@ -267,9 +263,9 @@ test('a note starts right under its node, and opening or leaving it moves nothin
   const editNote = page.locator('.ProseMirror[data-editor=note]');
   await expect(editNote).toBeFocused();
   const after = (await editNote.boundingBox())!;
-  const headerAfter = (await row.locator('.note-header').boundingBox())!;
+  const headerAfter = (await plant.locator('.note-header').boundingBox())!;
   // Measured from the node's text, in case the click scrolled the page.
-  const contentAfter = (await row.locator('.node-content').boundingBox())!;
+  const contentAfter = (await plant.locator('.node-content').boundingBox())!;
   expect(Math.abs(after.y - contentAfter.y - (before.y - content.y))).toBeLessThanOrEqual(1);
   expect(Math.abs(after.height - before.height)).toBeLessThanOrEqual(2);
   expect(Math.abs(headerAfter.y - contentAfter.y - (header.y - content.y))).toBeLessThanOrEqual(1);
@@ -313,10 +309,10 @@ test('opening a long note or switching its mode never scrolls the page', async (
     const node = [...engine.tree.all()].find((n: any) => n.content === 'Learn to juggle');
     engine.execute({ type: 'updateNote', id: node.id, note });
   }, long);
-  const row = page.locator('[data-node-id]', { hasText: 'Learn to juggle' }).first();
+  const juggle = row(page, 'Learn to juggle');
   // Header in view at the top, the rest of the long note running off the bottom.
-  await row.locator('.note-header').evaluate((el) => el.scrollIntoView({ block: 'start' }));
-  const line = row.locator('.node-note p', { hasText: /^line 8$/ });
+  await juggle.locator('.note-header').evaluate((el) => el.scrollIntoView({ block: 'start' }));
+  const line = juggle.locator('.node-note p', { hasText: /^line 8$/ });
   const before = await page.evaluate(() => window.scrollY);
   await line.click();
   await expect(page.locator('.ProseMirror[data-editor=note]')).toBeFocused();
@@ -325,7 +321,7 @@ test('opening a long note or switching its mode never scrolls the page', async (
   // The caret landed on the clicked line, not at the end of the note.
   expect(await page.evaluate(() => window.getSelection()!.anchorNode!.textContent)).toBe('line 8');
 
-  const toggle = row.locator('[data-testid=note-mode-toggle]');
+  const toggle = juggle.locator('[data-testid=note-mode-toggle]');
   await toggle.click();
   await expect(page.locator('textarea[data-editor=note]')).toBeFocused();
   await page.waitForTimeout(100);
@@ -343,19 +339,19 @@ test('the copy icon copies a note as Markdown, including edits not saved yet', a
     const node = [...engine.tree.all()].find((n: any) => n.content === 'Plant a tree');
     engine.execute({ type: 'updateNote', id: node.id, note: '## Plan\n\n- **dig** a hole\n- water it' });
   });
-  const row = page.locator('[data-node-id]', { hasText: 'Plant a tree' }).first();
-  await row.hover();
-  await row.getByTestId('note-copy').click();
-  await expect(row.getByTestId('note-copy')).toHaveAttribute('title', 'Copied');
+  const plant = row(page, 'Plant a tree');
+  await plant.hover();
+  await plant.getByTestId('note-copy').click();
+  await expect(plant.getByTestId('note-copy')).toHaveAttribute('title', 'Copied');
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('## Plan\n\n- **dig** a hole\n- water it');
 
   // While editing, the copy has what was just typed, and the caret stays put.
-  await row.locator('.node-note li').last().click();
+  await plant.locator('.node-note li').last().click();
   const editor = page.locator('.ProseMirror[data-editor=note]');
   await expect(editor).toBeFocused();
   await page.keyboard.press('End');
   await page.keyboard.type(' today');
-  await row.getByTestId('note-copy').click();
+  await plant.getByTestId('note-copy').click();
   await expect(editor).toBeFocused();
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('## Plan\n\n- **dig** a hole\n- water it today');
 });

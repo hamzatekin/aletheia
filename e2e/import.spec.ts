@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { edit, gotoHome, outline } from './helpers';
+import { edit, gotoHome, nodeByText, openNodeMenu, outline } from './helpers';
 
 test.beforeEach(async ({ page }) => gotoHome(page));
 
@@ -42,11 +42,7 @@ test('a WorkFlowy OPML export imports with formatting, notes and completed items
   await expect.poll(() => outline(page, title)).toEqual([
     ['**Reading** list', ['~~Dune~~', 'see [site](https://example.com)', 'Review summary']],
   ]);
-  const note = await page.evaluate(() => {
-    const { engine } = (window as any).__aletheia;
-    return [...engine.tree.all()].find((n: any) => n.content === '**Reading** list')?.note;
-  });
-  expect(note).toBe('from R&D');
+  expect((await nodeByText(page, '**Reading** list'))?.note).toBe('from R&D');
   await expect(page.locator('[data-node-id]', { hasText: 'Reading list' }).locator('strong').first()).toHaveText('Reading');
 });
 
@@ -106,7 +102,7 @@ test('Claude Code output pasted into a WorkFlowy code block imports as readable 
   await page.keyboard.type(' | wide');
   await page.keyboard.press('Escape');
   await expect
-    .poll(() => page.evaluate(() => [...(window as any).__aletheia.engine.tree.all()].find((n: any) => n.content === 'Compare options')?.note))
+    .poll(async () => (await nodeByText(page, 'Compare options'))?.note)
     .toContain('| Wider page \\| wide | Raise the page width in Settings so long lines have room | None |');
 });
 
@@ -124,7 +120,7 @@ test('terminal output pasted into a note turns into Markdown', async ({ page }) 
   await expect(editor.locator('p').first()).toHaveText('Here is how the options compare, from the easiest to the most work.');
   await page.keyboard.press('Escape');
   await expect
-    .poll(() => page.evaluate(() => [...(window as any).__aletheia.engine.tree.all()].find((n: any) => n.content === 'Plant a tree')?.note))
+    .poll(async () => (await nodeByText(page, 'Plant a tree'))?.note)
     .toContain('| Option | What it means | Effort |\n| --- | --- | --- |');
 });
 
@@ -138,13 +134,11 @@ test('Format terminal output fixes notes imported before', async ({ page }) => {
   }, ['```', ...answer, '```'].join('\n'));
   const row = page.locator(`[data-node-id="${id}"]`);
   await expect(row.locator('.node-note pre')).toHaveCount(1);
-  await row.hover();
-  await row.getByTestId('drag-grip').click();
+  await openNodeMenu(page, 'Plant a tree');
   await page.getByTestId('node-menu-terminal').click();
   await expect(row.locator('.node-note table th')).toHaveText(['Option', 'What it means', 'Effort']);
   await expect(row.locator('.node-note pre')).toHaveCount(0);
-  await row.hover();
-  await row.getByTestId('drag-grip').click();
+  await openNodeMenu(page, 'Plant a tree');
   await expect(page.getByTestId('node-menu-terminal')).toHaveCount(0);
 });
 

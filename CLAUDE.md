@@ -126,7 +126,9 @@ the tree while a row may be mid-edit; the existing actions show the pattern.
 - Comments say why, briefly. Most functions have a one-line doc comment.
 - Tests sit next to the code (`foo.test.ts`). User-visible behavior gets an
   e2e spec in `e2e/`; the tests read the app through `window.__aletheia`
-  (dev builds only) and `data-testid` attributes.
+  (dev builds only) and `data-testid` attributes. Reuse `e2e/helpers.ts`
+  (`gotoHome`, `row`, `edit`, `nodeByText`, `openNodeMenu`, `reloadApp`,
+  `syncOn`, `longPress`, `dragBullet`, ...) before writing new setup code.
 - For any feature, check how WorkFlowy and Dynalist do it (desktop and phone)
   and follow them. The owner uses the app on desktop and on an Android phone,
   so check touch layouts too (`useCoarsePointer`).
