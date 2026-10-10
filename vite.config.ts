@@ -15,5 +15,7 @@ export default defineConfig({
   test: {
     include: ['src/**/*.test.ts', 'worker/**/*.test.ts'],
     environment: 'node',
+    // A stray .only would silently skip every other test.
+    allowOnly: false,
   },
 });

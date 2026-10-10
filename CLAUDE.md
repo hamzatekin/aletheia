@@ -16,6 +16,7 @@ pnpm install
 pnpm check      typecheck + unit tests + knip; run before every push
 pnpm test       unit tests only (Vitest, src/**/*.test.ts and worker/**/*.test.ts)
 pnpm test:e2e   browser tests (Playwright, starts the dev server itself)
+pnpm mutate     mutation testing (StrykerJS) of the pure logic; see "Tests" below
 pnpm build      production build (tsc -b, then vite build)
 pnpm dev        dev server on :5173
 ```
@@ -63,6 +64,8 @@ worker/               Cloudflare Worker: only /api/* runs it; sync API on D1 (sy
 pwa/                  service worker and the Vite plugin that builds it
 e2e/                  Playwright specs; helpers.ts drives the app via window.__aletheia
 .claude/              cloud session hook (installs deps, sets CHROMIUM_PATH)
+patches/              pnpm patch for Stryker's Vitest runner (see Gotchas)
+stryker.config.mjs    mutation testing scope and thresholds
 ```
 
 ## How data flows
@@ -134,6 +137,37 @@ the tree while a row may be mid-edit; the existing actions show the pattern.
   so check touch layouts too (`useCoarsePointer`).
 - User-facing text is plain and short.
 
+## Tests
+
+Tests are the spec. Agents tend to make a red test green by bending the test;
+don't.
+
+- When a test fails, assume the code is wrong. Fix the code, not the test.
+- Never weaken an existing test to get it passing: don't change an expected
+  value, loosen a matcher (`toEqual` to `toMatchObject`, `toBe(3)` to
+  `toBeGreaterThan(0)`, exact text to `toContain`), delete an assertion or a
+  test, add `.skip`/`.only`/`.todo`/`.fails`, wrap it in `try`, or raise a
+  timeout to hide a hang. (A stray `.only` already fails the run.)
+- Changing what a test expects is only right when the user asked for that
+  behavior change. Then change it in the same commit as the code, and list
+  every changed assertion and why in the PR description. If unsure, ask.
+- New tests assert exact results (whole objects, exact strings, exact order),
+  so they fail when the behavior they name breaks. Test through the public
+  function, not its internals.
+- `pnpm mutate` runs StrykerJS on the pure logic listed in
+  `stryker.config.mjs` (model, commands, search, import/export, the sync
+  client and the Worker's sync API). It changes the code in small ways and
+  checks that some test fails each time. A surviving mutant is a behavior no
+  test pins down. After changing code in that scope, run it and kill new
+  survivors with tests. Runs are incremental (only what changed is retested,
+  under a minute); a full run (`pnpm mutate --force`) takes about ten
+  minutes, and is the one to quote a score from, since incremental runs can
+  keep stale results for module-level constants. The run
+  fails below the `break` threshold (85%); don't lower it. Don't add
+  `// Stryker disable` comments except for a mutant that cannot change
+  behavior (an equivalent mutant), with the reason on the same line. The
+  report is in `reports/mutation/index.html`.
+
 ## Gotchas
 
 - Don't add a `public/_redirects` catch-all. Workers rejects it as a redirect
@@ -148,6 +182,13 @@ the tree while a row may be mid-edit; the existing actions show the pattern.
 - `pnpm build` prints two harmless warnings: Lightning CSS doesn't know
   `::highlight(search)` (the CSS Custom Highlight API, used by Ctrl+F), and the
   main chunk is over 500 kB.
+- `@stryker-mutator/vitest-runner` 10.0.0 is patched (`patches/`, listed in
+  `pnpm-workspace.yaml`): Vitest 5 matches test names as "suite > test",
+  and unpatched every mutant runs zero tests and "survives". When upgrading
+  the runner, drop the patch if the new version handles it (a report where
+  nearly everything survives with 0 tests means it doesn't).
+- Stryker can't use TypeScript 7's tsconfig API, so `tsconfigFile` is empty
+  in `stryker.config.mjs`; there is no TypeScript checker plugin either.
 - The e2e test "a tap outside the menu only closes it" (`e2e/mobile.spec.ts`)
   sometimes fails when the whole suite runs in parallel and passes on a
   re-run of that file.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { exportJson, exportMarkdown, exportOpml, parseBackup } from './export';
-import { countItems, importAsTopNode, importItems, importTitle, parseMarkdownOutline } from './import';
+import { bulletLine, exportJson, exportMarkdown, exportOpml, noteBlock, parseBackup } from './export';
+import { countItems, importAsTopNode, importCommands, importItems, importTitle, parseMarkdownOutline } from './import';
 import { fixture, outline } from '@/test/helpers';
 
 describe('export', () => {
@@ -86,5 +86,104 @@ describe('importAsTopNode', () => {
     expect(outline(f)).toEqual([['Imported from notes.md, 29 Sep 2026', [['y', ['y1']], 'z']], 'A', 'B']);
     f.engine.undo();
     expect(outline(f)).toEqual(['A', 'B']);
+  });
+});
+
+describe('export details', () => {
+  it('writes the whole OPML document exactly, nesting children and closing tags', () => {
+    const f = fixture([['A', [['A1', ['A1a']]]], 'B']);
+    f.engine.execute({ type: 'updateNote', id: f.ids.B!, note: 'x > y' });
+    expect(exportOpml(f.engine.tree, null, 'My <notes>')).toBe(
+      [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<opml version="2.0">',
+        '  <head><title>My &lt;notes&gt;</title></head>',
+        '  <body>',
+        '    <outline text="A">',
+        '      <outline text="A1">',
+        '        <outline text="A1a"/>',
+        '      </outline>',
+        '    </outline>',
+        '    <outline text="B" _note="x &gt; y"/>',
+        '  </body>',
+        '</opml>',
+        '',
+      ].join('\n'),
+    );
+    expect(exportOpml(f.engine.tree, f.ids.B!)).toContain('<head><title>Aletheia</title></head>\n  <body>\n  </body>');
+  });
+
+  it('writes a JSON backup with its format, version, time and every node', () => {
+    const f = fixture(['A']);
+    const backup = JSON.parse(exportJson(f.engine.tree, 1234)) as Record<string, unknown>;
+    expect(backup).toEqual({ format: 'aletheia-backup', version: 1, exportedAt: 1234, nodes: [f.node('A')] });
+    expect(exportJson(f.engine.tree, 1)).toContain('\n  "format": "aletheia-backup"');
+  });
+
+  it('refuses files that are not backups', () => {
+    expect(() => parseBackup('{"format":"aletheia-backup"}')).toThrow('not an Aletheia backup');
+    expect(() => parseBackup('{"format":"other","nodes":[]}')).toThrow('not an Aletheia backup');
+    expect(() => parseBackup('{"format":"aletheia-backup","nodes":{}}')).toThrow('not an Aletheia backup');
+    expect(parseBackup('{"format":"aletheia-backup","nodes":[]}')).toEqual([]);
+  });
+
+  it('indents every note line under its bullet, keeping blank lines empty', () => {
+    expect(noteBlock('a\n\nb', 1)).toBe('    a\n\n    b');
+    expect(bulletLine('x', 2)).toBe('    - x');
+  });
+});
+
+describe('import details', () => {
+  it('names an import after its file and date, for every month', () => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    months.forEach((m, i) => expect(importTitle('a.md', new Date(2025, i, 3))).toBe(`Imported from a.md, 3 ${m} 2025`));
+  });
+
+  it('makes createNode commands in document order, each after the previous sibling', () => {
+    const cmds = importCommands('P', [
+      { content: 'a', note: 'na', children: [{ content: 'a1', note: '', children: [] }] },
+      { content: 'b', note: '', children: [] },
+    ]);
+    expect(cmds.map((c) => c.type)).toEqual(['createNode', 'createNode', 'createNode']);
+    const [a, a1, b] = cmds as Extract<(typeof cmds)[number], { type: 'createNode' }>[];
+    expect(a).toEqual({ type: 'createNode', id: a!.id, parentId: 'P', content: 'a', note: 'na', at: 'last' });
+    expect(a1).toEqual({ type: 'createNode', id: a1!.id, parentId: a!.id, content: 'a1', note: '', at: 'last' });
+    expect(b).toEqual({ type: 'createNode', id: b!.id, parentId: 'P', content: 'b', note: '', at: { after: a!.id } });
+    expect(new Set([a!.id, a1!.id, b!.id]).size).toBe(3);
+    const anchored = importCommands(null, [{ content: 'x', note: '', children: [] }], 'anchor');
+    expect(anchored[0]).toMatchObject({ parentId: null, at: { after: 'anchor' } });
+  });
+
+  it('counts nested items and returns null when an import changes nothing', () => {
+    expect(countItems([])).toBe(0);
+    expect(countItems([{ content: 'a', note: '', children: [{ content: 'b', note: '', children: [{ content: 'c', note: '', children: [] }] }] }])).toBe(3);
+    const f = fixture(['A']);
+    expect(importItems(f.engine, null, [])).toEqual({ ok: false, reason: 'nothing to do' });
+  });
+
+  it('parses notes: drops text before the first bullet, trims trailing blank lines, keeps inner indentation', () => {
+    expect(parseMarkdownOutline('intro\n- a\n  line 1\n    indented\n\n\n- b')).toEqual([
+      { content: 'a', note: 'line 1\nindented', children: [] },
+      { content: 'b', note: '', children: [] },
+    ]);
+    expect(parseMarkdownOutline('- a\n\n  after blank')).toEqual([{ content: 'a', note: 'after blank', children: [] }]);
+    expect(parseMarkdownOutline('-a\n- b')).toEqual([{ content: 'b', note: '', children: [] }]);
+    expect(parseMarkdownOutline('2) two\n  10. ten')).toEqual([{ content: 'two', note: '', children: [{ content: 'ten', note: '', children: [] }] }]);
+    expect(parseMarkdownOutline('- a\n\t- tab\n    - four')).toEqual([
+      { content: 'a', note: '', children: [{ content: 'tab', note: '', children: [] }, { content: 'four', note: '', children: [] }] },
+    ]);
+    expect(parseMarkdownOutline('')).toEqual([]);
+    expect(parseMarkdownOutline('-   spaced   ')).toEqual([{ content: 'spaced', note: '', children: [] }]);
+  });
+});
+
+describe('import operations', () => {
+  it('records imports as "import" operations, with an empty note on the title node', () => {
+    const f = fixture([]);
+    const r = importItems(f.engine, null, [{ content: 'a', note: '', children: [] }]);
+    expect(r.ok && r.op.type).toBe('import');
+    const id = importAsTopNode(f.engine, 'Title', [{ content: 'b', note: '', children: [] }]);
+    expect(f.engine.tree.get(id!)).toMatchObject({ content: 'Title', note: '', parentId: null });
+    expect(f.kids(null)).toEqual(['Title', 'a']);
   });
 });

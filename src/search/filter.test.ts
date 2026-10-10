@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fixture } from '@/test/helpers';
-import { filteredRows, matchCount, pageRows, queryWords, toggleFilterRow, type Filter } from './filter';
+import { filteredRows, isFiltering, matchCount, pageRows, queryWords, toggleFilterRow, type Filter } from './filter';
 
 const filter = (query: string, extra: Partial<Filter> = {}): Filter => ({ query, keep: new Set(), open: new Map(), ...extra });
 
@@ -77,5 +77,82 @@ describe('in-place search filter', () => {
   it('shows the usual rows when the query is empty', () => {
     const f = fixture(spec as never);
     expect(pageRows(f.engine.tree, null, filter('  ')).length).toBe(pageRows(f.engine.tree, null, null).length);
+  });
+});
+
+describe('in-place search filter: details', () => {
+  const label = (f: ReturnType<typeof fixture>) => (id: string) => f.engine.tree.get(id)!.content;
+
+  it('drops blank quoted phrases and trims quoted words', () => {
+    expect(queryWords('" " a')).toEqual(['a']);
+    expect(queryWords('"  Red  Paint " x')).toEqual(['red  paint', 'x']);
+    expect(queryWords('ÄBC')).toEqual(['äbc']);
+  });
+
+  it('matches nothing for an empty query, and isFiltering says so', () => {
+    const f = fixture(['A']);
+    expect(filteredRows(f.engine.tree, null, filter(''))).toEqual([]);
+    expect(isFiltering(null)).toBe(false);
+    expect(isFiltering(filter(' " " '))).toBe(false);
+    expect(isFiltering(filter('a'))).toBe(true);
+  });
+
+  it('does not match across the line between content and note', () => {
+    const f = fixture(['ab']);
+    f.engine.execute({ type: 'updateNote', id: f.ids.ab!, note: 'cd' });
+    expect(filteredRows(f.engine.tree, null, filter('abcd'))).toEqual([]);
+    expect(filteredRows(f.engine.tree, null, filter('ab cd')).map((r) => r.match)).toEqual([true]);
+  });
+
+  it('follows edits to content and note between searches', () => {
+    const f = fixture(['apple']);
+    const id = f.ids.apple!;
+    expect(matchCount(filteredRows(f.engine.tree, null, filter('apple')))).toBe(1);
+    f.engine.execute({ type: 'updateContent', id, content: 'pear' });
+    expect(matchCount(filteredRows(f.engine.tree, null, filter('apple')))).toBe(0);
+    expect(matchCount(filteredRows(f.engine.tree, null, filter('pear')))).toBe(1);
+    f.engine.execute({ type: 'updateNote', id, note: 'plum' });
+    expect(matchCount(filteredRows(f.engine.tree, null, filter('plum')))).toBe(1);
+    f.engine.execute({ type: 'updateNote', id, note: 'fig' });
+    expect(matchCount(filteredRows(f.engine.tree, null, filter('plum')))).toBe(0);
+  });
+
+  it('a kept or matching row without children is never open, even if opened by hand', () => {
+    const f = fixture([['P', ['leaf']]]);
+    const rows = filteredRows(f.engine.tree, null, filter('leaf', { open: new Map([[f.ids.leaf!, true]]) }));
+    expect(rows).toEqual([
+      { id: f.ids.P, depth: 0, open: true, match: false },
+      { id: f.ids.leaf, depth: 1, open: false, match: true },
+    ]);
+  });
+
+  it('a parent opened by hand that leads to a match still shows only the matching branch', () => {
+    const f = fixture([['P', ['hit', 'miss']]]);
+    const rows = filteredRows(f.engine.tree, null, filter('hit', { open: new Map([[f.ids.P!, true]]) }));
+    expect(rows.map((r) => label(f)(r.id))).toEqual(['P', 'hit']);
+  });
+
+  it('a match opened by hand shows its whole visible subtree at the right depths', () => {
+    const f = fixture([['Top', [['Match', [['C1', ['G1']], 'C2']]]]]);
+    f.engine.execute({ type: 'toggleCollapse', id: f.ids.C2!, collapsed: true });
+    const rows = filteredRows(f.engine.tree, null, filter('match', { open: new Map([[f.ids.Match!, true]]) }));
+    expect(rows).toEqual([
+      { id: f.ids.Top, depth: 0, open: true, match: false },
+      { id: f.ids.Match, depth: 1, open: true, match: true },
+      { id: f.ids.C1, depth: 2 },
+      { id: f.ids.G1, depth: 3 },
+      { id: f.ids.C2, depth: 2 },
+    ]);
+  });
+
+  it('toggling a row the filter does not decide, or one not shown, changes nothing', () => {
+    const f = fixture([['Match', ['child']], 'other']);
+    let flt = filter('match');
+    expect(toggleFilterRow(f.engine.tree, null, flt, f.ids.other!)).toBe(flt);
+    flt = toggleFilterRow(f.engine.tree, null, flt, f.ids.Match!);
+    expect(flt.open.get(f.ids.Match!)).toBe(true);
+    expect(toggleFilterRow(f.engine.tree, null, flt, f.ids.child!)).toBe(flt);
+    // Closing it again goes back to the default, so nothing is remembered.
+    expect(toggleFilterRow(f.engine.tree, null, flt, f.ids.Match!).open.size).toBe(0);
   });
 });
