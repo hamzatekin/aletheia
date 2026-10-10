@@ -12,9 +12,7 @@ import { noteTableExtensions } from './note-table';
 import { SlashList, slashPlacement } from './SlashMenu';
 import { opensSlashMenu, slashCommands } from './slash-registry';
 import { isTerminalPaste, terminalToMarkdown } from '@/io/terminal';
-import { TOP_BAR_CLEARANCE_PX } from '@/tree-view/TopBar';
-
-const SAVE_DELAY_MS = 400;
+import { CLEAR_OF_TOP_BAR, SAVE_DELAY_MS } from './session';
 
 /** The note's own "/" menu, open since a "/" was typed at document position `from`. */
 interface NoteSlash {
@@ -170,8 +168,7 @@ export function RichNoteEditor({ id }: { id: string }) {
       ],
       content: known.current,
       editorProps: {
-        scrollThreshold: { top: TOP_BAR_CLEARANCE_PX, right: 0, bottom: 0, left: 0 },
-        scrollMargin: { top: TOP_BAR_CLEARANCE_PX, right: 5, bottom: 5, left: 5 },
+        ...CLEAR_OF_TOP_BAR,
         attributes: {
           class: 'prose-note row-note pb-0.5 text-muted outline-none',
           'data-editor': 'note',

@@ -109,7 +109,7 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, related }
     <OutlineProvider value={context}>
       <div className="app-shell" data-sidebar={sidebarOpen ? 'open' : 'closed'} data-settings={settingsOpen ? 'open' : 'closed'} data-related={relatedOpen ? 'open' : 'closed'}>
         <TopBar />
-        <OutlineSidebar settings={settings} rootId={rootId} />
+        <OutlineSidebar settings={settings} />
         {!sidebarOpen && (
           <button
             type="button"

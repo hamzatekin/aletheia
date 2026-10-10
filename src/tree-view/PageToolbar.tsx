@@ -7,7 +7,7 @@ import { useVisibleRows } from './use-outline';
 
 /** The buttons at the top right: collapse / expand all, search this page, tutorial. */
 export function PageToolbar() {
-  const { engine, ui, session, actions, rootId } = useOutline();
+  const { engine, ui, actions, rootId } = useOutline();
 
   // Visible rows change whenever a parent opens or closes, so this follows every toggle.
   const pageRows = useVisibleRows(rootId);
@@ -51,11 +51,7 @@ export function PageToolbar() {
       </button>
       <button
         type="button"
-        onClick={() => {
-          session.flush();
-          ui.blur();
-          ui.setHelpOpen(true);
-        }}
+        onClick={() => actions.toggleHelp(true)}
         className="top-icon fixed top-3 right-13 z-40 flex size-[34px] items-center justify-center rounded-md text-[15px] font-semibold text-muted hover:bg-hover hover:text-ink"
         aria-label="Tutorial"
         title="Tutorial (Ctrl+/)"

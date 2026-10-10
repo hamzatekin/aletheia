@@ -21,7 +21,17 @@ interface SessionStorage {
   markdown: MarkdownInternals;
 }
 
-const SAVE_DELAY_MS = 400;
+/** Typing is saved this long after the last keystroke (and on flush). */
+export const SAVE_DELAY_MS = 400;
+
+/** The serializer ends a document with newlines; stored content does not. */
+const trimEnd = (md: string): string => md.replace(/\n+$/, '');
+
+/** Editor props that keep the caret clear of the solid bar at the top of the window. */
+export const CLEAR_OF_TOP_BAR = {
+  scrollThreshold: { top: TOP_BAR_CLEARANCE_PX, right: 0, bottom: 0, left: 0 },
+  scrollMargin: { top: TOP_BAR_CLEARANCE_PX, right: 5, bottom: 5, left: 5 },
+};
 
 /**
  * The one Tiptap instance. It is mounted into whichever row is focused and
@@ -33,7 +43,7 @@ export class EditorSession {
   /** Node whose content the editor currently holds. */
   nodeId: string | null = null;
   /** Markdown last synchronised with the store (loaded or saved). */
-  known = '';
+  private known = '';
   /**
    * The editor's own serialization of `known`. Parsing normalises things
    * Markdown cannot express (trailing spaces), so a plain round trip must not
@@ -85,9 +95,7 @@ export class EditorSession {
       ],
       editorProps: {
         attributes: { class: 'node-content outline-none', spellcheck: 'true' },
-        // Keep the caret clear of the solid bar at the top of the window.
-        scrollThreshold: { top: TOP_BAR_CLEARANCE_PX, right: 0, bottom: 0, left: 0 },
-        scrollMargin: { top: TOP_BAR_CLEARANCE_PX, right: 5, bottom: 5, left: 5 },
+        ...CLEAR_OF_TOP_BAR,
         handlePaste: (_view, event) => {
           const text = event.clipboardData?.getData('text/plain') ?? '';
           const json = event.clipboardData?.getData(CLIP_TYPE) || null;
@@ -162,16 +170,15 @@ export class EditorSession {
   }
 
   markdown(): string {
-    const md = this.ext.markdown.getMarkdown();
-    return md.replace(/\n+$/, '');
+    return trimEnd(this.ext.markdown.getMarkdown());
   }
 
   /** Markdown of the text before and after the caret (selection is dropped). */
   split(): { left: string; right: string } {
     const { doc, selection } = this.editor.state;
     const serializer = this.ext.markdown.serializer;
-    const left = serializer.serialize(doc.cut(0, selection.from)).replace(/\n+$/, '');
-    const right = serializer.serialize(doc.cut(selection.to)).replace(/\n+$/, '');
+    const left = trimEnd(serializer.serialize(doc.cut(0, selection.from)));
+    const right = trimEnd(serializer.serialize(doc.cut(selection.to)));
     return { left, right };
   }
 

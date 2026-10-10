@@ -1,4 +1,4 @@
-import { hasOpenParent, setAllCollapsedCommands, type Command } from '@/commands';
+import { hasOpenParent, setAllCollapsedCommands } from '@/commands';
 import { ancestorIds, newId } from '@/model';
 import type { Caret } from '@/store/ui-store';
 import type { ActionContext } from './context';
@@ -61,8 +61,7 @@ export function navigationActions(ctx: ActionContext) {
     if (!node || node.deletedAt !== null) return;
     session.flush();
     // Expand collapsed ancestors so the node is visible under its parent.
-    const collapsed = ancestorIds(tree, id).filter((a) => tree.get(a)?.collapsed);
-    if (collapsed.length > 0) engine.batch(collapsed.map((a): Command => ({ type: 'toggleCollapse', id: a, collapsed: false })), 'expand');
+    ctx.expandCollapsed(ancestorIds(tree, id));
     navigate(node.parentId ? `/n/${node.parentId}` : '/');
     ui.focusNode(id, { kind: 'end' });
   };

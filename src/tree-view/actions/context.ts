@@ -1,4 +1,4 @@
-import type { Engine, Outcome } from '@/commands';
+import type { Command, Engine, Outcome } from '@/commands';
 import type { EditorSession } from '@/editor/session';
 import type { TreeReader } from '@/model';
 import type { SearchIndex } from '@/search';
@@ -31,6 +31,8 @@ export interface ActionContext extends ActionDeps {
   applyFocus(outcome: Outcome | null, fallback?: Caret): boolean;
   /** Select the rows from `anchor` to `head`, as they are on screen. */
   selectRange(anchor: string, head: string): void;
+  /** Expand the collapsed nodes among `ids` in one undo step. */
+  expandCollapsed(ids: readonly string[]): void;
 }
 
 export function createActionContext(deps: ActionDeps): ActionContext {
@@ -70,6 +72,10 @@ export function createActionContext(deps: ActionDeps): ActionContext {
       if (a < 0 || h < 0) return ui.setSelection(null);
       const ids = new Set(rows.slice(Math.min(a, h), Math.max(a, h) + 1));
       ui.setSelection({ anchor, head, ids });
+    },
+    expandCollapsed(ids) {
+      const closed = ids.filter((id) => tree.get(id)?.collapsed);
+      if (closed.length > 0) engine.batch(closed.map((id): Command => ({ type: 'toggleCollapse', id, collapsed: false })), 'expand');
     },
   };
 }

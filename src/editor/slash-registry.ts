@@ -35,7 +35,7 @@ export interface SlashCommand {
 
 const registry: SlashCommand[] = [];
 
-/** Plug in a command. Future commands (including AI) register the same way. */
+/** Plug in a command (the defaults, and AI's in `ai/slash-commands.ts`). Returns an unregister function. */
 export function registerSlashCommand(command: SlashCommand): () => void {
   registry.push(command);
   return () => {

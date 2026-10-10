@@ -12,7 +12,7 @@ import type { OutlineActions } from './actions';
  */
 export function usePageEvents(actions: OutlineActions, session: EditorSession, ui: UiStore, settings: SettingsStore): void {
   useEditorHandlers(actions, session);
-  usePageShortcuts(actions, session, ui, settings);
+  usePageShortcuts(actions, settings);
   useSelectionClipboard(actions);
   useDragSelect(actions, ui);
 }
@@ -30,7 +30,7 @@ function useEditorHandlers(actions: OutlineActions, session: EditorSession): voi
   }, [session, actions]);
 }
 
-function usePageShortcuts(actions: OutlineActions, session: EditorSession, ui: UiStore, settings: SettingsStore): void {
+function usePageShortcuts(actions: OutlineActions, settings: SettingsStore): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
@@ -42,16 +42,14 @@ function usePageShortcuts(actions: OutlineActions, session: EditorSession, ui: U
       }
       if ((e.metaKey || e.ctrlKey) && e.key === '/') {
         e.preventDefault();
-        session.flush();
-        ui.blur();
-        ui.setHelpOpen(!ui.getState().helpOpen);
+        actions.toggleHelp();
         return;
       }
       actions.handleGlobalKey(e);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [actions, settings, session, ui]);
+  }, [actions, settings]);
 }
 
 /** Ctrl+C / Ctrl+X / Ctrl+V on selected nodes. Nothing is focused then, so the events land on the page. */

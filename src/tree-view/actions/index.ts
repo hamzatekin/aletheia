@@ -59,6 +59,8 @@ export interface OutlineActions {
   copySelection(data: DataTransfer | null, cut?: boolean): boolean;
   /** Paste below the selection. Returns false when nothing is selected. */
   pasteIntoSelection(text: string, json?: string | null): boolean;
+  /** Open (or close) the tutorial, leaving any row being edited. Without `open`, toggles it. */
+  toggleHelp(open?: boolean): void;
 }
 
 export function createOutlineActions(deps: ActionDeps): OutlineActions {
@@ -98,5 +100,10 @@ export function createOutlineActions(deps: ActionDeps): OutlineActions {
     selectionAction: selection.selectionAction,
     copySelection: selection.copySelection,
     pasteIntoSelection: selection.pasteIntoSelection,
+    toggleHelp: (open = !deps.ui.getState().helpOpen) => {
+      deps.session.flush();
+      deps.ui.blur();
+      deps.ui.setHelpOpen(open);
+    },
   };
 }

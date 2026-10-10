@@ -12,10 +12,8 @@ import { useCoarsePointer } from '@/ui/media';
 import { useOutline } from './outline-context';
 import { useHasChildren, useNode } from './use-outline';
 import { useRowDnd } from './use-dnd';
+import { INDENT_PX, LONG_PRESS_MS, LONG_PRESS_SLOP_PX, TOUCH_INDENT_PX } from './layout';
 
-export const INDENT_PX = 24;
-/** Phones indent less, like WorkFlowy's app, so deep outlines keep room for text. */
-const TOUCH_INDENT_PX = 18;
 
 /** One line standing in for a collapsed note: its first line of text, marked as cut. */
 function noteSummary(note: string): string {
@@ -128,13 +126,13 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
       const { selection } = ui.getState();
       if (selection && !selection.ids.has(id)) actions.toggleSelected(id);
       else if (!selection) actions.selectNode(id);
-    }, 450);
+    }, LONG_PRESS_MS);
     longPress.current = { timer, x: t.clientX, y: t.clientY, fired };
   };
   const onTouchMove = (e: TouchEvent<HTMLDivElement>) => {
     const lp = longPress.current;
     const t = e.touches[0];
-    if (lp && t && Math.hypot(t.clientX - lp.x, t.clientY - lp.y) > 10) clearTimeout(lp.timer);
+    if (lp && t && Math.hypot(t.clientX - lp.x, t.clientY - lp.y) > LONG_PRESS_SLOP_PX) clearTimeout(lp.timer);
   };
   const onTouchEnd = () => {
     if (longPress.current) clearTimeout(longPress.current.timer);
@@ -151,6 +149,9 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
   };
 
   const onNoteMouseDown = (e: MouseEvent<HTMLDivElement>) => pressText(e, 'note');
+
+  // The grip and its menu sit left of the bullet (desktop only, so the desktop indent).
+  const gripLeft = depth * INDENT_PX - 68;
 
   return (
     <div
@@ -198,7 +199,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
           'grip absolute flex h-6 w-6 pointer-coarse:hidden cursor-pointer items-center justify-center rounded-full text-faint transition-[opacity,background-color] ' +
           (focusField || menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
         }
-        style={{ left: depth * INDENT_PX - 68, top: 'calc((var(--row-lh) - 1.5rem) / 2 + 1px)' }}
+        style={{ left: gripLeft, top: 'calc((var(--row-lh) - 1.5rem) / 2 + 1px)' }}
         data-testid="drag-grip"
         data-menu-for={id}
         onClick={() => ui.setMenu(menuOpen ? null : id)}
@@ -210,7 +211,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
         </svg>
       </button>
       {menuOpen && (
-        <div className="absolute" style={{ left: depth * INDENT_PX - 68, top: 'var(--row-lh)' }}>
+        <div className="absolute" style={{ left: gripLeft, top: 'var(--row-lh)' }}>
           <NodeMenu id={id} hasChildren={hasChildren} sheet={coarse} />
         </div>
       )}
