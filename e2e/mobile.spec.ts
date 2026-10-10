@@ -89,6 +89,34 @@ test('tapping a bullet zooms in, like everywhere else', async ({ page }) => {
   await expect(page.getByTestId('node-menu')).toHaveCount(0);
 });
 
+test('a finger on a bullet shows it pressed; lifting zooms in, sliding away lets go', async ({ page }) => {
+  await gotoHome(page);
+  const bullet = row(page, 'Projects').getByRole('link', { name: 'Zoom in' }).first();
+  const box = (await bullet.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  const cdp = await page.context().newCDPSession(page);
+  const ring = () => bullet.locator('.bullet-dot').evaluate((el) => getComputedStyle(el).boxShadow);
+
+  // Slide off, as when scrolling: the press clears and nothing zooms.
+  const idle = await ring();
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  await expect(bullet).toHaveAttribute('data-pressed', '');
+  await expect.poll(ring).not.toBe(idle);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y + 40 }] });
+  await expect(bullet).not.toHaveAttribute('data-pressed');
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await page.waitForTimeout(500);
+  await expect(page.locator('h1')).toHaveCount(0);
+  await expect(bullet).not.toHaveAttribute('data-pressed');
+
+  // A tap: pressed while down, then it zooms in.
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  await expect(bullet).toHaveAttribute('data-pressed', '');
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect(page.locator('h1')).toHaveText('Projects');
+});
+
 test('a long press on a bullet opens its menu, with no Collapse', async ({ page }) => {
   await gotoHome(page);
   await longPress(page, row(page, 'Projects').getByRole('link', { name: 'Zoom in' }).first());

@@ -112,6 +112,14 @@ body {
   background: var(--halo-hover);
   color: var(--muted);
 }
+/* Touch screens: a finger on a bullet grows a ring big enough to show around
+   the fingertip, so a tap feels pressed before it zooms in (set in Bullet.tsx,
+   cleared when the finger lifts or slides away, unlike a phone's sticky :hover). */
+.group\/bullet[data-pressed] .bullet-dot,
+.group\/bullet[data-pressed] .bullet-dot.bullet-collapsed {
+  box-shadow: 0 0 0 calc(var(--font-size) * 0.45) color-mix(in srgb, var(--ink) 30%, transparent);
+  transition-duration: 60ms;
+}
 /* Only where a mouse hovers: a phone keeps :hover on the last thing tapped,
    which left a halo on the bullet you had zoomed into. */
 @media (hover: hover) {
