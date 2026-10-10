@@ -13,7 +13,7 @@
     "knip": "knip",
     "test:e2e": "playwright test",
     "check": "tsc -b --noEmit && vitest run && knip",
-    "mutate": "stryker run"
+    "mutate": "node patches/stryker-runner.mjs && stryker run"
   },
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^4.0.0",

@@ -64,7 +64,7 @@ worker/               Cloudflare Worker: only /api/* runs it; sync API on D1 (sy
 pwa/                  service worker and the Vite plugin that builds it
 e2e/                  Playwright specs; helpers.ts drives the app via window.__aletheia
 .claude/              cloud session hook (installs deps, sets CHROMIUM_PATH)
-patches/              pnpm patch for Stryker's Vitest runner (see Gotchas)
+patches/              fix for Stryker's Vitest runner, applied by `pnpm mutate` (see Gotchas)
 stryker.config.mjs    mutation testing scope and thresholds
 ```
 
@@ -182,11 +182,16 @@ don't.
 - `pnpm build` prints two harmless warnings: Lightning CSS doesn't know
   `::highlight(search)` (the CSS Custom Highlight API, used by Ctrl+F), and the
   main chunk is over 500 kB.
-- `@stryker-mutator/vitest-runner` 10.0.0 is patched (`patches/`, listed in
-  `pnpm-workspace.yaml`): Vitest 5 matches test names as "suite > test",
-  and unpatched every mutant runs zero tests and "survives". When upgrading
-  the runner, drop the patch if the new version handles it (a report where
-  nearly everything survives with 0 tests means it doesn't).
+- `@stryker-mutator/vitest-runner` 10.0.0 needs a fix for Vitest 5, which
+  matches test names as "suite > test"; without it every mutant runs zero
+  tests and "survives". `pnpm mutate` applies it first
+  (`patches/stryker-runner.mjs` edits node_modules). When upgrading the
+  runner, drop it if the new version handles this (a report where nearly
+  everything survives with 0 tests means it doesn't).
+- Don't add a `pnpm-workspace.yaml` or `pnpm patch`/`patchedDependencies`.
+  Cloudflare's build installs with an older pnpm that rejects a workspace
+  file without `packages` and pnpm 10's patch hashes, and production
+  deploys then fail at `pnpm install`.
 - Stryker can't use TypeScript 7's tsconfig API, so `tsconfigFile` is empty
   in `stryker.config.mjs`; there is no TypeScript checker plugin either.
 - The e2e test "a tap outside the menu only closes it" (`e2e/mobile.spec.ts`)
