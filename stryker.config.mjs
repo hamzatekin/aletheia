@@ -2,8 +2,8 @@
 // (mutants) to the code below and runs the unit tests against each one; a
 // mutant that no test notices "survives" and points at a missing assertion.
 // The scope is the pure logic, where a unit test can pin behavior down.
-// The Vitest runner is patched (patches/) for Vitest 5, which matches test
-// names as "suite > test"; unpatched, every mutant runs zero tests and survives.
+// `pnpm mutate` first fixes the Vitest runner for Vitest 5 (patches/stryker-runner.mjs),
+// which matches test names as "suite > test"; unfixed, every mutant runs zero tests and survives.
 export default {
   testRunner: 'vitest',
   plugins: ['@stryker-mutator/vitest-runner'],
