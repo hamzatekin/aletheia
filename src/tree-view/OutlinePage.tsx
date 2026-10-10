@@ -20,6 +20,7 @@ import type { SyncService } from '@/sync/service';
 import { useSettings, type SettingsStore } from '@/store/settings-store';
 import { useUiStore, type UiStore } from '@/store/ui-store';
 import { createOutlineActions } from './actions';
+import { AddToInboxButton } from './AddToInboxButton';
 import { Breadcrumbs } from './Breadcrumbs';
 import { Outline } from './Outline';
 import { TopBar } from './TopBar';
@@ -148,6 +149,7 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, related }
             <SearchPalette />
           </main>
         </div>
+        <AddToInboxButton />
         <MobileToolbar />
         <SelectionBar />
       </div>

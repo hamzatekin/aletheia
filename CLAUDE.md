@@ -51,7 +51,7 @@ src/settings/         Settings panel (appearance, sync)
 src/ai/               AI actions (Suggest title) via the Worker's proxy to the Claude relay
 src/related/          Related panel: rows elsewhere about an item (text matches, then AI), chat about it
 src/help/             tutorial dialog (lists every shortcut)
-src/app/              bootstrap, engine context, capture route (share target)
+src/app/              bootstrap, engine context, capture route (share target, Add to Inbox, the phone + button)
 worker/               Cloudflare Worker: only /api/* runs it; sync API on D1, AI proxy (ai.ts)
 pwa/                  service worker and the Vite plugin that builds it
 e2e/                  Playwright specs; helpers.ts drives the app via window.__aletheia
