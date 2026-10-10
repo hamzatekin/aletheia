@@ -4,7 +4,7 @@
  * - Page loads go to the network first, so a new deploy is picked up on the
  *   next open; the cached app is used only when the network fails.
  * - Built files (/assets/*, hashed names) come from the cache.
- * - /api/* (sync) is never touched: the browser handles it as if there were no
+ * - /api/* (sync and AI) is never touched: the browser handles it as if there were no
  *   service worker, so sync always talks to the server.
  */
 const VERSION = __VERSION__;

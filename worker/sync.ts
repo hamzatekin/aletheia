@@ -11,6 +11,7 @@
  * Every request needs `Authorization: Bearer <sync key>`.
  */
 import { GROUPS, type PullResponse, type PushRequest, type PushResponse, type ServerNode, type WireNode } from '../src/sync/wire';
+import { json } from './http';
 
 /** The slice of Cloudflare's D1 API this file uses (so tests can run it on node:sqlite). */
 export interface SqlDatabase {
@@ -127,24 +128,30 @@ function bearerKey(request: Request): string | null {
 
 /** Whether the request carries the key of an existing sync space (how other APIs know it is the owner). */
 export async function hasSyncSpace(request: Request, env: SyncEnv): Promise<boolean> {
+  const space = await requestSpace(request, env);
+  return space !== null && (await spaceExists(env.DB, space));
+}
+
+/** The space id (hash of the request's sync key), with the schema ready; null when the key is missing or short. */
+async function requestSpace(request: Request, env: SyncEnv): Promise<string | null> {
   const key = bearerKey(request);
-  if (!key) return false;
+  if (!key) return null;
   await ensureSchema(env.DB);
-  const exists = await env.DB.prepare('SELECT 1 AS ok FROM spaces WHERE id = ?1').bind(await sha256(key)).first();
-  return exists !== null;
+  return sha256(key);
+}
+
+async function spaceExists(db: SqlDatabase, space: string): Promise<boolean> {
+  return (await db.prepare('SELECT 1 AS ok FROM spaces WHERE id = ?1').bind(space).first()) !== null;
 }
 
 export async function handleSync(request: Request, env: SyncEnv): Promise<Response> {
   const url = new URL(request.url);
   const route = `${request.method} ${url.pathname}`;
-  const key = bearerKey(request);
-  if (!key) return json({ error: 'missing or short sync key' }, 401);
-  await ensureSchema(env.DB);
-  const space = await sha256(key);
+  const space = await requestSpace(request, env);
+  if (!space) return json({ error: 'missing or short sync key' }, 401);
 
   if (route === 'POST /api/sync/space') return createSpace(env, space);
-  const exists = await env.DB.prepare('SELECT 1 AS ok FROM spaces WHERE id = ?1').bind(space).first();
-  if (!exists) return json({ error: 'no sync space for this key' }, 404);
+  if (!(await spaceExists(env.DB, space))) return json({ error: 'no sync space for this key' }, 404);
 
   switch (route) {
     case 'GET /api/sync/space':
@@ -159,8 +166,7 @@ export async function handleSync(request: Request, env: SyncEnv): Promise<Respon
 }
 
 async function createSpace(env: SyncEnv, space: string): Promise<Response> {
-  const exists = await env.DB.prepare('SELECT 1 AS ok FROM spaces WHERE id = ?1').bind(space).first();
-  if (exists) return json({ created: false });
+  if (await spaceExists(env.DB, space)) return json({ created: false });
   const max = Number(env.SYNC_MAX_SPACES ?? '1');
   const count = await env.DB.prepare('SELECT count(*) AS n FROM spaces').first<{ n: number }>();
   if ((count?.n ?? 0) >= max) {
@@ -277,11 +283,4 @@ function capTimes(n: WireNode, limit: number): WireNode {
 async function sha256(text: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-  });
 }

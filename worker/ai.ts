@@ -7,6 +7,7 @@
  *
  * Needs `Authorization: Bearer <sync key>` and the CLAUDE_RELAY_TOKEN secret.
  */
+import { json } from './http';
 import { hasSyncSpace, type SyncEnv } from './sync';
 
 export interface AiEnv extends SyncEnv {
@@ -18,7 +19,7 @@ export interface AiEnv extends SyncEnv {
 
 const DEFAULT_RELAY_URL = 'https://ai.hamzatekin.dev/v1/complete';
 /** `claude -p` can take a while on a long prompt; give up before the browser does. */
-export const RELAY_TIMEOUT_MS = 90_000;
+const RELAY_TIMEOUT_MS = 90_000;
 const MAX_PROMPT_CHARS = 100_000;
 
 interface RelayReply {
@@ -72,11 +73,4 @@ export async function handleAi(request: Request, env: AiEnv, fetchFn: typeof fet
     return json({ error: reply?.error ? `AI failed: ${reply.error}` : `AI is unavailable right now (relay ${res.status}).` }, 502);
   }
   return json({ text: reply.text, model: reply.model ?? null, durationMs: reply.duration_ms ?? null });
-}
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-  });
 }

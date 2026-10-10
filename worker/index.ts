@@ -3,15 +3,11 @@
  * this code; only `/api/*` reaches it (see `run_worker_first` in wrangler.jsonc):
  * `/api/sync/*` is the sync API, `/api/ai/*` the proxy to the Claude relay.
  */
-import { handleAi } from './ai';
-import { handleSync, type SqlDatabase } from './sync';
+import { handleAi, type AiEnv } from './ai';
+import { handleSync } from './sync';
 
-interface Env {
-  DB: SqlDatabase;
+interface Env extends AiEnv {
   ASSETS: { fetch(request: Request): Promise<Response> };
-  SYNC_MAX_SPACES?: string;
-  CLAUDE_RELAY_TOKEN?: string;
-  CLAUDE_RELAY_URL?: string;
 }
 
 export default {
