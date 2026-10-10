@@ -102,7 +102,8 @@ const TABS: Tab[] = [
           rows={[
             ['Tap a line', 'Start editing it. A toolbar appears above the keyboard.'],
             ['Tap the arrow on the right', 'Every line with children has one. ▸ expands a collapsed node, ▾ collapses an open one. Collapsed nodes also have a halo around the bullet.'],
-            ['Tap a bullet', 'Open the menu for that node: zoom in, note, star, move, duplicate, copy link, delete. Tap Home or a crumb at the top to go back.'],
+            ['Tap a bullet', 'Zoom into that node. Tap Home or a crumb at the top to go back.'],
+            ['Long-press a bullet', 'Open the menu for that node: note, star, move, duplicate, copy link, delete. Tap outside it to close it.'],
             ['Tap ☆ by the title', 'Star the page: it shows under Starred at the top of the sidebar.'],
             ['Share → Aletheia', 'Once the app is installed, share a page or some text from any app: it lands at the top of your Inbox (a top-level line called Inbox, made for you the first time). Long-press the app icon for Add to Inbox, which opens a new line there to type into.'],
             ['Tap the magnifier', 'Search this page, top right. Only matching lines and the lines above them stay on screen.'],
@@ -117,7 +118,7 @@ const TABS: Tab[] = [
             ['↑  ↓', 'Move the node up or down among its siblings.'],
             ['Note', "Write in the node's note; tap again to go back to the node."],
             ['Undo  Redo', 'Take back the last change, or bring it back.'],
-            ['⋯', 'The same node menu as tapping the bullet.'],
+            ['⋯', 'The same node menu as a long press on the bullet.'],
             ['⌄', 'Stop editing and hide the keyboard.'],
           ]}
         />
@@ -146,7 +147,7 @@ const TABS: Tab[] = [
             [<Keys k="Mod+." />, 'Zoom into the node you are editing.'],
             [<Keys k="Mod+," />, 'Zoom out one level.'],
             ['Outline sidebar', 'Click any item to zoom straight to it.'],
-            ['☆ left of the page title', 'Star the page you are on, like WorkFlowy: it is listed under Starred at the top of the sidebar, on every synced device. The ≡ menu does the same for any node (on a phone, tap its bullet); click the gold star in the sidebar to unstar.'],
+            ['☆ left of the page title', 'Star the page you are on, like WorkFlowy: it is listed under Starred at the top of the sidebar, on every synced device. The ≡ menu does the same for any node (on a phone, long-press its bullet); click the gold star in the sidebar to unstar.'],
           ]}
         />
         <H>Move nodes</H>

@@ -50,6 +50,8 @@ export function useRowDnd(
             session.flush();
             ui.blur();
             ui.setSelection(null);
+            // A long press opens the menu on phones, and a long press that moves drags.
+            ui.setMenu(null);
             ui.setDragging(id);
           },
           onDrop: () => {

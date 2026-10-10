@@ -89,7 +89,8 @@ italic, strikethrough, inline code, link) everywhere, block formats (headings,
 lists, quote, code block, table, divider) in notes, and AI actions. A command
 says where it is offered (`fields`) and receives the editor it was typed in,
 the field and the node. Actions on a node live in its menu (the ≡ grip, or a
-tap on the bullet on touch screens); app-wide ones live in Settings.
+long press on the bullet on touch screens, where a tap zooms in as everywhere
+else); app-wide ones live in Settings.
 
 Settings → Import & export: import Markdown or OPML as one new node at the
 top of Home, named after the file and the date, with the file's items inside

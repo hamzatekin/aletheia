@@ -8,8 +8,9 @@ const SPIN_DELAY_MS = 500;
 
 /**
  * Sync status at the top right, like Dynalist's: synced, syncing, offline or
- * failed. Click to sync now. Hidden while sync is off. While joining, a bar
- * at the top of the page counts the notes as they arrive.
+ * failed. Click to sync now. Hidden while sync is off, so it sits leftmost
+ * (left of Related) and leaves no gap. While joining, a bar at the top of the
+ * page counts the notes as they arrive.
  */
 export function SyncIndicator({ sync }: { sync: SyncService }) {
   const state = useStore(sync.state);
@@ -30,7 +31,7 @@ export function SyncIndicator({ sync }: { sync: SyncService }) {
           onClick={() => void sync.sync()}
           onMouseDown={(e) => e.preventDefault()}
           className={
-            'top-icon fixed top-3 right-43 z-40 flex size-[34px] items-center justify-center rounded-md hover:bg-hover hover:text-ink ' +
+            'top-icon fixed top-3 right-53 z-40 flex size-[34px] items-center justify-center rounded-md hover:bg-hover hover:text-ink ' +
             (state.status === 'error' ? 'text-danger' : 'text-muted')
           }
           aria-label={label(state, syncing)}

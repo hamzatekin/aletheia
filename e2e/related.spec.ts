@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { edit, gotoHome, outline, row } from './helpers';
+import { edit, gotoHome, longPress, outline, row } from './helpers';
 
 const KEY = 'k'.repeat(43);
 
@@ -170,9 +170,9 @@ test('is about the row you click into, with grey rows while AI looks', async ({ 
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
-  test('Show related in the bullet menu opens a sheet about that row; Go there zooms in', async ({ page }) => {
+  test("Show related in the bullet's long-press menu opens a sheet about that row; Go there zooms in", async ({ page }) => {
     const ids = await build(page);
-    await row(page, 'Aletheia launch').getByTestId('bullet-menu').first().tap();
+    await longPress(page, row(page, 'Aletheia launch').getByRole('link', { name: 'Zoom in' }).first());
     await page.getByTestId('node-menu-related').tap();
     const panel = page.getByTestId('related-panel');
     await expect(panel.getByTestId('related-target')).toHaveText('to Aletheia launch');

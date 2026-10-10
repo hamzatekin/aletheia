@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { edit, focused, gotoHome, outline, row, setCaret } from './helpers';
+import { edit, focused, gotoHome, longPress, outline, row, setCaret } from './helpers';
 
 const selected = (page: Page) => page.locator('[data-node-id][data-selected]');
 
@@ -129,19 +129,9 @@ test('dragging the mouse across rows selects them', async ({ page }) => {
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
-  async function longPress(page: Page, text: string) {
-    const box = (await row(page, text).locator('.node-content').first().boundingBox())!;
-    const x = box.x + 10;
-    const y = box.y + box.height / 2;
-    const cdp = await page.context().newCDPSession(page);
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
-    await page.waitForTimeout(700);
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  }
-
   test('a long press selects; taps add rows; the bar indents, copies, pastes and deletes', async ({ page }) => {
     await gotoHome(page);
-    await longPress(page, 'Rendering and zoom');
+    await longPress(page, row(page, 'Rendering and zoom').locator('.node-content').first());
     await expect(page.getByTestId('selection-bar')).toBeVisible();
     await expect(page.locator('.ProseMirror')).toHaveCount(0);
     await row(page, 'Drag and drop').locator('.node-content').first().tap();

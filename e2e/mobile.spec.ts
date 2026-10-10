@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { focused, gotoHome, outline, row } from './helpers';
+import { focused, gotoHome, longPress, outline, row } from './helpers';
 
 // A phone: touch screen, no hover, no Tab key.
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
@@ -82,14 +82,22 @@ test('the node menu opens as a bottom sheet from the toolbar', async ({ page }) 
   await expect(menu).toHaveCount(0);
 });
 
-test('tapping a bullet opens its menu, with Zoom in first and no Collapse', async ({ page }) => {
+test('tapping a bullet zooms in, like everywhere else', async ({ page }) => {
   await gotoHome(page);
-  const projects = row(page, 'Projects');
-  await projects.getByTestId('bullet-menu').first().tap();
+  await row(page, 'Projects').getByRole('link', { name: 'Zoom in' }).first().tap();
+  await expect(page.locator('h1')).toHaveText('Projects');
+  await expect(page.getByTestId('node-menu')).toHaveCount(0);
+});
+
+test('a long press on a bullet opens its menu, with no Collapse', async ({ page }) => {
+  await gotoHome(page);
+  await longPress(page, row(page, 'Projects').getByRole('link', { name: 'Zoom in' }).first());
   const menu = page.getByTestId('node-menu');
   await expect(menu).toBeVisible();
+  // Lifting the finger neither zooms in nor closes the menu.
+  await page.waitForTimeout(300);
+  await expect(menu).toBeVisible();
   await expect(page).toHaveURL(/\/$/);
-  await expect(menu.getByRole('menuitem').first()).toHaveText('Zoom in');
   await expect(page.getByTestId('node-menu-collapse')).toHaveCount(0);
   await expect(page.getByTestId('node-menu-star')).toHaveCount(1);
   await expect(page.getByTestId('node-menu-collapse-all')).toHaveCount(1);
@@ -98,17 +106,40 @@ test('tapping a bullet opens its menu, with Zoom in first and no Collapse', asyn
   await expect(page.locator('h1')).toHaveText('Projects');
 });
 
-test('tapping a bullet while editing closes the keyboard and opens the menu', async ({ page }) => {
+test('a long press on a bullet while editing closes the keyboard and opens the menu', async ({ page }) => {
   await gotoHome(page);
   await row(page, 'Learn to juggle').locator('.node-content').first().tap();
   await expect.poll(() => focused(page)).toBe('Learn to juggle:content');
-  await row(page, 'Learn to juggle').getByTestId('bullet-menu').first().tap();
+  await longPress(page, row(page, 'Learn to juggle').getByRole('link', { name: 'Zoom in' }).first());
   await expect(page.getByTestId('node-menu')).toBeVisible();
   expect(await focused(page)).toBeNull();
   await page.getByTestId('node-menu-star').tap();
   await expect(page.getByTestId('node-menu')).toHaveCount(0);
   const starred = await page.evaluate(() => [...(window as any).__aletheia.engine.tree.all()].find((n: any) => n.content === 'Learn to juggle')?.starredAt);
   expect(starred).toEqual(expect.any(Number));
+});
+
+test('a tap outside the menu only closes it: the line or bullet under the finger is left alone', async ({ page }) => {
+  await gotoHome(page);
+  const bullet = (text: string) => row(page, text).getByRole('link', { name: 'Zoom in' }).first();
+  // Tap where a finger would, on the backdrop over a row above the sheet.
+  const tapOn = async (target: Locator) => {
+    const box = (await target.boundingBox())!;
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+  };
+  await longPress(page, bullet('Learn to juggle'));
+  await expect(page.getByTestId('node-menu')).toBeVisible();
+  await tapOn(row(page, 'Welcome to').locator('.node-content').first());
+  await expect(page.getByTestId('node-menu')).toHaveCount(0);
+  await page.waitForTimeout(300);
+  expect(await focused(page)).toBeNull();
+
+  await longPress(page, bullet('Learn to juggle'));
+  await expect(page.getByTestId('node-menu')).toBeVisible();
+  await tapOn(bullet('Welcome to'));
+  await expect(page.getByTestId('node-menu')).toHaveCount(0);
+  await page.waitForTimeout(300);
+  await expect(page).toHaveURL(/\/$/);
 });
 
 test('search has a button, since phones have no Ctrl+F', async ({ page }) => {
@@ -152,7 +183,7 @@ test('phones use the full width and keep breadcrumbs on one scrolling line', asy
   await expect(nav).toHaveAttribute('data-overflow-left', 'true');
 
   // The bullet sits near the left edge and text starts soon after it.
-  const bullet = (await row(page, 'Child row').getByRole('link', { name: 'Node menu' }).boundingBox())!;
+  const bullet = (await row(page, 'Child row').getByRole('link', { name: 'Zoom in' }).boundingBox())!;
   expect(bullet.x).toBeLessThan(16);
   const text = (await row(page, 'Child row').locator('.node-content').first().boundingBox())!;
   expect(text.x).toBeLessThan(36);
@@ -170,6 +201,17 @@ test('the collapse-all button works with a tap', async ({ page }) => {
 async function settled(locator: Locator) {
   await locator.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
 }
+
+test('the top-right buttons sit side by side without overlapping, with sync on too', async ({ page }) => {
+  await gotoHome(page);
+  await page.route('**/api/sync/**', (route) => route.fulfill({ status: 503, json: { error: 'stub' } }));
+  await page.evaluate(() => (window as any).__aletheia.sync.state.setState({ key: 'k'.repeat(43), status: 'idle' }));
+  await expect(page.getByTestId('sync-indicator')).toBeVisible();
+  const boxes = await page.locator('.top-icon').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().toJSON() as DOMRect));
+  expect(boxes.length).toBe(6);
+  const sorted = boxes.sort((a, b) => a.left - b.left);
+  for (let i = 1; i < sorted.length; i++) expect(sorted[i]!.left).toBeGreaterThanOrEqual(sorted[i - 1]!.right);
+});
 
 test('the open outline drawer covers the top-right buttons', async ({ page }) => {
   await gotoHome(page);
