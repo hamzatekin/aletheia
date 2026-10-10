@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { newId } from '@/model';
 import { fixture, ok, outline } from '@/test/helpers';
+import { ChangeSet } from './changes';
 import { joinMarkdown } from './content-commands';
+import { computeEffect } from './dispatch';
+import { orderFor, parentNodeIds } from './position';
+import { moveDownCommand, moveUpCommand } from './structure-commands';
+import { Rejection, type Command } from './types';
 
 describe('createNode', () => {
   it('appends at the end by default and can insert first / after / before', () => {
@@ -333,5 +338,272 @@ describe('deleteSubtree / restore', () => {
     expect(outline(f)).toEqual(['X', ['A', ['A1', 'A2']], 'B']);
     f.engine.redo();
     expect(outline(f)).toEqual(['X', 'B']);
+  });
+});
+
+describe('rejections', () => {
+  it('every command refuses a missing or deleted node, with the reason', () => {
+    const f = fixture(['A', 'B']);
+    f.engine.execute({ type: 'deleteSubtree', id: f.ids.B! });
+    const reason = (cmd: Command) => {
+      const r = computeEffect({ tree: f.engine.tree, now: 1 }, cmd);
+      return r instanceof Rejection ? r.reason : 'accepted';
+    };
+    for (const id of ['missing', f.ids.B!]) {
+      expect(reason({ type: 'updateContent', id, content: 'x' })).toBe('node is missing or deleted');
+      expect(reason({ type: 'updateNote', id, note: 'x' })).toBe('node is missing or deleted');
+      expect(reason({ type: 'splitNode', id, newId: newId(), left: 'a', right: 'b' })).toBe('node is missing or deleted');
+      expect(reason({ type: 'mergeNodes', sourceId: id, targetId: f.ids.A! })).toBe('node is missing or deleted');
+      expect(reason({ type: 'mergeNodes', sourceId: f.ids.A!, targetId: id })).toBe('node is missing or deleted');
+      expect(reason({ type: 'moveNode', id, parentId: null })).toBe('node is missing or deleted');
+      expect(reason({ type: 'moveNode', id: f.ids.A!, parentId: id })).toBe('target parent is missing or deleted');
+      expect(reason({ type: 'indent', id })).toBe('node is missing or deleted');
+      expect(reason({ type: 'outdent', id })).toBe('node is missing or deleted');
+      expect(reason({ type: 'toggleCollapse', id })).toBe('node is missing or deleted');
+      expect(reason({ type: 'toggleStar', id })).toBe('node is missing or deleted');
+      expect(reason({ type: 'deleteSubtree', id })).toBe('node is missing or deleted');
+      expect(reason({ type: 'deleteNode', id })).toBe('node is missing or deleted');
+      expect(reason({ type: 'createNode', id: newId(), parentId: id })).toBe('parent is missing or deleted');
+    }
+    expect(reason({ type: 'createNode', id: f.ids.A!, parentId: null })).toBe('node already exists');
+    expect(reason({ type: 'createNode', id: newId(), parentId: null, at: { after: 'missing' } })).toBe('anchor sibling not found');
+    expect(reason({ type: 'createNode', id: newId(), parentId: null, at: { before: 'missing' } })).toBe('anchor sibling not found');
+    expect(reason({ type: 'splitNode', id: f.ids.A!, newId: f.ids.B!, left: 'a', right: 'b' })).toBe('newId already exists');
+    expect(reason({ type: 'mergeNodes', sourceId: f.ids.A!, targetId: f.ids.A! })).toBe('cannot merge a node into itself');
+    expect(reason({ type: 'moveNode', id: f.ids.A!, parentId: f.ids.A! })).toBe('cannot move a node into itself or its descendant');
+    expect(reason({ type: 'moveNode', id: f.ids.A!, parentId: null, at: { after: 'missing' } })).toBe('anchor sibling not found');
+    expect(reason({ type: 'indent', id: f.ids.A! })).toBe('cannot indent the first child');
+    expect(reason({ type: 'outdent', id: f.ids.A! })).toBe('cannot outdent a top-level node');
+    expect(reason({ type: 'restore', id: 'missing' })).toBe('node not found');
+    expect(reason({ type: 'restore', id: f.ids.A! })).toBe('node is not deleted');
+  });
+
+  it('a merge into a descendant gives its own reason', () => {
+    const f = fixture([['A', ['A1']]]);
+    const r = computeEffect({ tree: f.engine.tree, now: 1 }, { type: 'mergeNodes', sourceId: f.ids.A!, targetId: f.ids.A1! });
+    expect(r).toEqual(new Rejection('cannot merge a node into its own descendant'));
+  });
+});
+
+describe('command effects', () => {
+  const effect = (f: ReturnType<typeof fixture>, cmd: Command) => {
+    const r = computeEffect({ tree: f.engine.tree, now: 777 }, cmd);
+    if (r instanceof Rejection) throw new Error(r.reason);
+    return r;
+  };
+
+  it('createNode makes an empty node at the end, focused at its start', () => {
+    const f = fixture([['P', ['x']]]);
+    const id = newId();
+    const e = effect(f, { type: 'createNode', id, parentId: f.ids.P! });
+    expect(e.affectedNodeIds).toEqual([id, f.ids.P]);
+    expect(e.focus).toEqual({ id, offset: 0 });
+    expect(e.changes).toEqual([{ id, before: null, after: { id, parentId: f.ids.P, order: e.changes[0]!.after!.order, content: '', note: '', collapsed: false, createdAt: 777, updatedAt: 777, deletedAt: null } }]);
+    expect(e.changes[0]!.after!.order > f.node('x').order).toBe(true);
+    expect(effect(f, { type: 'createNode', id: newId(), parentId: null }).affectedNodeIds).toHaveLength(1);
+  });
+
+  it('updates and toggles report only the node, and nothing when unchanged', () => {
+    const f = fixture(['A']);
+    const id = f.ids.A!;
+    expect(effect(f, { type: 'updateContent', id, content: 'x' })).toEqual({ changes: [expect.objectContaining({ id })], affectedNodeIds: [id] });
+    expect(effect(f, { type: 'updateContent', id, content: 'A' })).toEqual({ changes: [], affectedNodeIds: [] });
+    expect(effect(f, { type: 'updateNote', id, note: 'n' })).toEqual({ changes: [expect.objectContaining({ id })], affectedNodeIds: [id] });
+    expect(effect(f, { type: 'updateNote', id, note: '' })).toEqual({ changes: [], affectedNodeIds: [] });
+    expect(effect(f, { type: 'toggleCollapse', id })).toEqual({ changes: [expect.objectContaining({ id })], affectedNodeIds: [id] });
+    expect(effect(f, { type: 'toggleCollapse', id, collapsed: false })).toEqual({ changes: [], affectedNodeIds: [] });
+    expect(effect(f, { type: 'toggleStar', id, starred: false })).toEqual({ changes: [], affectedNodeIds: [] });
+    const star = effect(f, { type: 'toggleStar', id });
+    expect(star).toEqual({ changes: [expect.objectContaining({ id })], affectedNodeIds: [id] });
+    expect(star.changes[0]!.after!.starredAt).toBe(777);
+  });
+
+  it('toggleStar flips by default, and an explicit value is idempotent', () => {
+    const f = fixture(['A']);
+    const id = f.ids.A!;
+    ok(f.engine.execute({ type: 'toggleStar', id }));
+    expect(f.node('A').starredAt).toBeGreaterThan(0);
+    expect(effect(f, { type: 'toggleStar', id, starred: true })).toEqual({ changes: [], affectedNodeIds: [] });
+    ok(f.engine.execute({ type: 'toggleStar', id }));
+    expect(f.node('A').starredAt).toBeNull();
+    ok(f.engine.execute({ type: 'toggleStar', id, starred: true }));
+    expect(f.node('A').starredAt).toBeGreaterThan(0);
+    ok(f.engine.execute({ type: 'toggleStar', id, starred: false }));
+    expect(f.node('A').starredAt).toBeNull();
+  });
+
+  it('indent leaves an open previous sibling alone and opens a collapsed one', () => {
+    const f = fixture([['A', ['A1']], 'B', 'C']);
+    expect(effect(f, { type: 'indent', id: f.ids.B! }).changes.map((c) => c.id)).toEqual([f.ids.B]);
+    f.engine.execute({ type: 'toggleCollapse', id: f.ids.A!, collapsed: true });
+    const e = effect(f, { type: 'indent', id: f.ids.B! });
+    expect(e.changes.map((c) => [c.id, c.after!.collapsed])).toEqual([[f.ids.B, false], [f.ids.A, false]]);
+    expect(e.focus).toEqual({ id: f.ids.B, offset: 0 });
+  });
+
+  it('moveUpCommand / moveDownCommand swap with the neighbour, null at the ends', () => {
+    const f = fixture(['A', 'B', 'C']);
+    const ctx = { tree: f.engine.tree, now: 1 };
+    expect(moveUpCommand(ctx, f.ids.B!)).toEqual({ type: 'moveNode', id: f.ids.B, parentId: null, at: { before: f.ids.A } });
+    expect(moveDownCommand(ctx, f.ids.B!)).toEqual({ type: 'moveNode', id: f.ids.B, parentId: null, at: { after: f.ids.C } });
+    expect(moveUpCommand(ctx, f.ids.A!)).toBeNull();
+    expect(moveDownCommand(ctx, f.ids.C!)).toBeNull();
+    expect(moveUpCommand(ctx, 'missing')).toBeNull();
+    expect(moveDownCommand(ctx, 'missing')).toBeNull();
+    ok(f.engine.execute(moveDownCommand(ctx, f.ids.A!)!));
+    expect(f.kids(null)).toEqual(['B', 'A', 'C']);
+  });
+
+  it('splitNode: an empty caret split with nothing on the right adds an empty sibling below', () => {
+    const f = fixture(['', 'B']);
+    const nid = newId();
+    const e = effect(f, { type: 'splitNode', id: f.ids['']!, newId: nid, left: '', right: '' });
+    expect(e.focus).toEqual({ id: nid, offset: 0 });
+    expect(e.changes).toHaveLength(1);
+    ok(f.engine.execute({ type: 'splitNode', id: f.ids['']!, newId: nid, left: '', right: '' }));
+    expect(f.engine.tree.children(null)).toEqual([f.ids[''], nid, f.ids.B]);
+  });
+
+  it('splitNode inserting above keeps the content and the caret on the original', () => {
+    const f = fixture(['A', 'text']);
+    const nid = newId();
+    const e = effect(f, { type: 'splitNode', id: f.ids.text!, newId: nid, left: '', right: 'text' });
+    expect(e.focus).toEqual({ id: f.ids.text, offset: 0 });
+    expect(e.affectedNodeIds).toEqual([f.ids.text, nid]);
+    expect(e.changes).toEqual([{ id: nid, before: null, after: expect.objectContaining({ content: '', note: '', collapsed: false, parentId: null }) }]);
+    ok(f.engine.execute({ type: 'splitNode', id: f.ids.text!, newId: nid, left: '', right: 'text' }));
+    expect(f.engine.tree.children(null)).toEqual([f.ids.A, nid, f.ids.text]);
+  });
+
+  it('splitNode writes the left part only when it changed, and reports the parent', () => {
+    const f = fixture([['P', ['ab']]]);
+    const nid = newId();
+    const same = effect(f, { type: 'splitNode', id: f.ids.ab!, newId: nid, left: 'ab', right: '' });
+    expect(same.changes.map((c) => c.id)).toEqual([nid]);
+    expect(same.affectedNodeIds).toEqual([f.ids.ab, nid, f.ids.P]);
+    const cut = effect(f, { type: 'splitNode', id: f.ids.ab!, newId: nid, left: 'a', right: 'b' });
+    expect(cut.changes.map((c) => [c.id, c.after!.content])).toEqual([[f.ids.ab, 'a'], [nid, 'b']]);
+    expect(cut.changes[1]!.after).toMatchObject({ note: '', collapsed: false, parentId: f.ids.P });
+  });
+
+  it('mergeNodes into the parent puts the children in the source slot, before its next sibling', () => {
+    const f = fixture([['P', ['first', ['S', ['S1', 'S2']], 'next']]]);
+    const e = effect(f, { type: 'mergeNodes', sourceId: f.ids.S!, targetId: f.ids.P! });
+    expect(e.focus).toEqual({ id: f.ids.P, offset: 1 });
+    expect(new Set(e.affectedNodeIds)).toEqual(new Set([f.ids.S, f.ids.P, f.ids.S1, f.ids.S2]));
+    ok(f.engine.execute({ type: 'mergeNodes', sourceId: f.ids.S!, targetId: f.ids.P! }));
+    expect(outline(f)).toEqual([['PS', ['first', 'S1', 'S2', 'next']]]);
+  });
+
+  it('mergeNodes into the parent as its first child puts the children first', () => {
+    const f = fixture([['P', [['S', ['S1']], 'next']]]);
+    ok(f.engine.execute({ type: 'mergeNodes', sourceId: f.ids.S!, targetId: f.ids.P! }));
+    expect(outline(f)).toEqual([['PS', ['S1', 'next']]]);
+  });
+
+  it('mergeNodes into another node appends the children after its own, with their subtrees affected', () => {
+    const f = fixture([['T', ['t1']], ['S', [['S1', ['S1a']]]], 'Z']);
+    const e = effect(f, { type: 'mergeNodes', sourceId: f.ids.S!, targetId: f.ids.T! });
+    expect(new Set(e.affectedNodeIds)).toEqual(new Set([f.ids.S, f.ids.T, f.ids.S1, f.ids.S1a]));
+    ok(f.engine.execute({ type: 'mergeNodes', sourceId: f.ids.S!, targetId: f.ids.T! }));
+    expect(outline(f)).toEqual([['TS', ['t1', ['S1', ['S1a']]]], 'Z']);
+    const g = fixture(['T', ['S', ['S1', 'S2']]]);
+    ok(g.engine.execute({ type: 'mergeNodes', sourceId: g.ids.S!, targetId: g.ids.T! }));
+    expect(outline(g)).toEqual([['TS', ['S1', 'S2']]]);
+  });
+
+  it('mergeNodes without children only changes the target and the source', () => {
+    const f = fixture([['P', ['A', 'B']]]);
+    const e = effect(f, { type: 'mergeNodes', sourceId: f.ids.B!, targetId: f.ids.A! });
+    expect(e.changes.map((c) => c.id)).toEqual([f.ids.A, f.ids.B]);
+    expect(e.changes[1]!.after!.deletedAt).toBe(777);
+    expect(new Set(e.affectedNodeIds)).toEqual(new Set([f.ids.A, f.ids.B, f.ids.P]));
+  });
+
+  it('deleteNode in the middle keeps the children between its neighbours', () => {
+    const f = fixture(['A', ['D', ['D1', ['D2', ['D2a']]]], 'Z']);
+    const e = effect(f, { type: 'deleteNode', id: f.ids.D! });
+    expect(new Set(e.affectedNodeIds)).toEqual(new Set([f.ids.D, f.ids.D1, f.ids.D2, f.ids.D2a]));
+    expect(e.focus).toEqual({ id: f.ids.A, offset: 1 });
+    ok(f.engine.execute({ type: 'deleteNode', id: f.ids.D! }));
+    expect(outline(f)).toEqual(['A', 'D1', ['D2', ['D2a']], 'Z']);
+  });
+
+  it('deleteNode as the first child puts the children first, and focuses the parent', () => {
+    const f = fixture([['Parent', [['D', ['D1']], 'Z']]]);
+    const e = effect(f, { type: 'deleteNode', id: f.ids.D! });
+    expect(e.focus).toEqual({ id: f.ids.Parent, offset: 6 });
+    expect(e.affectedNodeIds).toEqual([f.ids.D, f.ids.Parent, f.ids.D1]);
+    ok(f.engine.execute({ type: 'deleteNode', id: f.ids.D! }));
+    expect(outline(f)).toEqual([['Parent', ['D1', 'Z']]]);
+  });
+
+  it('deleting the only top-level node gives no focus', () => {
+    const f = fixture(['A']);
+    expect(effect(f, { type: 'deleteNode', id: f.ids.A! })).not.toHaveProperty('focus');
+    expect(effect(f, { type: 'deleteSubtree', id: f.ids.A! })).not.toHaveProperty('focus');
+  });
+
+  it('restore reports every restored node and the parent, focused on the node', () => {
+    const f = fixture([['P', [['X', ['X1', 'X2']]]]]);
+    f.engine.execute({ type: 'deleteSubtree', id: f.ids.X! });
+    const e = effect(f, { type: 'restore', id: f.ids.X! });
+    expect(new Set(e.affectedNodeIds)).toEqual(new Set([f.ids.X, f.ids.X1, f.ids.X2, f.ids.P]));
+    expect(e.changes).toHaveLength(3);
+    expect(e.focus).toEqual({ id: f.ids.X, offset: 0 });
+  });
+
+  it('restore keeps the old order when free and moves to the end when another node took it', () => {
+    const f = fixture(['A', 'B', 'C']);
+    const order = f.node('B').order;
+    f.engine.execute({ type: 'deleteSubtree', id: f.ids.B! });
+    expect(effect(f, { type: 'restore', id: f.ids.B! }).changes[0]!.after!.order).toBe(order);
+    const taker = newId();
+    f.engine.applyExternal([{ ...f.node('A'), id: taker, content: 'taker', order }], 'test');
+    ok(f.engine.execute({ type: 'restore', id: f.ids.B! }));
+    expect(f.kids(null)).toEqual(['A', 'taker', 'C', 'B']);
+  });
+
+  it('restore leaves alone other deleted nodes with the same time that are not its descendants', () => {
+    const f = fixture(['A', 'B']);
+    // Both deleted in one batch: one timestamp, separate subtrees.
+    ok(f.engine.batch([{ type: 'deleteSubtree', id: f.ids.A! }, { type: 'deleteSubtree', id: f.ids.B! }]));
+    expect(f.node('A').deletedAt).toBe(f.node('B').deletedAt);
+    ok(f.engine.execute({ type: 'restore', id: f.ids.A! }));
+    expect(f.kids(null)).toEqual(['A']);
+  });
+});
+
+describe('ChangeSet', () => {
+  it('refuses to update an unknown node or create an existing one', () => {
+    const f = fixture(['A']);
+    const cs = new ChangeSet(f.engine.tree, 5);
+    expect(() => cs.update('nope', { content: 'x' })).toThrow('ChangeSet.update: unknown node nope');
+    expect(() => cs.create({ id: f.ids.A!, parentId: null, order: 'a0', content: '', note: '', collapsed: false })).toThrow(`ChangeSet.create: node ${f.ids.A} already exists`);
+  });
+
+  it('coalesces two updates of one node into one change from the original', () => {
+    const f = fixture(['A']);
+    const cs = new ChangeSet(f.engine.tree, 5);
+    cs.update(f.ids.A!, { content: 'x' });
+    cs.update(f.ids.A!, { note: 'n' });
+    expect(cs.list()).toEqual([{ id: f.ids.A, before: f.node('A'), after: { ...f.node('A'), content: 'x', note: 'n', updatedAt: 5 } }]);
+  });
+});
+
+describe('orderFor', () => {
+  it('ignores the node being placed and refuses an unknown anchor', () => {
+    const f = fixture(['A', 'B']);
+    const tree = f.engine.tree;
+    expect(orderFor(tree, null, { before: 'missing' })).toBeNull();
+    expect(orderFor(tree, null, { after: 'missing' })).toBeNull();
+    // Moving A to the front: the slot is before B, not before A itself.
+    const first = orderFor(tree, null, 'first', f.ids.A!)!;
+    expect(first < f.node('B').order).toBe(true);
+    expect(first > orderFor(tree, null, 'first')!).toBe(true);
+  });
+
+  it('parentNodeIds drops nulls and duplicates, keeping order', () => {
+    expect(parentNodeIds(null, 'a', undefined, 'b', 'a')).toEqual(['a', 'b']);
   });
 });

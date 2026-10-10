@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { ancestorIds, descendantIds, isSelfOrDescendant, nextVisible, previousVisible, visibleRows } from './tree';
+import { createTreeStore, readerOf } from '@/store/tree-store';
+import { ancestorIds, descendantIds, isSelfOrDescendant, nextSibling, nextVisible, outlineLines, previousSibling, previousVisible, visibleRows } from './tree';
+import type { Node } from './node';
 import { fixture } from '@/test/helpers';
 
 describe('tree helpers', () => {
@@ -44,4 +46,49 @@ describe('tree helpers', () => {
   function labelOf(id: string): string {
     return engine.tree.get(id)!.content;
   }
+});
+
+describe('sibling and outline helpers', () => {
+  const f = fixture([['A', ['A1', ['A2', ['A2a', 'A2b']], 'A3']], 'B']);
+  const { engine, ids } = f;
+  const tree = engine.tree;
+
+  it('previousSibling / nextSibling stay among siblings', () => {
+    expect(previousSibling(tree, ids.A2!)).toBe(ids.A1);
+    expect(nextSibling(tree, ids.A2!)).toBe(ids.A3);
+    expect(previousSibling(tree, ids.A1!)).toBeNull();
+    expect(nextSibling(tree, ids.A3!)).toBeNull();
+    expect(nextSibling(tree, ids.A!)).toBe(ids.B);
+    expect(previousSibling(tree, ids.B!)).toBe(ids.A);
+    expect(previousSibling(tree, 'missing')).toBeNull();
+    expect(nextSibling(tree, 'missing')).toBeNull();
+  });
+
+  it('visible-row helpers return null for a row that is not shown', () => {
+    expect(previousVisible(tree, null, 'missing')).toBeNull();
+    expect(nextVisible(tree, null, 'missing')).toBeNull();
+    expect(nextVisible(tree, null, ids.A!)).toBe(ids.A1);
+    expect(previousVisible(tree, null, ids.A1!)).toBe(ids.A);
+  });
+
+  it('outlineLines indents by depth, skips empty text but keeps its children, and stops at max', () => {
+    const text = (id: string) => (id === ids.A2 ? '' : tree.get(id)!.content);
+    expect(outlineLines(tree, ids.A!, 10, text)).toEqual(['- A1', '  - A2a', '  - A2b', '- A3']);
+    expect(outlineLines(tree, ids.A!, 2, text)).toEqual(['- A1', '  - A2a']);
+    expect(outlineLines(tree, ids.A!, 0, text)).toEqual([]);
+    expect(outlineLines(tree, ids.B!, 10, text)).toEqual([]);
+    const all = (id: string) => tree.get(id)!.content;
+    expect(outlineLines(tree, ids.A!, 3, all)).toEqual(['- A1', '- A2', '  - A2a']);
+  });
+
+  it('ancestorIds stops at a cycle instead of looping', () => {
+    const node = (id: string, parentId: string | null): Node => ({ id, parentId, order: 'a0', content: id, note: '', collapsed: false, createdAt: 1, updatedAt: 1, deletedAt: null });
+    const store = createTreeStore();
+    store.getState().load([node('x', 'y'), node('y', 'z'), node('z', 'x')]);
+    const cyclic = readerOf(store);
+    expect(ancestorIds(cyclic, 'x')).toEqual(['y', 'z']);
+    store.getState().load([node('t', 'x'), node('x', 'y'), node('y', 'x')]);
+    expect(ancestorIds(cyclic, 't')).toEqual(['x', 'y']);
+    expect(isSelfOrDescendant(cyclic, 'q', 'x')).toBe(false);
+  });
 });
