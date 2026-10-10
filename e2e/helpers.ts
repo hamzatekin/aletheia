@@ -86,3 +86,14 @@ export async function dragBullet(page: Page, src: string, dst: string, yFrac: nu
   await page.mouse.move(target.x + xOffset, target.y + target.height * yFrac, { steps: 12 });
   await page.mouse.up();
 }
+
+/** Hold a finger on the locator (10px in from its left edge) past the app's long-press time, then lift it. */
+export async function longPress(page: Page, target: Locator): Promise<void> {
+  const box = (await target.boundingBox())!;
+  const x = box.x + Math.min(10, box.width / 2);
+  const y = box.y + box.height / 2;
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  await page.waitForTimeout(700);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}

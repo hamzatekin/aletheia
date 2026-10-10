@@ -140,13 +140,13 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
     if (longPress.current) clearTimeout(longPress.current.timer);
   };
 
-  // On phones the bullet opens this menu; leaving the text first closes the keyboard, so the sheet has the screen.
+  // On phones a long press on the bullet opens this menu; leaving the text first closes the keyboard, so the sheet has the screen.
   const bulletMenu = {
     open: menuOpen,
-    toggle: () => {
+    show: () => {
       session.flush();
       ui.blur();
-      ui.setMenu(menuOpen ? null : id);
+      ui.setMenu(id);
     },
   };
 

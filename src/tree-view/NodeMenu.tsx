@@ -55,13 +55,14 @@ export function NodeMenu({ id, hasChildren, sheet = false }: { id: string; hasCh
         ui.setMenu(null);
       }
     };
-    document.addEventListener('pointerdown', onDown, true);
+    // The sheet's backdrop takes taps outside it instead (below).
+    if (!sheet) document.addEventListener('pointerdown', onDown, true);
     window.addEventListener('keydown', onKey, true);
     return () => {
       document.removeEventListener('pointerdown', onDown, true);
       window.removeEventListener('keydown', onKey, true);
     };
-  }, [id, ui]);
+  }, [id, ui, sheet]);
 
   const { tree } = engine;
   const node = tree.get(id);
@@ -165,7 +166,8 @@ export function NodeMenu({ id, hasChildren, sheet = false }: { id: string; hasCh
   if (!sheet) return menu;
   return createPortal(
     <>
-      <div className="fixed inset-0 z-50 bg-black/20" aria-hidden="true" />
+      {/* Closing on the tap's click, not its touch, keeps the backdrop up until the tap ends, so it doesn't fall through to the row below. */}
+      <div className="fixed inset-0 z-50 bg-black/20" aria-hidden="true" onClick={close} />
       {menu}
     </>,
     document.body,
