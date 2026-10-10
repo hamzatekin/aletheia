@@ -15,21 +15,29 @@ Vite · React · TypeScript (strict) · Tailwind · Zustand · Dexie · Vitest
 ```
 src/model         Node type, IDs (UUIDv7), sibling order (fractional indexing),
                   pure tree helpers, Operation type, seed tree, tree repair
-src/store         Zustand store: Map<id, Node> + childrenByParent index
+src/store         Zustand stores: the tree (Map<id, Node> + childrenByParent index),
+                  UI state (focus, selection, menus), appearance settings, note prefs
 src/persistence   Repository interface, Dexie implementation, in-memory implementation
 src/commands      Typed commands, the engine (apply → persist → op log → undo/redo)
-src/editor        Markdown dialect (markdown-it) and sanitized static rendering
+src/editor        The single Tiptap editor session, outliner keymap, slash menu, note
+                  editors, Markdown dialect (markdown-it) and sanitized static rendering
 src/tree-view     Virtualized outline, rows, bullets, breadcrumbs, zoom page;
                   actions/ holds what the page does, one file per group
-src/app           Bootstrap (load + first-run seed) and the engine context
-src/search        MiniSearch index kept current from operations; Ctrl/⌘+K palette
-src/io            Markdown / OPML / JSON export, Markdown / OPML import, file helpers
-src/settings      Settings panel (appearance, sync)
+src/ui            Small shared UI: media queries, hooks, spinner, buttons
+src/app           Bootstrap (load + first-run seed), the engine context, and the
+                  /share and /capture routes (Android share target, Add to Inbox)
+src/search        MiniSearch index kept current from operations; Ctrl/⌘+K palette;
+                  Ctrl/⌘+F in-place filter
+src/io            Markdown / OPML / JSON export and import, clipboard, WorkFlowy and
+                  terminal paste, file helpers
+src/settings      Settings panel (appearance, sync, import & export), sync status
 src/help          Tutorial dialog
 src/sync          Opt-in sync: wire format, outbox, sync service, browser triggers
 src/ai            AI actions (Suggest title) through the Worker's relay proxy
 src/related       Related panel: what else is about an item, and a chat about it
 worker            Cloudflare Worker: the sync API on D1 and the AI proxy (only `/api/*` runs it)
+pwa               Service worker and the Vite plugin that builds it
+e2e               Playwright specs
 ```
 
 ## How a command runs
@@ -61,7 +69,9 @@ flattening. The list is virtualized against the window with
 `@tanstack/react-virtual`; each row subscribes to its own node only.
 
 Routes: `/` is the top level, `/n/:id` zooms into a node (its content becomes
-the title, its children the list). Breadcrumbs walk `parentId` upward.
+the title, its children the list). `/share` (Android's share sheet) and
+`/capture` (the Add to Inbox shortcut and the phone's + button) put a new
+item at the top of the Inbox. Breadcrumbs walk `parentId` upward.
 `Ctrl/⌘+,` zooms out one level.
 
 ## Drag and drop
@@ -116,7 +126,7 @@ notes.
   when back online, every 30s while visible): upload the outbox, download
   everything changed since the saved cursor in pages, merge, repair.
 - **Merge.** Each node is merged in field groups (text, note, position,
-  collapsed, deleted), each with its own last-changed time; the newest change
+  collapsed, starred, deleted), each with its own last-changed time; the newest change
   per group wins, on the server (`worker/sync.ts`, one SQL upsert) and on
   download (local changes not yet uploaded are kept). Moving a node on one
   device and editing it on another both survive; editing the same text on
@@ -192,13 +202,17 @@ Chrome install the app. `pwa/sw.js` is the service worker; on `pnpm build`,
 - Page loads try the network first, so a new deploy shows up on the next
   open; the cached app is used only offline.
 - Built files are precached, so the app opens offline after one online visit.
-- `/api/*` (sync) is never intercepted.
+- `/api/*` (sync and AI) is never intercepted.
+
+The manifest also makes the installed app an Android share target (`/share`)
+and adds an Add to Inbox shortcut (`/capture`).
 
 ## Scripts
 
 ```
 pnpm dev        start the app
-pnpm test       run unit tests (Vitest)
+pnpm preview    serve the production build
+pnpm test       run unit tests (Vitest; test:watch to keep running)
 pnpm test:e2e   run browser tests (Playwright; starts the dev server itself)
 pnpm typecheck  tsc
 pnpm knip       unused files, exports and dependencies
@@ -209,8 +223,8 @@ pnpm build      production build
 ## Deploy (Cloudflare)
 
 The app is a static single-page app with its data in the browser
-(IndexedDB). The only server code is the opt-in sync API in `worker/`, which
-runs for `/api/*` only; everything else is served as static assets, which
+(IndexedDB). The only server code is in `worker/`: the opt-in sync API and
+the AI proxy, which run for `/api/*` only; everything else is served as static assets, which
 don't count toward Worker request limits. Its D1 database (`aletheia-sync`)
 has no `database_id` in `wrangler.jsonc`, so `wrangler deploy` creates it on
 the first deploy.
@@ -227,6 +241,7 @@ since the build has no `404.html`. Don't add a `_redirects` catch-all
 (`/* /index.html 200`); Workers rejects it as an infinite redirect loop.
 
 The browser tests drive the app through `window.__aletheia` (engine, UI
-store, editor session, search index), which dev builds expose. Set
+store, editor session, search index, settings, sync, AI, related), which dev
+builds expose. Set
 `CHROMIUM_PATH` to use a preinstalled Chromium instead of the one Playwright
 downloads.
