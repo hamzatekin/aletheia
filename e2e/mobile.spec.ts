@@ -306,3 +306,55 @@ test('text scrolls under a solid bar behind the top buttons, not through it', as
   expect(hit).toBe('top-bar');
   expect(await bar.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toMatch(/rgba\(.*, 0\)|transparent/);
 });
+
+test('a back arrow beside the breadcrumbs goes up a level, stays pinned at the top when scrolled, and Android back works', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 500 });
+  await gotoHome(page);
+  await page.evaluate(() => {
+    const { engine } = (window as any).__aletheia;
+    const parent = [...engine.tree.all()].find((n: any) => n.content === 'Write the outliner').id;
+    for (let i = 1; i <= 30; i++) engine.execute({ type: 'createNode', id: `long-${i}`, parentId: parent, at: 'last', content: `Step ${i}` });
+  });
+  await row(page, 'Projects').getByRole('link', { name: 'Zoom in' }).first().tap();
+  await expect(page.locator('h1')).toHaveText('Projects');
+  await row(page, 'Write the outliner').getByRole('link', { name: 'Zoom in' }).first().tap();
+  await expect(page.locator('h1')).toHaveText('Write the outliner');
+
+  // The arrow sits in the bullet column, and the first crumb's text lines up with the title's.
+  const back = page.getByTestId('zoom-out');
+  await expect(back).toHaveAttribute('aria-label', 'Back to Projects');
+  const arrow = (await back.boundingBox())!;
+  const bullet = (await row(page, 'Data model').getByRole('link', { name: 'Zoom in' }).boundingBox())!;
+  expect(Math.abs(arrow.x + arrow.width / 2 - (bullet.x + bullet.width / 2))).toBeLessThan(3);
+  expect(arrow.height).toBeGreaterThanOrEqual(36);
+  const home = (await page.getByRole('navigation', { name: 'Breadcrumbs' }).getByRole('link', { name: 'Home' }).evaluate((a) => {
+    const r = document.createRange();
+    r.selectNodeContents(a);
+    return r.getBoundingClientRect().x;
+  }))!;
+  const title = await page.locator('h1').evaluate((h) => {
+    const r = document.createRange();
+    r.selectNodeContents(h);
+    return r.getBoundingClientRect().x;
+  });
+  expect(Math.abs(home - title)).toBeLessThan(1);
+
+  // Scrolled down, the crumbs are gone but the way back stays pinned in the top bar.
+  await expect(page.getByTestId('zoom-out-pinned')).toHaveCount(0);
+  await page.evaluate(() => window.scrollBy(0, 400));
+  const pinned = page.getByTestId('zoom-out-pinned');
+  await expect(pinned).toBeVisible();
+  await expect(pinned).toHaveText('Projects');
+  await pinned.tap();
+  await expect(page.locator('h1')).toHaveText('Projects');
+  // Going up keeps the row you came out of in view.
+  await expect(row(page, 'Write the outliner')).toBeInViewport();
+
+  // Android's back gesture is the browser's back: it returns to the page before.
+  await page.goBack();
+  await expect(page.locator('h1')).toHaveText('Write the outliner');
+  await page.getByTestId('zoom-out').tap();
+  await expect(page.locator('h1')).toHaveText('Projects');
+  await page.getByTestId('zoom-out').tap();
+  await expect(page).toHaveURL('/');
+});

@@ -496,3 +496,8 @@ html { scroll-padding-top: 4rem; }
 @media (max-width: 639px) and (pointer: coarse) {
   .page-star { left: -1.75rem; }
 }
+/* The back arrow sits in the same gutter column as the star, beside the crumbs. */
+.crumbs-back { left: -2.4rem; top: 50%; width: 1.75rem; height: 1.75rem; margin-top: -0.875rem; }
+@media (max-width: 639px) and (pointer: coarse) {
+  .crumbs-back { left: -1.75rem; height: 2.5rem; margin-top: -1.25rem; border-radius: 0.5rem; }
+}
