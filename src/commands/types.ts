@@ -22,6 +22,9 @@ export type Command =
   | { type: 'deleteNode'; id: string }
   | { type: 'restore'; id: string };
 
+/** The command of one type, e.g. `CommandOf<'indent'>`. */
+export type CommandOf<T extends Command['type']> = Extract<Command, { type: T }>;
+
 export interface CommandContext {
   tree: TreeReader;
   now: number;

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { edit, focused, gotoHome, outline, row, rowCount } from './helpers';
+import { edit, focused, gotoHome, openNodeMenu, outline, row, rowCount } from './helpers';
 
 test.beforeEach(async ({ page }) => gotoHome(page));
 
@@ -99,15 +99,12 @@ test('the top-bar button and Ctrl+Shift+. collapse and expand everything on the 
 });
 
 test('the node menu collapses and expands everything inside one node', async ({ page }) => {
-  const projects = page.locator('[data-node-id]', { hasText: 'Projects' }).first();
-  await projects.hover();
-  await projects.getByTestId('drag-grip').click();
+  await openNodeMenu(page, 'Projects');
   await page.getByTestId('node-menu-collapse-all').click();
   await expect(page.locator('[data-node-id]', { hasText: 'Write the outliner' })).toHaveCount(0);
   // Other top-level nodes stay open.
   await expect(page.locator('[data-node-id]', { hasText: 'Learn to juggle' })).toHaveCount(1);
-  await projects.hover();
-  await projects.getByTestId('drag-grip').click();
+  await openNodeMenu(page, 'Projects');
   await page.getByTestId('node-menu-expand-all').click();
   await expect(page.locator('[data-node-id]', { hasText: 'Drag and drop' })).toHaveCount(1);
 });

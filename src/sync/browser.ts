@@ -9,22 +9,17 @@ const POLL_MS = 30_000;
  */
 export function watchBrowser(sync: SyncService): () => void {
   const visible = () => document.visibilityState === 'visible';
-  const onVisible = () => {
-    if (visible()) void sync.sync();
-  };
+  // Shown again: get edits from other devices. Hidden (switching apps on a
+  // phone): upload right away.
+  const onVisibility = () => void sync.sync();
   const onOnline = () => void sync.sync();
-  // Upload right away when the tab is hidden (switching apps on a phone).
-  const onHidden = () => {
-    if (!visible()) void sync.sync();
-  };
   // A sync link pasted into the address bar of an open tab.
   const onHash = () => {
     const key = takeKeyFromLocation();
     if (key) sync.setPendingJoin(key);
   };
   window.addEventListener('hashchange', onHash);
-  document.addEventListener('visibilitychange', onVisible);
-  document.addEventListener('visibilitychange', onHidden);
+  document.addEventListener('visibilitychange', onVisibility);
   window.addEventListener('online', onOnline);
   const timer = setInterval(() => {
     if (visible() && navigator.onLine) void sync.sync();
@@ -40,8 +35,7 @@ export function watchBrowser(sync: SyncService): () => void {
   });
   return () => {
     offState();
-    document.removeEventListener('visibilitychange', onVisible);
-    document.removeEventListener('visibilitychange', onHidden);
+    document.removeEventListener('visibilitychange', onVisibility);
     window.removeEventListener('online', onOnline);
     window.removeEventListener('hashchange', onHash);
     clearInterval(timer);

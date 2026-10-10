@@ -61,15 +61,15 @@ export function nextSibling(tree: TreeReader, id: string): string | null {
   return i >= 0 && i < sibs.length - 1 ? sibs[i + 1]! : null;
 }
 
-/**
- * Flatten the visible tree under `rootId` (children of the root, recursively,
- * skipping collapsed subtrees). `null` = the whole top level.
- */
 export interface VisibleRow {
   id: string;
   depth: number;
 }
 
+/**
+ * Flatten the visible tree under `rootId` (children of the root, recursively,
+ * skipping collapsed subtrees). `null` = the whole top level.
+ */
 export function visibleRows(tree: TreeReader, rootId: string | null): VisibleRow[] {
   const out: VisibleRow[] = [];
   const stack: VisibleRow[] = [];
@@ -97,4 +97,23 @@ export function nextVisible(tree: TreeReader, rootId: string | null, id: string)
   const rows = visibleRows(tree, rootId);
   const i = rows.findIndex((r) => r.id === id);
   return i >= 0 && i < rows.length - 1 ? rows[i + 1]!.id : null;
+}
+
+/**
+ * The descendants of `id` as an indented Markdown-style list ("  - text"), in
+ * document order, cut after `max` lines. Rows whose `text` is empty are left
+ * out (their children still count).
+ */
+export function outlineLines(tree: TreeReader, id: string, max: number, text: (id: string) => string): string[] {
+  const lines: string[] = [];
+  const walk = (parent: string, depth: number) => {
+    for (const c of tree.children(parent)) {
+      if (lines.length >= max) return;
+      const t = text(c);
+      if (t !== '') lines.push(`${'  '.repeat(depth)}- ${t}`);
+      walk(c, depth + 1);
+    }
+  };
+  walk(id, 0);
+  return lines;
 }

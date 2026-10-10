@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router';
 import { useUiStore } from '@/store/ui-store';
 import { useOutline } from './outline-context';
-import { useCoarsePointer } from './use-coarse-pointer';
+import { useCoarsePointer } from '@/ui/media';
 
 /**
  * The round + at the bottom right of a phone, like WorkFlowy's and Dynalist's

@@ -12,7 +12,6 @@ export interface Fixture {
   /** Content labels of live children of `label` (or top level for null). */
   kids(label: string | null): string[];
   node(label: string): Node;
-  tick(): number;
 }
 
 /** Fake clock: each call advances by 1s so timestamps are distinct and deterministic. */
@@ -51,7 +50,6 @@ export function fixture(spec: Spec[] = []): Fixture {
       if (!n) throw new Error(`no node ${label}`);
       return n;
     },
-    tick: clock,
   };
 }
 

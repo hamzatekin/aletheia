@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { gotoHome } from './helpers';
+import { gotoHome, reloadApp } from './helpers';
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -10,8 +10,7 @@ test('settings change the look live and survive a reload', async ({ page }) => {
   await page.getByLabel('Font size').fill('22');
   const row = page.locator('.row-text').first();
   await expect(row).toHaveCSS('font-size', '22px');
-  await page.reload();
-  await page.locator('[data-testid=outline]').waitFor();
+  await reloadApp(page);
   await expect(page.locator('.row-text').first()).toHaveCSS('font-size', '22px');
   await expect(page.locator('.book-page')).toHaveCSS('background-color', 'rgb(245, 236, 217)');
 });

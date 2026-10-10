@@ -7,9 +7,9 @@ import { subtreeItems } from '@/io/clipboard';
 import { formatTerminalContent, formatTerminalNote } from '@/io/terminal';
 import type { TreeReader } from '@/model';
 import { isNoteCollapsed, notePrefs, useNotePrefs } from '@/store/note-prefs';
+import { isMac } from '@/ui/media';
 import { useOutline } from './outline-context';
 
-const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 const MOD = isMac ? '⌘' : 'Ctrl+';
 const ALT = isMac ? '⌥' : 'Alt+';
 

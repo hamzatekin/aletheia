@@ -1,7 +1,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import type { Engine } from '@/commands';
 import type { EditorSession } from '@/editor/session';
-import { AiError, type Complete } from './client';
+import { AI_NEEDS_SYNC, AiError, type Complete } from './client';
 import { cleanTitle, titlePrompt } from './suggest-title';
 
 /** What the AI notice at the top of the page shows. */
@@ -64,7 +64,7 @@ export function createAiService({ engine, session, key, complete }: Deps): AiSer
     dismiss: () => show(null),
     async suggestTitle(id) {
       const k = key();
-      if (!k) return show({ kind: 'error', text: 'Turn on sync in Settings to use AI on this device.' });
+      if (!k) return show({ kind: 'error', text: AI_NEEDS_SYNC });
       if (state.getState().busy.has(id)) return;
       session.flush();
       const prompt = titlePrompt(engine.tree, id);

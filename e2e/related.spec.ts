@@ -1,15 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { edit, gotoHome, longPress, outline, row } from './helpers';
-
-const KEY = 'k'.repeat(43);
-
-/** Pretend sync is on (the AI proxy only answers devices with a sync key); the sync API itself is stubbed out. */
-async function syncOn(page: Page) {
-  await page.route('**/api/sync/**', (route) => route.fulfill({ status: 503, json: { error: 'stub' } }));
-  await page.evaluate((key) => (window as any).__aletheia.sync.state.setState({ key, status: 'idle' }), KEY);
-}
-
-type Spec = string | [string, Spec[]];
+import { edit, gotoHome, longPress, outline, row, syncOn, type Spec } from './helpers';
 
 /** Add a small, realistic outline at the top of Home; returns each row's id by its text. */
 async function build(page: Page): Promise<Record<string, string>> {

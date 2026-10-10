@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { focused, gotoHome, longPress, outline, row } from './helpers';
+import { focused, gotoHome, longPress, nodeByText, outline, row, syncOn } from './helpers';
 
 // A phone: touch screen, no hover, no Tab key.
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
@@ -143,8 +143,7 @@ test('a long press on a bullet while editing closes the keyboard and opens the m
   expect(await focused(page)).toBeNull();
   await page.getByTestId('node-menu-star').tap();
   await expect(page.getByTestId('node-menu')).toHaveCount(0);
-  const starred = await page.evaluate(() => [...(window as any).__aletheia.engine.tree.all()].find((n: any) => n.content === 'Learn to juggle')?.starredAt);
-  expect(starred).toEqual(expect.any(Number));
+  expect((await nodeByText(page, 'Learn to juggle'))?.starredAt).toEqual(expect.any(Number));
 });
 
 test('a tap outside the menu only closes it: the line or bullet under the finger is left alone', async ({ page }) => {
@@ -232,8 +231,7 @@ async function settled(locator: Locator) {
 
 test('the top-right buttons sit side by side without overlapping, with sync on too', async ({ page }) => {
   await gotoHome(page);
-  await page.route('**/api/sync/**', (route) => route.fulfill({ status: 503, json: { error: 'stub' } }));
-  await page.evaluate(() => (window as any).__aletheia.sync.state.setState({ key: 'k'.repeat(43), status: 'idle' }));
+  await syncOn(page);
   await expect(page.getByTestId('sync-indicator')).toBeVisible();
   const boxes = await page.locator('.top-icon').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().toJSON() as DOMRect));
   expect(boxes.length).toBe(6);

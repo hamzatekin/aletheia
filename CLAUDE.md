@@ -20,9 +20,13 @@ pnpm build      production build (tsc -b, then vite build)
 pnpm dev        dev server on :5173
 ```
 
-- In the cloud container, run e2e with
-  `CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome pnpm test:e2e`
-  (the bundled Playwright browser is not installed there).
+- Claude Code cloud sessions run `.claude/hooks/session-start.sh`, which
+  installs dependencies and sets `CHROMIUM_PATH` to the container's Chromium
+  (the browser Playwright wants is not installed there). If `CHROMIUM_PATH`
+  is unset, use
+  `CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome pnpm test:e2e`.
+- `pnpm test:e2e e2e/foo.spec.ts` runs one spec; add `--repeat-each 3` to
+  check whether a failure is a flake.
 - Sync API locally: `pnpm build && npx wrangler dev` (serves on :8787; `pnpm dev`
   proxies `/api` to it).
 - There is no CI on GitHub. The "Workers Builds: aletheia" check fails
@@ -35,26 +39,30 @@ pnpm dev        dev server on :5173
 ## Where things are
 
 ```
-src/main.tsx          wires everything: repository, engine, stores, session, search, sync
+src/main.tsx          wires everything: repository, engine, stores, session, search, sync, AI, related
 src/App.tsx           routes: /, /n/:id (zoom), /share, /capture
 src/model/            Node type, ids, order keys, pure tree helpers, seed tree, tree repair
 src/commands/         typed commands: pure effect functions + the engine (undo/redo, persist)
 src/persistence/      Repository interface; Dexie (IndexedDB) and in-memory implementations
 src/store/            zustand stores: tree (nodes), ui (focus, selection, menus), settings, note prefs
-src/editor/           the single Tiptap editor (session.ts), keymap, Markdown dialect, slash menu
-src/tree-view/        the outline page, rows, sidebar, mobile toolbar, drag and drop
+src/editor/           the single Tiptap editor (session.ts), keymap, Markdown dialect, slash menu, note editors
+src/tree-view/        the outline page: rows, bullets, node menu, breadcrumbs, top bar, sidebars,
+                      mobile toolbar, drag and drop; layout.ts has row geometry and long-press timing
 src/tree-view/actions/  everything the page does, one file per group (see index.ts)
+src/ui/               small shared UI: media queries (isWide, useCoarsePointer, isMac), hooks
+                      (useEscToClose, useTick, useKeyboardInset), Spinner, Button, ago()
 src/search/           Ctrl+K palette (MiniSearch) and Ctrl+F in-place filter
 src/io/               Markdown / OPML / JSON import and export, clipboard, WorkFlowy and terminal paste
-src/sync/             opt-in sync client: wire format, outbox, service, tabs, clock
-src/settings/         Settings panel (appearance, sync)
+src/sync/             opt-in sync client: wire format, outbox, service, tabs, clock, browser triggers
+src/settings/         Settings panel (appearance, sync, import/export), sync status at the top right
 src/ai/               AI actions (Suggest title) via the Worker's proxy to the Claude relay
 src/related/          Related panel: rows elsewhere about an item (text matches, then AI), chat about it
 src/help/             tutorial dialog (lists every shortcut)
-src/app/              bootstrap, engine context, capture route (share target, Add to Inbox, the phone + button)
-worker/               Cloudflare Worker: only /api/* runs it; sync API on D1, AI proxy (ai.ts)
+src/app/              bootstrap, engine context, /share and /capture (share target, Add to Inbox)
+worker/               Cloudflare Worker: only /api/* runs it; sync API on D1 (sync.ts), AI proxy (ai.ts)
 pwa/                  service worker and the Vite plugin that builds it
 e2e/                  Playwright specs; helpers.ts drives the app via window.__aletheia
+.claude/              cloud session hook (installs deps, sets CHROMIUM_PATH)
 ```
 
 ## How data flows
@@ -87,18 +95,26 @@ the tree while a row may be mid-edit; the existing actions show the pattern.
   The "/" menu only inserts into the text being edited (formats, note blocks,
   AI). Node actions go in `tree-view/NodeMenu.tsx`; app-wide ones (import,
   export) in `settings/DataSection.tsx`.
-- **New synced node field**: follow `starredAt`. Add it to `Node` and
-  `NodeFields`, give it a group in `sync/wire.ts` (`GROUPS`), handle it in
-  `sync/outbox.ts` and `engine.ts` (`sameNode`), and add a D1 column plus its
-  migration in `worker/sync.ts` (`ensureSchema`). Old clients without the field
-  must still be accepted.
+- **New synced node field**: follow `starredAt` (grep for it). Add it to
+  `Node` and `NodeFields`; give it a group in `sync/wire.ts` (`GROUPS`) and
+  handle it in `changedGroups`, `toWire`, `tombstone`, `fromWire` and
+  `overlayPending`; compare it in `engine.ts` (`sameNode`). In
+  `worker/sync.ts` add the columns to the schema and `ADDED_COLUMNS` (for
+  existing databases), `UPSERT`, `GROUP_COLUMNS`, the pull row mapping and
+  push validation. Old clients without the field must still be accepted.
 - **New AI action**: prompt builder beside `ai/suggest-title.ts`, a method on
   the service in `ai/service.ts`, then entries in `ai/slash-commands.ts` and
   `tree-view/NodeMenu.tsx`. The Worker proxy (`worker/ai.ts`) only answers
   devices with a sync key and needs the `CLAUDE_RELAY_TOKEN` secret; never
   commit the token.
-- **New appearance setting**: `store/settings-store.ts` (saved in localStorage,
-  per device), UI in `settings/SettingsPanel.tsx`.
+- **New appearance setting**: in `store/settings-store.ts` (saved in
+  localStorage, per device) add it to `Settings` and `DEFAULT_SETTINGS`, to
+  `sanitize` (it drops unknown keys, so a setting missing there never
+  persists), to `LIMITS` if numeric, and apply it in `applySettings`. UI in
+  `settings/SettingsPanel.tsx`.
+- **Shared UI bit** (a media query, a small hook, a widget used by more than
+  one folder): put it in `src/ui/` rather than importing across feature
+  folders.
 
 ## Conventions
 
@@ -110,7 +126,9 @@ the tree while a row may be mid-edit; the existing actions show the pattern.
 - Comments say why, briefly. Most functions have a one-line doc comment.
 - Tests sit next to the code (`foo.test.ts`). User-visible behavior gets an
   e2e spec in `e2e/`; the tests read the app through `window.__aletheia`
-  (dev builds only) and `data-testid` attributes.
+  (dev builds only) and `data-testid` attributes. Reuse `e2e/helpers.ts`
+  (`gotoHome`, `row`, `edit`, `nodeByText`, `openNodeMenu`, `reloadApp`,
+  `syncOn`, `longPress`, `dragBullet`, ...) before writing new setup code.
 - For any feature, check how WorkFlowy and Dynalist do it (desktop and phone)
   and follow them. The owner uses the app on desktop and on an Android phone,
   so check touch layouts too (`useCoarsePointer`).
@@ -127,3 +145,9 @@ the tree while a row may be mid-edit; the existing actions show the pattern.
   index skips deleted nodes. Only undoing a creation removes a node physically.
 - Sibling order uses fractional index keys (`model/order.ts`); equal keys sort
   by id.
+- `pnpm build` prints two harmless warnings: Lightning CSS doesn't know
+  `::highlight(search)` (the CSS Custom Highlight API, used by Ctrl+F), and the
+  main chunk is over 500 kB.
+- The e2e test "a tap outside the menu only closes it" (`e2e/mobile.spec.ts`)
+  sometimes fails when the whole suite runs in parallel and passes on a
+  re-run of that file.

@@ -1,12 +1,10 @@
 import { descendantIds, isLive, orderBetween, type Node } from '@/model';
 import { ChangeSet } from './changes';
 import { orderFor, parentNodeIds, unique } from './position';
-import { Rejection, type Command, type CommandContext, type Effect } from './types';
-
-type Of<T extends Command['type']> = Extract<Command, { type: T }>;
+import { Rejection, type CommandContext, type CommandOf, type Effect } from './types';
 
 /** Soft-delete `id` and every live descendant with the same timestamp. */
-export function deleteSubtree(ctx: CommandContext, cmd: Of<'deleteSubtree'>): Effect | Rejection {
+export function deleteSubtree(ctx: CommandContext, cmd: CommandOf<'deleteSubtree'>): Effect | Rejection {
   const { tree } = ctx;
   const node = tree.get(cmd.id);
   if (!isLive(node)) return new Rejection('node is missing or deleted');
@@ -25,7 +23,7 @@ export function deleteSubtree(ctx: CommandContext, cmd: Of<'deleteSubtree'>): Ef
  * Soft-delete `id` alone: its children move up to its parent and take its
  * slot, keeping their order.
  */
-export function deleteNode(ctx: CommandContext, cmd: Of<'deleteNode'>): Effect | Rejection {
+export function deleteNode(ctx: CommandContext, cmd: CommandOf<'deleteNode'>): Effect | Rejection {
   const { tree } = ctx;
   const node = tree.get(cmd.id);
   if (!isLive(node)) return new Rejection('node is missing or deleted');
@@ -61,7 +59,7 @@ function focusAfterDelete(ctx: CommandContext, node: Node): Effect['focus'] | nu
  * in the same operation (same `deletedAt`). Descendants deleted earlier stay
  * deleted. If the parent is gone, the node is re-attached at the top level.
  */
-export function restore(ctx: CommandContext, cmd: Of<'restore'>): Effect | Rejection {
+export function restore(ctx: CommandContext, cmd: CommandOf<'restore'>): Effect | Rejection {
   const { tree } = ctx;
   const node = tree.get(cmd.id);
   if (!node) return new Rejection('node not found');

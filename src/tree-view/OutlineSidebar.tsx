@@ -5,13 +5,13 @@ import { plainText } from '@/editor/markdown';
 import { ancestorIds, parentKey } from '@/model';
 import { useSettings, type SettingsStore } from '@/store/settings-store';
 import { useTreeStore } from '@/store/tree-store';
+import { isWide } from '@/ui/media';
 import { useOutline } from './outline-context';
 import { useNode } from './use-outline';
 import { StarIcon, useStarred } from './Star';
 
 interface Props {
   settings: SettingsStore;
-  rootId: string | null;
 }
 
 interface SidebarContext {
@@ -30,9 +30,8 @@ function useChildren(id: string | null): readonly string[] {
 }
 
 /** The whole document as a clickable table of contents. Clicking an item zooms into it. */
-export function OutlineSidebar({ settings, rootId }: Props) {
-  const engine = useEngine();
-  const { ui, session } = useOutline();
+export function OutlineSidebar({ settings }: Props) {
+  const { engine, actions, rootId } = useOutline();
   const open = useSettings(settings, (s) => s.sidebarOpen);
   const depthLimit = useSettings(settings, (s) => s.outlineDepth);
   const structureVersion = useTreeStore(engine.store, (s) => s.structureVersion);
@@ -48,7 +47,7 @@ export function OutlineSidebar({ settings, rootId }: Props) {
 
   // Below the wide breakpoint the sidebar floats over the page: close it after picking an item.
   const closeIfNarrow = (e: MouseEvent) => {
-    if ((e.target as HTMLElement).closest('a') && !window.matchMedia('(min-width: 1024px)').matches) {
+    if ((e.target as HTMLElement).closest('a') && !isWide()) {
       settings.getState().update({ sidebarOpen: false });
     }
   };
@@ -110,11 +109,7 @@ export function OutlineSidebar({ settings, rootId }: Props) {
         <div className="border-t border-line p-2">
           <button
             type="button"
-            onClick={() => {
-              session.flush();
-              ui.blur();
-              ui.setHelpOpen(true);
-            }}
+            onClick={() => actions.toggleHelp(true)}
             className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-muted hover:bg-hover"
           >
             <span className="flex size-4 items-center justify-center rounded-full border border-current text-[10px] font-semibold">?</span>

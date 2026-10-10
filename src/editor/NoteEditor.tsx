@@ -190,11 +190,7 @@ function RawNoteEditor({ id }: Props) {
     const el = e.currentTarget;
     const before = el.value.slice(0, el.selectionStart);
     const after = el.value.slice(el.selectionEnd);
-    if (e.key === 'Escape' || (e.key === 'Enter' && e.shiftKey)) {
-      e.preventDefault();
-      save(el.value);
-      ui.focusNode(id, { kind: 'end' });
-    } else if (e.key === 'ArrowUp' && !before.includes('\n')) {
+    if (e.key === 'Escape' || (e.key === 'Enter' && e.shiftKey) || (e.key === 'ArrowUp' && !before.includes('\n'))) {
       e.preventDefault();
       save(el.value);
       ui.focusNode(id, { kind: 'end' });

@@ -1,6 +1,6 @@
 import { plainText } from '@/editor/markdown';
 import type { OutlineItem } from '@/io';
-import { ancestorIds, descendantIds, type TreeReader } from '@/model';
+import { ancestorIds, descendantIds, outlineLines, type TreeReader } from '@/model';
 import { excludedIds, pathText, type RelatedItem } from './find';
 
 /** Budget for the outline sent to find related rows: shallow rows first, deeper ones cut. */
@@ -22,17 +22,7 @@ const rowText = (tree: TreeReader, id: string) => one(plainText(tree.get(id)?.co
 
 /** The item's children and deeper rows as an indented list. */
 function subtreeLines(tree: TreeReader, id: string, max: number, indent = ''): string[] {
-  const lines: string[] = [];
-  const walk = (parent: string, depth: number) => {
-    for (const c of tree.children(parent)) {
-      if (lines.length >= max) return;
-      const text = rowText(tree, c);
-      if (text !== '') lines.push(`${indent}${'  '.repeat(depth)}- ${text}`);
-      walk(c, depth + 1);
-    }
-  };
-  walk(id, 0);
-  return lines;
+  return outlineLines(tree, id, max, (c) => rowText(tree, c)).map((line) => indent + line);
 }
 
 /** Title, note and the rows under the item, as the prompts describe it. */

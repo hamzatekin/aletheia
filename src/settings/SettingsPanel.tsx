@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import {
   FONTS,
   LIMITS,
@@ -13,6 +13,7 @@ import { notePrefs, useNotePrefs } from '@/store/note-prefs';
 import type { SyncService } from '@/sync/service';
 import { useUiStore, type UiStore } from '@/store/ui-store';
 import { SidebarIcon } from '@/tree-view/OutlineSidebar';
+import { useEscToClose } from '@/ui/hooks';
 import { DataSection } from './DataSection';
 import { SyncSection } from './SyncSection';
 
@@ -27,8 +28,6 @@ const THEME_OPTIONS: { id: ThemeId; label: string }[] = [
   ...Object.entries(THEMES).map(([id, t]) => ({ id: id as ThemeId, label: t.label })),
   { id: 'custom', label: 'Custom' },
 ];
-
-const WIDE = '(min-width: 1024px)';
 
 /**
  * Gear button plus a sidebar on the right with every look-and-feel setting.
@@ -53,20 +52,7 @@ export function SettingsPanel({ settings, ui, sync }: Props) {
   const update = (patch: Partial<Settings>) => s.update(patch);
   const notesCollapsed = useNotePrefs((n) => n.collapsedByDefault);
 
-  // Esc closes the drawer; when docked, only while focus is in the panel, so it
-  // still clears a selection or ends editing on the page.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      if (window.matchMedia(WIDE).matches && !panelRef.current?.contains(e.target as Node)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      ui.setSettingsOpen(false);
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [open, ui]);
+  useEscToClose(open, panelRef, useCallback(() => ui.setSettingsOpen(false), [ui]));
 
   return (
     <>

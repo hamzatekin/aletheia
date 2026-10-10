@@ -5,9 +5,8 @@ import { exportJson, exportMarkdown, exportOpml, parseBackup } from '@/io/export
 import { countItems, importAsTopNode, importTitle, parseMarkdownOutline, parseOpml } from '@/io/import';
 import type { OutlineItem } from '@/io/types';
 import { useOutline } from '@/tree-view/outline-context';
-import { Button } from './SyncSection';
-
-const WIDE = '(min-width: 1024px)';
+import { isWide } from '@/ui/media';
+import { Button } from '@/ui/widgets';
 
 /**
  * Import, export and backup: they act on the whole outline, so they live here
@@ -23,7 +22,7 @@ export function DataSection() {
   const showHome = () => {
     navigate('/');
     window.scrollTo(0, 0);
-    if (!window.matchMedia(WIDE).matches) ui.setSettingsOpen(false);
+    if (!isWide()) ui.setSettingsOpen(false);
   };
 
   const importFile = async (accept: string, parse: (text: string) => OutlineItem[]) => {

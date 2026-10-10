@@ -1,18 +1,18 @@
-import { useEffect, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { useStore } from 'zustand';
 import { plainText } from '@/editor/markdown';
 import { renderBlock, renderInline } from '@/editor/render';
 import { useTreeStore } from '@/store/tree-store';
-import { useKeyboardInset } from '@/tree-view/MobileToolbar';
 import { useOutline } from '@/tree-view/outline-context';
 import { SidebarIcon } from '@/tree-view/OutlineSidebar';
+import { useEscToClose, useKeyboardInset } from '@/ui/hooks';
+import { isWide } from '@/ui/media';
+import { Spinner } from '@/ui/widgets';
 import type { RelatedItem } from './find';
 import { pathText } from './find';
 import { linkCitations } from './prompts';
 import type { RelatedService, Turn } from './service';
-
-const WIDE = '(min-width: 1024px)';
 
 /** One-tap questions: the actions the panel offers, as prompts for the same chat. */
 const QUICK: { label: string; question: string }[] = [
@@ -20,10 +20,6 @@ const QUICK: { label: string; question: string }[] = [
   { label: 'What do I know?', question: 'Sum up what my notes already say about this, in a few bullets.' },
   { label: 'Duplicates?', question: 'Do any of these rows repeat this item or each other? Say which, and how you would merge them.' },
 ];
-
-function Spinner() {
-  return <span className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-faint border-t-transparent" aria-hidden="true" />;
-}
 
 /** Three linked dots: the icon for related items. */
 export function RelatedIcon() {
@@ -90,18 +86,7 @@ export function RelatedPanel({ related }: { related: RelatedService }) {
   const [peek, setPeek] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false);
 
-  useEffect(() => {
-    if (!s.open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      if (window.matchMedia(WIDE).matches && !panelRef.current?.contains(e.target as Node)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      related.hide();
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [s.open, related]);
+  useEscToClose(s.open, panelRef, useCallback(() => related.hide(), [related]));
 
   const turns = s.chat.turns.length;
   useEffect(() => {
@@ -119,7 +104,7 @@ export function RelatedPanel({ related }: { related: RelatedService }) {
 
   const go = (rid: string) => {
     navigate(`/n/${rid}`);
-    if (!window.matchMedia(WIDE).matches) related.hide();
+    if (!isWide()) related.hide();
   };
   const send = (question: string, label?: string) => {
     if (question.trim() === '' || s.chat.busy) return;
@@ -346,7 +331,6 @@ function AiStatus({ related, ai }: { related: RelatedService; ai: boolean }) {
         <Spinner /> Looking again…
       </p>
     );
-  if (found.status !== 'done' && found.status !== 'error') return null;
   if (found.status === 'error')
     return (
       <p className="mt-2 text-xs text-danger" role="alert">

@@ -1,5 +1,5 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import { AiError, type Complete } from '@/ai/client';
+import { AI_NEEDS_SYNC, AiError, type Complete } from '@/ai/client';
 import type { Engine } from '@/commands';
 import type { EditorSession } from '@/editor/session';
 import { importCommands } from '@/io';
@@ -282,7 +282,7 @@ export function createRelatedService({ engine, session, search, key, complete }:
       if (!id || q === '' || !live(id)) return;
       const chat = chats.get(id) ?? emptyChat();
       if (chat.busy) return;
-      if (!k) return setChat(id, { ...chat, error: 'Turn on sync in Settings to use AI on this device.' });
+      if (!k) return setChat(id, { ...chat, error: AI_NEEDS_SYNC });
       session.flush();
       const rows = list().map((r) => r.id);
       const history = chat.turns;

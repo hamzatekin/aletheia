@@ -29,18 +29,19 @@ export function entriesForChanges(changes: readonly NodeChange[], at: number): O
 /** Outbox entries that upload every group of these nodes, stamped with each node's last change. */
 export function entriesForAll(nodes: Iterable<Node>): OutboxEntry[] {
   const out: OutboxEntry[] = [];
-  for (const n of nodes) {
-    const t: Partial<GroupTimes> = {};
-    for (const g of GROUPS) t[g] = n.updatedAt;
-    out.push({ nodeId: n.id, t, node: n });
-  }
+  for (const n of nodes) out.push({ nodeId: n.id, t: allGroups(n.updatedAt), node: n });
   return out;
+}
+
+/** Every group stamped with the same time. */
+function allGroups(at: number): GroupTimes {
+  return Object.fromEntries(GROUPS.map((g) => [g, at])) as GroupTimes;
 }
 
 /** Entries after a wholesale replace: every new node, plus deletions for nodes that are gone. */
 export function entriesForReplace(oldIds: Iterable<string>, nodes: readonly Node[], at: number): OutboxEntry[] {
   const keep = new Set(nodes.map((n) => n.id));
-  const out: OutboxEntry[] = nodes.map((n) => ({ nodeId: n.id, t: { content: at, note: at, pos: at, collapsed: at, starred: at, deleted: at }, node: n }));
+  const out: OutboxEntry[] = nodes.map((n) => ({ nodeId: n.id, t: allGroups(at), node: n }));
   for (const id of oldIds) if (!keep.has(id)) out.push({ nodeId: id, t: { deleted: at }, node: null });
   return out;
 }

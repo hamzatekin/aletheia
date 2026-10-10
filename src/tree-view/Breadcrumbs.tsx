@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { plainText } from '@/editor/markdown';
-import { useCoarsePointer } from './use-coarse-pointer';
+import { isMac, useCoarsePointer } from '@/ui/media';
 import { useAncestors } from './use-outline';
 
 interface Props {
@@ -11,7 +11,6 @@ interface Props {
 /** The phone top bar's height (3.25rem); see .top-bar in index.css. */
 const TOP_BAR_PX = 52;
 
-const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
 /**
  * Home › ancestor › ancestor, starting where the title's text starts. Clicking

@@ -1,6 +1,9 @@
 /** Ask the Worker's AI proxy (`/api/ai/complete`) for a completion. */
 export type Complete = (key: string, prompt: string) => Promise<string>;
 
+/** Shown when AI is asked for on a device without sync (the proxy only answers sync keys). */
+export const AI_NEEDS_SYNC = 'Turn on sync in Settings to use AI on this device.';
+
 /** The AI proxy or the network failed; `message` is fit to show. */
 export class AiError extends Error {}
 

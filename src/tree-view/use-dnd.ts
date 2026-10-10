@@ -6,7 +6,7 @@ import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine';
 import { attachInstruction, extractInstruction } from '@atlaskit/pragmatic-drag-and-drop-hitbox/tree-item';
 import { plainText } from '@/editor/markdown';
 import { canDropOn, DRAG_TYPE, isDragData, itemMode, resolveInstruction } from './dnd';
-import { INDENT_PX } from './Row';
+import { INDENT_PX } from './layout';
 import { useOutline } from './outline-context';
 
 /** Make the bullet (and the grip left of it) drag the node, and the row accept drops. */

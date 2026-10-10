@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { focused, gotoHome } from './helpers';
+import { focused, gotoHome, nodeByText, row } from './helpers';
 
 test.beforeEach(async ({ page }) => gotoHome(page));
 
@@ -32,16 +32,12 @@ test('a match hides its children until opened; toggling does not change the outl
   await page.getByRole('button', { name: 'Search' }).click();
   await page.keyboard.type('someday');
   await expect.poll(() => rows(page)).toEqual(['Someday']);
-  const someday = page.locator('[data-node-id]', { hasText: 'Someday' }).first();
+  const someday = row(page, 'Someday');
   await expect(someday.locator('.bullet-collapsed')).toHaveCount(1);
   await someday.hover();
   await someday.getByRole('button', { name: 'Expand' }).click();
   await expect.poll(() => rows(page)).toEqual(['Someday', 'Learn to juggle', 'Plant a tree']);
-  const collapsed = await page.evaluate(() => {
-    const { engine } = (window as any).__aletheia;
-    return [...engine.tree.all()].find((n: any) => n.content === 'Someday').collapsed;
-  });
-  expect(collapsed).toBe(false);
+  expect((await nodeByText(page, 'Someday'))!.collapsed).toBe(false);
 });
 
 test('Enter edits the first match, and edited rows stay while the search is on', async ({ page }) => {
@@ -62,7 +58,7 @@ test('Enter edits the first match, and edited rows stay while the search is on',
 test('zooming leaves the search', async ({ page }) => {
   await page.keyboard.press('Control+f');
   await page.keyboard.type('drag');
-  await page.locator('[data-node-id]', { hasText: 'Write the outliner' }).first().locator('a[aria-label="Zoom in"]').click();
+  await row(page, 'Write the outliner').locator('a[aria-label="Zoom in"]').click();
   await expect(page.locator('h1')).toHaveText('Write the outliner');
   await expect(page.getByTestId('filter-bar')).toHaveCount(0);
 });

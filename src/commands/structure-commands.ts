@@ -1,9 +1,7 @@
 import { descendantIds, isLive, isSelfOrDescendant, nextSibling, previousSibling } from '@/model';
 import { ChangeSet } from './changes';
 import { orderFor, parentNodeIds, unique } from './position';
-import { Rejection, type Command, type CommandContext, type Effect, type Position } from './types';
-
-type Of<T extends Command['type']> = Extract<Command, { type: T }>;
+import { Rejection, type Command, type CommandContext, type CommandOf, type Effect, type Position } from './types';
 
 function moveTo(
   ctx: CommandContext,
@@ -33,12 +31,12 @@ function moveTo(
   };
 }
 
-export function moveNode(ctx: CommandContext, cmd: Of<'moveNode'>): Effect | Rejection {
+export function moveNode(ctx: CommandContext, cmd: CommandOf<'moveNode'>): Effect | Rejection {
   return moveTo(ctx, cmd.id, cmd.parentId, cmd.at ?? 'last');
 }
 
 /** Become the last child of the previous sibling (which is expanded so the node stays visible). */
-export function indent(ctx: CommandContext, cmd: Of<'indent'>): Effect | Rejection {
+export function indent(ctx: CommandContext, cmd: CommandOf<'indent'>): Effect | Rejection {
   const node = ctx.tree.get(cmd.id);
   if (!isLive(node)) return new Rejection('node is missing or deleted');
   const prev = previousSibling(ctx.tree, cmd.id);
@@ -49,7 +47,7 @@ export function indent(ctx: CommandContext, cmd: Of<'indent'>): Effect | Rejecti
 }
 
 /** Become the sibling right after the current parent. Following siblings stay put. */
-export function outdent(ctx: CommandContext, cmd: Of<'outdent'>): Effect | Rejection {
+export function outdent(ctx: CommandContext, cmd: CommandOf<'outdent'>): Effect | Rejection {
   const node = ctx.tree.get(cmd.id);
   if (!isLive(node)) return new Rejection('node is missing or deleted');
   if (node.parentId === null) return new Rejection('cannot outdent a top-level node');
@@ -57,7 +55,7 @@ export function outdent(ctx: CommandContext, cmd: Of<'outdent'>): Effect | Rejec
   return moveTo(ctx, cmd.id, parent.parentId, { after: parent.id });
 }
 
-export function toggleCollapse(ctx: CommandContext, cmd: Of<'toggleCollapse'>): Effect | Rejection {
+export function toggleCollapse(ctx: CommandContext, cmd: CommandOf<'toggleCollapse'>): Effect | Rejection {
   const node = ctx.tree.get(cmd.id);
   if (!isLive(node)) return new Rejection('node is missing or deleted');
   const collapsed = cmd.collapsed ?? !node.collapsed;
@@ -67,7 +65,7 @@ export function toggleCollapse(ctx: CommandContext, cmd: Of<'toggleCollapse'>): 
   return { changes: cs.list(), affectedNodeIds: [cmd.id] };
 }
 
-export function toggleStar(ctx: CommandContext, cmd: Of<'toggleStar'>): Effect | Rejection {
+export function toggleStar(ctx: CommandContext, cmd: CommandOf<'toggleStar'>): Effect | Rejection {
   const node = ctx.tree.get(cmd.id);
   if (!isLive(node)) return new Rejection('node is missing or deleted');
   const starred = cmd.starred ?? node.starredAt == null;

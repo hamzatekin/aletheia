@@ -115,8 +115,7 @@ export class SyncService {
 
   /** Resume sync if this device has it turned on. */
   async start(): Promise<void> {
-    const key = (await this.repo.getMeta<string>(META_KEY)) ?? null;
-    const lastKey = (await this.repo.getMeta<string>(META_LAST_KEY)) ?? null;
+    const { key, lastKey } = await this.readKeys();
     this.state.setState({ lastKey });
     if (!key) return;
     this.repo.setTracking(true);
@@ -129,8 +128,7 @@ export class SyncService {
    * outbox or the notes (that tab already did).
    */
   async reloadKey(): Promise<void> {
-    const key = (await this.repo.getMeta<string>(META_KEY)) ?? null;
-    const lastKey = (await this.repo.getMeta<string>(META_LAST_KEY)) ?? null;
+    const { key, lastKey } = await this.readKeys();
     if (key === this.key) {
       this.state.setState({ lastKey });
       return;
@@ -150,10 +148,7 @@ export class SyncService {
     this.repo.setTracking(true);
     await this.engine.flush();
     await this.repo.enqueue(entriesForAll(this.engine.tree.all()));
-    await this.repo.setMeta(META_CURSOR, 0);
-    await this.repo.setMeta(META_KEY, key);
-    this.state.setState({ key, status: 'idle', error: null, pendingJoinKey: null });
-    await this.sync();
+    await this.activate(key);
     return key;
   }
 
@@ -176,13 +171,25 @@ export class SyncService {
         await this.repo.enqueue(entriesForAll(this.engine.tree.all()));
       }
       this.repo.setTracking(true);
-      await this.repo.setMeta(META_CURSOR, 0);
-      await this.repo.setMeta(META_KEY, key);
-      this.state.setState({ key, status: 'idle', error: null, pendingJoinKey: null });
-      await this.sync();
+      await this.activate(key);
     } finally {
       this.state.setState({ download: null });
     }
+  }
+
+  /** The saved key (sync is on) and the key sync had before it was turned off. */
+  private async readKeys(): Promise<{ key: string | null; lastKey: string | null }> {
+    const key = (await this.repo.getMeta<string>(META_KEY)) ?? null;
+    const lastKey = (await this.repo.getMeta<string>(META_LAST_KEY)) ?? null;
+    return { key, lastKey };
+  }
+
+  /** Save the key and sync from the start of the space's change feed. */
+  private async activate(key: string): Promise<void> {
+    await this.repo.setMeta(META_CURSOR, 0);
+    await this.repo.setMeta(META_KEY, key);
+    this.state.setState({ key, status: 'idle', error: null, pendingJoinKey: null });
+    await this.sync();
   }
 
   /** Turn sync back on here with the key it had, merging what changed meanwhile. */

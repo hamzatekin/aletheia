@@ -1,8 +1,7 @@
 import { useRef, useState, type MouseEvent, type RefObject, type TouchEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { LONG_PRESS_MS, LONG_PRESS_SLOP_PX } from './layout';
 
-/** How long a finger stays on a bullet before its menu opens; the same as a long press on a row. */
-const LONG_PRESS_MS = 450;
 /**
  * After a tap, the pressed halo stays this long before zooming in. The finger
  * hides the bullet while it is down, so without it the press is never seen.
@@ -48,7 +47,7 @@ export function Bullet({ id, collapsedWithChildren, handleRef, menu }: Props) {
     onTouchMove: (e: TouchEvent<HTMLAnchorElement>) => {
       const p = press.current;
       const t = e.touches[0];
-      if (p && t && Math.hypot(t.clientX - p.x, t.clientY - p.y) > 10) {
+      if (p && t && Math.hypot(t.clientX - p.x, t.clientY - p.y) > LONG_PRESS_SLOP_PX) {
         cancel();
         setPressed(false);
       }
