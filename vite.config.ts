@@ -3,7 +3,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { fileURLToPath } from 'node:url';
-import { serviceWorker } from './pwa/vite-plugin';
+import { serviceWorker } from './pwa/vite-plugin.ts';
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), serviceWorker()],
