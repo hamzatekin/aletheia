@@ -1,8 +1,13 @@
-import { useRef, type MouseEvent, type RefObject, type TouchEvent } from 'react';
-import { Link } from 'react-router';
+import { useRef, useState, type MouseEvent, type RefObject, type TouchEvent } from 'react';
+import { Link, useNavigate } from 'react-router';
 
 /** How long a finger stays on a bullet before its menu opens; the same as a long press on a row. */
 const LONG_PRESS_MS = 450;
+/**
+ * After a tap, the pressed halo stays this long before zooming in. The finger
+ * hides the bullet while it is down, so without it the press is never seen.
+ */
+const PRESS_SHOW_MS = 90;
 
 interface Props {
   id: string;
@@ -18,6 +23,8 @@ interface Props {
 /** The bullet: clicking zooms into the node, a long press on a phone opens its menu, dragging moves it. Collapsed parents get a halo. */
 export function Bullet({ id, collapsedWithChildren, handleRef, menu }: Props) {
   const press = useRef<{ timer: number; x: number; y: number; fired: boolean } | null>(null);
+  const [pressed, setPressed] = useState(false);
+  const navigate = useNavigate();
   const cancel = () => {
     if (press.current) clearTimeout(press.current.timer);
   };
@@ -28,9 +35,11 @@ export function Bullet({ id, collapsedWithChildren, handleRef, menu }: Props) {
       press.current = null;
       if (e.touches.length !== 1) return;
       const t = e.touches[0]!;
+      setPressed(true);
       const timer = window.setTimeout(() => {
         if (!press.current) return;
         press.current.fired = true;
+        setPressed(false);
         navigator.vibrate?.(10);
         menu.show();
       }, LONG_PRESS_MS);
@@ -39,20 +48,37 @@ export function Bullet({ id, collapsedWithChildren, handleRef, menu }: Props) {
     onTouchMove: (e: TouchEvent<HTMLAnchorElement>) => {
       const p = press.current;
       const t = e.touches[0];
-      if (p && t && Math.hypot(t.clientX - p.x, t.clientY - p.y) > 10) cancel();
+      if (p && t && Math.hypot(t.clientX - p.x, t.clientY - p.y) > 10) {
+        cancel();
+        setPressed(false);
+      }
     },
     onTouchEnd: (e: TouchEvent<HTMLAnchorElement>) => {
       cancel();
       // The press opened the menu: lifting the finger must not also zoom in, or land on the menu's backdrop.
       if (press.current?.fired && e.cancelable) e.preventDefault();
+      // A tap keeps the halo until its click zooms in; a click may not follow (a scroll, a drag), so let go anyway.
+      window.setTimeout(() => setPressed(false), PRESS_SHOW_MS + 300);
     },
-    onTouchCancel: cancel,
+    onTouchCancel: () => {
+      cancel();
+      setPressed(false);
+    },
     // The long press is ours; Android would offer to open or copy the link.
     onContextMenu: (e: MouseEvent<HTMLAnchorElement>) => e.preventDefault(),
     onClick: (e: MouseEvent<HTMLAnchorElement>) => {
-      if (!press.current?.fired) return;
+      if (press.current?.fired) {
+        e.preventDefault();
+        press.current = null;
+        return;
+      }
+      if (!pressed || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      // Show the press once the finger is off the bullet, then zoom in.
       e.preventDefault();
-      press.current = null;
+      window.setTimeout(() => {
+        setPressed(false);
+        void navigate(`/n/${id}`);
+      }, PRESS_SHOW_MS);
     },
   };
 
@@ -63,6 +89,7 @@ export function Bullet({ id, collapsedWithChildren, handleRef, menu }: Props) {
       aria-label="Zoom in"
       {...(menu ? { 'aria-haspopup': 'menu' as const, 'aria-expanded': menu.open } : {})}
       {...touch}
+      {...(pressed ? { 'data-pressed': '' } : {})}
       className="group/bullet flex h-(--row-lh) w-5 shrink-0 cursor-grab items-center justify-center rounded-full active:cursor-grabbing"
     >
       <span
