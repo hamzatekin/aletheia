@@ -1,6 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { useStore } from 'zustand';
 import { keyFromHash, syncLink, type SyncService, type SyncState } from '@/sync/service';
+import { useTick } from '@/ui/hooks';
+import { ago, Button } from '@/ui/widgets';
 
 interface Props {
   sync: SyncService;
@@ -175,11 +177,7 @@ function SyncOn({
 }
 
 function StatusLine({ state }: { state: SyncState }) {
-  const [, tick] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => tick((n) => n + 1), 10_000);
-    return () => clearInterval(t);
-  }, []);
+  useTick(10_000);
   switch (state.status) {
     case 'syncing':
       return <span className="text-muted">Syncing…</span>;
@@ -190,30 +188,4 @@ function StatusLine({ state }: { state: SyncState }) {
     default:
       return <span className="text-muted">{state.lastSyncedAt ? `On. Synced ${ago(state.lastSyncedAt)}.` : 'On.'}</span>;
   }
-}
-
-/** "just now", "40s ago", "5 min ago", or the date. */
-export function ago(at: number): string {
-  const s = Math.round((Date.now() - at) / 1000);
-  if (s < 10) return 'just now';
-  if (s < 60) return `${s}s ago`;
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m} min ago`;
-  return new Date(at).toLocaleString();
-}
-
-export function Button({ primary, disabled, onClick, children }: { primary?: boolean; disabled?: boolean; onClick?: () => void; children: ReactNode }) {
-  return (
-    <button
-      type={onClick ? 'button' : 'submit'}
-      disabled={disabled}
-      onClick={onClick}
-      className={
-        'rounded border px-2.5 py-1 text-xs disabled:opacity-50 ' +
-        (primary ? 'border-accent bg-selection text-accent hover:opacity-90' : 'border-line hover:bg-hover')
-      }
-    >
-      {children}
-    </button>
-  );
 }

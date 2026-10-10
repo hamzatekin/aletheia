@@ -5,6 +5,7 @@ import { plainText } from '@/editor/markdown';
 import { ancestorIds, parentKey } from '@/model';
 import { useSettings, type SettingsStore } from '@/store/settings-store';
 import { useTreeStore } from '@/store/tree-store';
+import { isWide } from '@/ui/media';
 import { useOutline } from './outline-context';
 import { useNode } from './use-outline';
 import { StarIcon, useStarred } from './Star';
@@ -48,7 +49,7 @@ export function OutlineSidebar({ settings, rootId }: Props) {
 
   // Below the wide breakpoint the sidebar floats over the page: close it after picking an item.
   const closeIfNarrow = (e: MouseEvent) => {
-    if ((e.target as HTMLElement).closest('a') && !window.matchMedia('(min-width: 1024px)').matches) {
+    if ((e.target as HTMLElement).closest('a') && !isWide()) {
       settings.getState().update({ sidebarOpen: false });
     }
   };

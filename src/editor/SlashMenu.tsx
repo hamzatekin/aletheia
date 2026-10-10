@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import type { EditorView } from '@tiptap/pm/view';
 import { useOutline } from '@/tree-view/outline-context';
 import { useUiStore } from '@/store/ui-store';
+import { isCoarsePointer } from '@/ui/media';
 import { slashCommands, type SlashCommand } from './slash-registry';
 
 interface ListProps {
@@ -24,7 +25,7 @@ const MENU_PX = 288;
 export function slashPlacement(view: EditorView, from: number, container: Element, rows: number): CSSProperties {
   const at = view.coordsAtPos(Math.min(from, view.state.doc.content.size));
   const box = container.getBoundingClientRect();
-  const coarse = window.matchMedia('(pointer: coarse)').matches;
+  const coarse = isCoarsePointer();
   const screen = window.visualViewport?.height ?? window.innerHeight;
   const below = screen - (coarse ? TOOLBAR_PX : 0) - at.bottom;
   const height = Math.min(MENU_PX, Math.max(rows, 1) * (coarse ? 40 : 32) + 12);

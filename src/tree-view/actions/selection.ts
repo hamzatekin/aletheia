@@ -3,6 +3,7 @@ import { clipboardItems, readClipboardText, subtreeItems, writeClipboard, writeC
 import { importCommands, parseMarkdownOutline } from '@/io/import';
 import type { OutlineItem } from '@/io/types';
 import type { TreeReader } from '@/model';
+import { isCoarsePointer } from '@/ui/media';
 import type { ActionContext } from './context';
 
 export type SelectionAction = 'indent' | 'outdent' | 'moveUp' | 'moveDown' | 'delete' | 'copy' | 'cut' | 'paste' | 'done';
@@ -64,7 +65,7 @@ export function selectionActions(ctx: ActionContext) {
     const outcome = engine.batch(top.map((id): Command => ({ type: 'deleteSubtree', id })), 'deleteSelection');
     ui.setSelection(null);
     // Keep selecting where the nodes were, as Dynalist does, unless on a phone where the bar would linger.
-    if (outcome.ok && outcome.focus && !matchMedia('(pointer: coarse)').matches) selectRange(outcome.focus.id, outcome.focus.id);
+    if (outcome.ok && outcome.focus && !isCoarsePointer()) selectRange(outcome.focus.id, outcome.focus.id);
   };
 
   /** Copy (or cut) the selection into a clipboard event. Returns false when nothing is selected. */

@@ -1,27 +1,10 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { moveDownCommand, moveUpCommand } from '@/commands';
 import { useUiStore } from '@/store/ui-store';
 import type { SelectionAction } from './actions';
 import { useOutline } from './outline-context';
-import { useCoarsePointer } from './use-coarse-pointer';
-
-/** Height of the on-screen keyboard (or anything else covering the bottom of the window). */
-export function useKeyboardInset(): number {
-  const [inset, setInset] = useState(0);
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const update = () => setInset(Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)));
-    update();
-    vv.addEventListener('resize', update);
-    vv.addEventListener('scroll', update);
-    return () => {
-      vv.removeEventListener('resize', update);
-      vv.removeEventListener('scroll', update);
-    };
-  }, []);
-  return inset;
-}
+import { useKeyboardInset } from '@/ui/hooks';
+import { useCoarsePointer } from '@/ui/media';
 
 function Icon({ children }: { children: ReactNode }) {
   return (

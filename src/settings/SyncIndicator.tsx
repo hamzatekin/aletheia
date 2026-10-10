@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useStore } from 'zustand';
 import type { SyncService, SyncState } from '@/sync/service';
-import { ago } from './SyncSection';
+import { useTick } from '@/ui/hooks';
+import { ago, Spinner, TOP_BANNER } from '@/ui/widgets';
 
 /** Short syncs (the 30s check) finish before this; only longer ones show the spinner. */
 const SPIN_DELAY_MS = 500;
@@ -15,12 +16,7 @@ const SPIN_DELAY_MS = 500;
 export function SyncIndicator({ sync }: { sync: SyncService }) {
   const state = useStore(sync.state);
   const syncing = useDelayed(state.status === 'syncing', SPIN_DELAY_MS);
-  // Re-render now and then so "synced 2 min ago" stays right.
-  const [, tick] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => tick((n) => n + 1), 30_000);
-    return () => clearInterval(t);
-  }, []);
+  useTick(30_000);
 
   return (
     <>
@@ -51,9 +47,9 @@ function DownloadBar({ received }: { received: number }) {
     <div
       role="status"
       data-testid="sync-download"
-      className="fixed top-[max(0.75rem,env(safe-area-inset-top))] left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-full border border-line bg-surface px-4 py-2 text-sm text-ink shadow-lg"
+      className={TOP_BANNER}
     >
-      <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-faint border-t-transparent" aria-hidden="true" />
+      <Spinner />
       <span className="min-w-0 truncate">
         Getting your notes from sync…{received > 0 ? ` ${received.toLocaleString()} so far` : ''}
       </span>
