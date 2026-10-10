@@ -1,9 +1,9 @@
-import { descendantIds, visibleRows, type TreeReader } from '@/model';
+import { descendantIds, isLive, visibleRows, type TreeReader } from '@/model';
 import type { Command } from './types';
 
 /** Live nodes under `underId` (the whole document for null), optionally with `underId` itself. */
 function subtree(tree: TreeReader, underId: string | null, includeSelf: boolean): string[] {
-  if (underId === null) return [...tree.all()].filter((n) => n.deletedAt === null).map((n) => n.id);
+  if (underId === null) return [...tree.all()].filter(isLive).map((n) => n.id);
   return includeSelf ? [underId, ...descendantIds(tree, underId)] : descendantIds(tree, underId);
 }
 

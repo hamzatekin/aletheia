@@ -1,11 +1,9 @@
 import { descendantIds, isLive, isSelfOrDescendant, orderBetween } from '@/model';
 import { ChangeSet } from './changes';
 import { orderFor, parentNodeIds, unique } from './position';
-import { Rejection, type Command, type CommandContext, type Effect } from './types';
+import { Rejection, type CommandContext, type CommandOf, type Effect } from './types';
 
-type Of<T extends Command['type']> = Extract<Command, { type: T }>;
-
-export function createNode(ctx: CommandContext, cmd: Of<'createNode'>): Effect | Rejection {
+export function createNode(ctx: CommandContext, cmd: CommandOf<'createNode'>): Effect | Rejection {
   const { tree } = ctx;
   if (tree.get(cmd.id)) return new Rejection('node already exists');
   if (cmd.parentId !== null && !isLive(tree.get(cmd.parentId))) return new Rejection('parent is missing or deleted');
@@ -28,7 +26,7 @@ export function createNode(ctx: CommandContext, cmd: Of<'createNode'>): Effect |
   };
 }
 
-export function updateContent(ctx: CommandContext, cmd: Of<'updateContent'>): Effect | Rejection {
+export function updateContent(ctx: CommandContext, cmd: CommandOf<'updateContent'>): Effect | Rejection {
   const node = ctx.tree.get(cmd.id);
   if (!isLive(node)) return new Rejection('node is missing or deleted');
   if (node.content === cmd.content) return { changes: [], affectedNodeIds: [] };
@@ -37,7 +35,7 @@ export function updateContent(ctx: CommandContext, cmd: Of<'updateContent'>): Ef
   return { changes: cs.list(), affectedNodeIds: [cmd.id] };
 }
 
-export function updateNote(ctx: CommandContext, cmd: Of<'updateNote'>): Effect | Rejection {
+export function updateNote(ctx: CommandContext, cmd: CommandOf<'updateNote'>): Effect | Rejection {
   const node = ctx.tree.get(cmd.id);
   if (!isLive(node)) return new Rejection('node is missing or deleted');
   if (node.note === cmd.note) return { changes: [], affectedNodeIds: [] };
@@ -53,7 +51,7 @@ export function updateNote(ctx: CommandContext, cmd: Of<'updateNote'>): Effect |
  * - Node is expanded with children: the new node becomes its first child.
  * - Otherwise: the new node becomes the next sibling.
  */
-export function splitNode(ctx: CommandContext, cmd: Of<'splitNode'>): Effect | Rejection {
+export function splitNode(ctx: CommandContext, cmd: CommandOf<'splitNode'>): Effect | Rejection {
   const { tree } = ctx;
   const node = tree.get(cmd.id);
   if (!isLive(node)) return new Rejection('node is missing or deleted');
@@ -116,7 +114,7 @@ export function joinMarkdown(left: string, right: string): string {
  * source's parent the children take the source's slot; otherwise they are
  * appended after target's existing children.
  */
-export function mergeNodes(ctx: CommandContext, cmd: Of<'mergeNodes'>): Effect | Rejection {
+export function mergeNodes(ctx: CommandContext, cmd: CommandOf<'mergeNodes'>): Effect | Rejection {
   const { tree } = ctx;
   const source = tree.get(cmd.sourceId);
   const target = tree.get(cmd.targetId);

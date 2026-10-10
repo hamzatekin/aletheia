@@ -11,7 +11,8 @@ export interface CommitBatch {
 }
 
 /**
- * Storage boundary. Dexie today; SQLite / a sync backend later.
+ * Storage boundary: Dexie in the browser, memory in tests. Sync keeps its
+ * outbox and metadata here too.
  * The store is the in-memory source of truth; the repository just persists it.
  */
 export interface Repository {

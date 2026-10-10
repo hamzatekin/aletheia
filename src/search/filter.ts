@@ -98,7 +98,7 @@ export function filteredRows(tree: TreeReader, rootId: string | null, filter: Fi
   return out;
 }
 
-/** How many nodes under `rootId` match. */
+/** How many of these rows match the search. */
 export function matchCount(rows: readonly FilteredRow[]): number {
   let n = 0;
   for (const r of rows) if (r.match) n++;
