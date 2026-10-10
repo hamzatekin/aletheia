@@ -36,5 +36,5 @@ export default {
   // TypeScript 7 no longer ships. The sandbox is a full copy of the project,
   // so nothing needs rewriting; an empty name skips that step.
   tsconfigFile: '',
-  thresholds: { high: 85, low: 70, break: null },
+  thresholds: { high: 90, low: 80, break: 85 },
 };

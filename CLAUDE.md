@@ -163,7 +163,7 @@ don't.
   under a minute); a full run (`pnpm mutate --force`) takes about ten
   minutes, and is the one to quote a score from, since incremental runs can
   keep stale results for module-level constants. The run
-  fails below the `break` threshold; don't lower it. Don't add
+  fails below the `break` threshold (85%); don't lower it. Don't add
   `// Stryker disable` comments except for a mutant that cannot change
   behavior (an equivalent mutant), with the reason on the same line. The
   report is in `reports/mutation/index.html`.
