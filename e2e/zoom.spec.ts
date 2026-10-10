@@ -27,6 +27,41 @@ test('bullet zooms in, breadcrumbs and back zoom out, title is editable', async 
   await expect(page).toHaveURL('/');
 });
 
+test('the back arrow goes up one level, and the crumbs line up with the title', async ({ page }) => {
+  await row(page, 'Write the outliner').getByRole('link', { name: 'Zoom in' }).click();
+  await expect(title(page)).toHaveText('Write the outliner');
+  const textX = (selector: string) =>
+    page.locator(selector).first().evaluate((el) => {
+      const r = document.createRange();
+      r.selectNodeContents(el);
+      return r.getBoundingClientRect().x;
+    });
+  expect(Math.abs((await textX('nav[aria-label=Breadcrumbs] a')) - (await textX('header[data-title] h1')))).toBeLessThan(1);
+
+  const back = page.getByTestId('zoom-out');
+  await expect(back).toBeVisible();
+  await expect(back).toHaveAttribute('aria-label', 'Back to Projects');
+  await back.click();
+  await expect(title(page)).toHaveText('Projects');
+  await expect(back).toHaveAttribute('aria-label', 'Back to Home');
+  await back.click();
+  await expect(page).toHaveURL('/');
+  await expect(back).toHaveCount(0);
+});
+
+test('zooming in starts the new page at its top', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 400 });
+  await page.evaluate(() => {
+    const { engine } = (window as any).__aletheia;
+    for (let i = 1; i <= 30; i++) engine.execute({ type: 'createNode', id: `filler-${i}`, parentId: null, at: 'last', content: `Filler ${i}` });
+  });
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  await row(page, 'Filler 30').getByRole('link', { name: 'Zoom in' }).click();
+  await expect(title(page)).toHaveText('Filler 30');
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+});
+
 test('Ctrl+. zooms into the focused node and Ctrl+, zooms out', async ({ page }) => {
   await edit(page, 'Reading list');
   await page.keyboard.press('Control+.');

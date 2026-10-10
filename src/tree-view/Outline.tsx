@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { useLocation, useNavigationType } from 'react-router';
 import { defaultRangeExtractor, useWindowVirtualizer, type Range } from '@tanstack/react-virtual';
 import { useUiStore } from '@/store/ui-store';
 import { Row } from './Row';
@@ -45,6 +46,20 @@ export function Outline({ rootId }: Props) {
     getItemKey: (index) => rows[index]!.id,
     rangeExtractor,
   });
+
+  // A new page starts at its top. Going up a level (breadcrumbs, the back arrow)
+  // keeps the row you came out of in view instead, as WorkFlowy does. Back and
+  // forward leave the scroll to the browser; a focused row scrolls itself.
+  const location = useLocation();
+  const navigationType = useNavigationType();
+  useLayoutEffect(() => {
+    if (navigationType === 'POP' || ui.getState().focus) return;
+    const from = (location.state as { from?: string } | null)?.from;
+    const index = from ? rows.findIndex((r) => r.id === from) : -1;
+    if (index >= 0) virtualizer.scrollToIndex(index, { align: 'center' });
+    else window.scrollTo(0, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the page changes
+  }, [rootId]);
 
   // Bring a keyboard-selected row into view.
   const selectionHead = useUiStore(ui, (s) => s.selection?.head ?? null);
