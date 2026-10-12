@@ -81,9 +81,19 @@ test.describe('on a phone', () => {
     await page.clock.setFixedTime(AT);
     await gotoHome(page);
     const plus = page.getByTestId('add-to-inbox');
+    // Record what takes the focus: the tap must focus a field itself, or the phone keeps its keyboard closed.
+    await page.evaluate(() => {
+      (window as any).focusLog = [];
+      document.addEventListener('focusin', (e) => {
+        const el = e.target as HTMLElement;
+        (window as any).focusLog.push(el.dataset.testid ?? (el.closest('.rich-note') ? 'note editor' : el.tagName));
+      });
+    });
     await plus.tap();
     await expect(page).toHaveURL(/\/n\//);
     await inNewItemNote(page);
+    expect(await page.evaluate(() => (window as any).focusLog)).toEqual(['keyboard-holder', 'note editor']);
+    await expect(page.getByTestId('keyboard-holder')).toHaveCount(0);
     // The editing bar takes the bottom of the screen while typing; the top + is for computers.
     await expect(plus).toHaveCount(0);
     await expect(page.getByTestId('add-to-inbox-top')).toHaveCount(0);

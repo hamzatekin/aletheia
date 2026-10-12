@@ -1,4 +1,5 @@
 import { useUiStore } from '@/store/ui-store';
+import { holdKeyboard } from '@/ui/keyboard';
 import { isMac, useCoarsePointer } from '@/ui/media';
 import { useOutline } from './outline-context';
 
@@ -24,7 +25,11 @@ export function AddToInboxButton() {
   return (
     <button
       type="button"
-      onClick={() => actions.quickAdd()}
+      onClick={() => {
+        // The new note's editor comes up on the next page; open the keyboard for it during the tap.
+        holdKeyboard();
+        actions.quickAdd();
+      }}
       onMouseDown={(e) => e.preventDefault()}
       className="add-to-inbox fixed right-4 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex size-14 items-center justify-center rounded-full bg-accent text-page shadow-lg active:scale-95"
       aria-label="Add to Inbox"
