@@ -35,6 +35,8 @@ async function inNewItemNote(page: Page): Promise<void> {
   await expect(page.locator('h1')).toHaveText(TITLE);
   await expect.poll(() => focused(page)).toBe(`${TITLE}:note`);
   await expect(page.locator('.rich-note .ProseMirror')).toBeFocused();
+  // No "start writing" hint under the note being typed.
+  await expect(page.getByTestId('empty-outline')).toHaveCount(0);
 }
 
 test('the Add to Inbox shortcut zooms into a new Inbox item named with the date and time, to type its note', async ({ page }) => {
@@ -46,7 +48,11 @@ test('the Add to Inbox shortcut zooms into a new Inbox item named with the date 
   // Esc goes up to the title, to rename it.
   await page.keyboard.press('Escape');
   await expect.poll(() => focused(page)).toBe(`${TITLE}:content`);
+  await expect(page.getByTestId('empty-outline')).toHaveCount(0);
   expect(await inboxItems(page)).toEqual([[TITLE, 'Ask about the crown']]);
+  // Done editing: the hint to add the first line under it comes back.
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('empty-outline')).toHaveText('Click here or press Enter to start writing.');
 });
 
 test('on a computer the + at the top and Ctrl+Alt+N add an Inbox item and zoom into it', async ({ page }) => {
