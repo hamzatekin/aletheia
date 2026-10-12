@@ -51,7 +51,7 @@ src/tree-view/        the outline page: rows, bullets, node menu, breadcrumbs, t
                       mobile toolbar, drag and drop; layout.ts has row geometry and long-press timing
 src/tree-view/actions/  everything the page does, one file per group (see index.ts)
 src/ui/               small shared UI: media queries (isWide, useCoarsePointer, isMac), hooks
-                      (useEscToClose, useTick, useKeyboardInset), Spinner, Button, ago()
+                      (useEscToClose, useTick, useKeyboardInset), holdKeyboard, Spinner, Button, ago()
 src/search/           Ctrl+K palette (MiniSearch) and Ctrl+F in-place filter
 src/io/               Markdown / OPML / JSON import and export, clipboard, WorkFlowy and terminal paste
 src/sync/             opt-in sync client: wire format, outbox, service, tabs, clock, browser triggers
@@ -179,6 +179,11 @@ don't.
   index skips deleted nodes. Only undoing a creation removes a node physically.
 - Sibling order uses fractional index keys (`model/order.ts`); equal keys sort
   by id.
+- Phones open the keyboard only for a field focused during the tap itself.
+  When a tap leads to an editor that mounts later (after a navigation, like
+  the + button's /capture), call `holdKeyboard()` (`src/ui/keyboard.ts`) in the
+  tap handler; the editor takes the focus over and the keyboard stays up. A
+  page opened with no tap (the app icon's shortcut) can't open it.
 - `pnpm build` prints two harmless warnings: Lightning CSS doesn't know
   `::highlight(search)` (the CSS Custom Highlight API, used by Ctrl+F), and the
   main chunk is over 500 kB.
