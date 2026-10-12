@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { focused, gotoHome, outline, reloadApp } from './helpers';
+import { edit, focused, gotoHome, outline, reloadApp } from './helpers';
 
 test('sharing a page to the app adds a titled link at the top of the Inbox', async ({ page }) => {
   await gotoHome(page);
@@ -28,6 +28,30 @@ test('the Add to Inbox shortcut zooms into a new empty Inbox item to type into',
   expect((await outline(page))[0]).toEqual(['Inbox', ['Call the dentist']]);
 });
 
+test('on a computer the + at the top and Ctrl+Alt+N add an Inbox item and zoom into it', async ({ page }) => {
+  await gotoHome(page);
+  // Phones have the round + instead.
+  await expect(page.getByTestId('add-to-inbox')).toHaveCount(0);
+  await page.getByTestId('add-to-inbox-top').click();
+  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toContainText('Inbox');
+  await expect(page.locator('.ProseMirror')).toBeFocused();
+  await page.keyboard.type('Book flights');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('h1')).toHaveText('Book flights');
+
+  // The shortcut works while editing another line too.
+  await page.goto('/');
+  await edit(page, 'Plant a tree');
+  await page.keyboard.press('Control+Alt+n');
+  await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toContainText('Inbox');
+  await expect.poll(() => focused(page)).toBe(':content');
+  await expect(page.locator('.ProseMirror')).toBeFocused();
+  await page.keyboard.type('Renew passport');
+  await page.keyboard.press('Escape');
+  expect((await outline(page))[0]).toEqual(['Inbox', ['Renew passport', 'Book flights']]);
+  expect(JSON.stringify(await outline(page))).toContain('Plant a tree');
+});
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
@@ -39,8 +63,9 @@ test.describe('on a phone', () => {
     await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toContainText('Inbox');
     await expect.poll(() => focused(page)).toBe(':content');
     await expect(page.locator('.ProseMirror')).toBeFocused();
-    // The editing bar takes the bottom of the screen while typing.
+    // The editing bar takes the bottom of the screen while typing; the top + is for computers.
     await expect(plus).toHaveCount(0);
+    await expect(page.getByTestId('add-to-inbox-top')).toHaveCount(0);
     await page.keyboard.type('Buy milk');
     await page.getByTestId('toolbar-done').tap();
     await expect(page.locator('h1')).toHaveText('Buy milk');
