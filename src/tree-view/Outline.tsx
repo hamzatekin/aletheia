@@ -17,6 +17,8 @@ export function Outline({ rootId }: Props) {
   const { ui, actions } = useOutline();
   const rows = usePageRows(rootId);
   const filtering = useUiStore(ui, (s) => s.filter !== null && s.filter.query.trim() !== '');
+  // Typing the page's own title or note (as right after a quick add): no "start writing" hint under it.
+  const editingPage = useUiStore(ui, (s) => rootId !== null && s.focus?.id === rootId);
   const listRef = useRef<HTMLDivElement>(null);
   useDropMonitor();
 
@@ -77,6 +79,8 @@ export function Outline({ rootId }: Props) {
       </div>
     );
   }
+
+  if (rows.length === 0 && editingPage) return null;
 
   if (rows.length === 0) {
     return (
