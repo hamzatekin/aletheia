@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fixture } from '@/test/helpers';
-import { addToInbox, findInbox, sharedItem } from './capture';
+import { addToInbox, captureTitle, findInbox, sharedItem } from './capture';
 
 describe('sharedItem', () => {
   it('makes a titled link from a shared page', () => {
@@ -19,6 +19,15 @@ describe('sharedItem', () => {
     expect(sharedItem({ text: 'Look at https://x.test/b later' })).toEqual({ content: '[Look at later](https://x.test/b)', note: '' });
     expect(sharedItem({ url: 'https://x.test/c' })).toEqual({ content: 'https://x.test/c', note: '' });
     expect(sharedItem({})).toEqual({ content: '', note: '' });
+  });
+});
+
+describe('captureTitle', () => {
+  it('names a quick-added item with the date and time, in the given language', () => {
+    const at = new Date(2026, 9, 12, 13, 54);
+    expect(captureTitle(at, 'en-US')).toBe('Oct 12, 2026, 1:54 PM');
+    expect(captureTitle(at, 'en-GB')).toBe('12 Oct 2026, 13:54');
+    expect(captureTitle(at, 'tr-TR')).toBe('12 Eki 2026 13:54');
   });
 });
 

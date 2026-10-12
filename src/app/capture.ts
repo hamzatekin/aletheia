@@ -44,6 +44,15 @@ export function sharedItem({ title, text, url }: Shared): { content: string; not
   return { content: (lines[0] ?? '').trim(), note: lines.slice(1).join('\n').trim() };
 }
 
+/**
+ * The name a quick-added item starts with: when it was added, in the device's
+ * language ("Oct 12, 2026, 1:54 PM"), so Inbox items tell apart and the note
+ * can be typed first. Rename it later, or let Suggest title name it.
+ */
+export function captureTitle(now: Date = new Date(), locale?: string): string {
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(now);
+}
+
 /** The top-level node called "Inbox", if there is one. */
 export function findInbox(tree: TreeReader): string | null {
   return tree.children(null).find((id) => plainText(tree.get(id)?.content ?? '').trim().toLowerCase() === 'inbox') ?? null;
