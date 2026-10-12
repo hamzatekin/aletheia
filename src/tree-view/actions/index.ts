@@ -39,6 +39,8 @@ export interface OutlineActions {
   toggleFilterRow(id: string): void;
   /** Zoom to the node's parent and focus it (search results, links). */
   revealNode(id: string): void;
+  /** A new item at the top of the Inbox, zoomed into to type (the + buttons, Ctrl/⌘+Alt+N). */
+  quickAdd(): void;
   /** Run the i-th command of the open slash menu. */
   runSlash(index: number): void;
   /** Keep the slash query in sync with the editor; called after each transaction. */
@@ -81,6 +83,7 @@ export function createOutlineActions(deps: ActionDeps): OutlineActions {
     toggleAll: navigation.toggleAll,
     zoomOut: navigation.zoomOut,
     revealNode: navigation.revealNode,
+    quickAdd: navigation.quickAdd,
     undo: () => navigation.undoRedo('undo'),
     redo: () => navigation.undoRedo('redo'),
     openFilter: filter.openFilter,

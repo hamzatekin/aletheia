@@ -66,7 +66,15 @@ export function navigationActions(ctx: ActionContext) {
     ui.focusNode(id, { kind: 'end' });
   };
 
-  return { focusPrev, focusNext, createFirst, zoomOut, setAllCollapsed, toggleAll, undoRedo, revealNode };
+  // Through /capture, the app icon's Add to Inbox route, which starts the
+  // editor only once the new page is up, so no typed letter goes to this one.
+  const quickAdd = () => {
+    session.flush();
+    ui.setSelection(null);
+    navigate('/capture');
+  };
+
+  return { focusPrev, focusNext, createFirst, zoomOut, setAllCollapsed, toggleAll, undoRedo, revealNode, quickAdd };
 }
 
 export type NavigationActions = ReturnType<typeof navigationActions>;

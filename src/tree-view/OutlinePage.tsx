@@ -20,7 +20,7 @@ import type { SyncService } from '@/sync/service';
 import { useSettings, type SettingsStore } from '@/store/settings-store';
 import { useUiStore, type UiStore } from '@/store/ui-store';
 import { createOutlineActions } from './actions';
-import { AddToInboxButton } from './AddToInboxButton';
+import { AddToInboxButton, AddToInboxTopButton } from './AddToInboxButton';
 import { Breadcrumbs } from './Breadcrumbs';
 import { Outline } from './Outline';
 import { TopBar } from './TopBar';
@@ -43,8 +43,9 @@ interface Props {
   related?: RelatedService | undefined;
 }
 
-/** Stands in for the Related panel's state when there is none (tests). */
+/** Stand in for the Related panel's and sync's state when there are none (tests). */
 const closedPanel = createStore(() => ({ open: false }));
+const noSync = createStore(() => ({ key: null as string | null }));
 
 /** `/` shows the top level; `/n/:id` zooms into a node. */
 export function OutlinePage({ ui, session, search, settings, sync, ai, related }: Props) {
@@ -97,6 +98,7 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, related }
   const sidebarOpen = useSettings(settings, (s) => s.sidebarOpen);
   const settingsOpen = useUiStore(ui, (s) => s.settingsOpen);
   const relatedOpen = useStore(related?.state ?? closedPanel, (s) => s.open);
+  const syncOn = useStore(sync?.state ?? noSync, (s) => s.key !== null);
 
   const onBackgroundMouseDown = (e: MouseEvent<HTMLElement>) => {
     if (e.target !== e.currentTarget) return;
@@ -123,6 +125,7 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, related }
         )}
         <PageToolbar />
         {sync && <SyncIndicator sync={sync} />}
+        <AddToInboxTopButton syncOn={syncOn} />
         <SettingsPanel settings={settings} ui={ui} sync={sync} />
         <TutorialDialog ui={ui} />
         {related && <RelatedButton related={related} />}

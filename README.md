@@ -70,8 +70,8 @@ flattening. The list is virtualized against the window with
 
 Routes: `/` is the top level, `/n/:id` zooms into a node (its content becomes
 the title, its children the list). `/share` (Android's share sheet) and
-`/capture` (the Add to Inbox shortcut and the phone's + button) put a new
-item at the top of the Inbox. Breadcrumbs walk `parentId` upward.
+`/capture` (the Add to Inbox shortcut, the + buttons and `Ctrl/⌘+Alt+N`) put a
+new item at the top of the Inbox; `/capture` then zooms into it. Breadcrumbs walk `parentId` upward.
 `Ctrl/⌘+,` zooms out one level.
 
 ## Drag and drop

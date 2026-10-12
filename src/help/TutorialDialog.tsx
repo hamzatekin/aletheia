@@ -147,6 +147,7 @@ const TABS: Tab[] = [
             ['Click a bullet', 'Zoom into that node.'],
             [<Keys k="Mod+." />, 'Zoom into the node you are editing.'],
             [<Keys k="Mod+," />, 'Zoom out one level.'],
+            [<Keys k="Mod+Alt+N" />, 'Add to Inbox: a new item at the top of your Inbox, zoomed into so you can type it. The + at the top right does the same.'],
             ['Outline sidebar', 'Click any item to zoom straight to it.'],
             ['☆ left of the page title', 'Star the page you are on, like WorkFlowy: it is listed under Starred at the top of the sidebar, on every synced device. The ≡ menu does the same for any node (on a phone, long-press its bullet); click the gold star in the sidebar to unstar.'],
           ]}

@@ -45,6 +45,12 @@ function usePageShortcuts(actions: OutlineActions, settings: SettingsStore): voi
         actions.toggleHelp();
         return;
       }
+      // Ctrl/⌘+Alt+N, WorkFlowy's Quick Add keys; e.code, since Alt changes the letter on a Mac.
+      if ((e.metaKey || e.ctrlKey) && e.altKey && !e.shiftKey && e.code === 'KeyN') {
+        e.preventDefault();
+        actions.quickAdd();
+        return;
+      }
       actions.handleGlobalKey(e);
     };
     window.addEventListener('keydown', onKey);
