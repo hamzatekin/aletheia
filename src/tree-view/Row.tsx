@@ -298,7 +298,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
                   className="node-note prose-note row-note cursor-text pb-0.5 text-muted"
                   onMouseDown={onNoteMouseDown}
                   onClick={onNoteClick}
-                  dangerouslySetInnerHTML={{ __html: renderBlock(node.note, id) }}
+                  dangerouslySetInnerHTML={{ __html: renderBlock(node.note) }}
                 />
               </>
             )}

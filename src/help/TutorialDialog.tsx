@@ -232,15 +232,13 @@ const TABS: Tab[] = [
           rows={[
             [<Code>- item</Code>, 'Bulleted list (1. for numbered). Tab nests an item, Shift+Tab takes it back out.'],
             [<Code>[] item</Code>, 'Checklist, also "- [ ] " ("[x] " starts it ticked). Click a box to tick it, even without opening the note; Enter adds the next item.'],
-            [<Code>&gt; quote</Code>, 'Quote. Start it with [!NOTE], [!TIP], [!IMPORTANT], [!WARNING] or [!CAUTION] for a coloured alert, as on GitHub.'],
-            [<Code>```ts</Code>, 'Code block, coloured when it names a language (ts, py, bash, json, ...)'],
+            [<Code>&gt; quote</Code>, 'Quote'],
+            [<Code>```</Code>, 'Code block'],
             [<Code># Heading</Code>, 'Heading (## to ###### for smaller ones)'],
             [<Code>| a | b |</Code>, 'Table (a header row, then |---|---|; :---: centers a column, ---: aligns it right)'],
-            [<Code>![alt](url)</Code>, 'Image. Links (https://… or www.…) work without brackets too.'],
-            [<Code>[^1]</Code>, 'Footnote: write [^1]: text anywhere in the note and it shows at the bottom.'],
-            [<Code>:tada:</Code>, 'Emoji by name, and GitHub\'s HTML tags such as <kbd>, <sub>, <br> and <details>.'],
+            [<Code>![alt](url)</Code>, 'Image. Links starting with https:// work without brackets too.'],
             ['Terminal output', 'Paste an answer copied from Claude Code and its box tables become real tables. For notes imported earlier, use ≡ → Format terminal output.'],
-            ['Editing', 'Notes are GitHub Markdown. Editing a note rewrites only the parts you changed, so everything else stays exactly as it was written.'],
+            ['Editing', 'Editing a note rewrites only the parts you changed, so everything else stays exactly as it was written.'],
           ]}
         />
       </>
