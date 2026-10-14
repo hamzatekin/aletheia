@@ -5,7 +5,7 @@ import { isNoteCollapsed, notePrefs, useNotePrefs } from '@/store/note-prefs';
 import { RichNoteEditor } from './RichNoteEditor';
 import { keepCaretAcrossSwitch } from './caret-handoff';
 import { flushNote, registerNoteFlush } from './note-flush';
-import { isTerminalPaste, terminalToMarkdown } from '@/io/terminal';
+import { terminalPasteMarkdown } from '@/io/terminal';
 
 interface Props {
   id: string;
@@ -221,11 +221,11 @@ function RawNoteEditor({ id }: Props) {
       onChange={(e) => setText(e.target.value)}
       onPaste={(e) => {
         // Terminal output (box tables, Claude Code answers) pastes as the Markdown it was.
-        const pasted = e.clipboardData.getData('text/plain');
-        if (!isTerminalPaste(pasted)) return;
+        const markdown = terminalPasteMarkdown(e.clipboardData.getData('text/plain'), e.clipboardData.getData('text/html'));
+        if (markdown === null) return;
         e.preventDefault();
         const el = e.currentTarget;
-        el.setRangeText(terminalToMarkdown(pasted), el.selectionStart, el.selectionEnd, 'end');
+        el.setRangeText(markdown, el.selectionStart, el.selectionEnd, 'end');
         setText(el.value);
       }}
       onBlur={(e) => save(e.target.value)}

@@ -11,7 +11,7 @@ import { registerNoteFlush } from './note-flush';
 import { noteTableExtensions } from './note-table';
 import { SlashList, slashPlacement } from './SlashMenu';
 import { opensSlashMenu, slashCommands } from './slash-registry';
-import { isTerminalPaste, terminalToMarkdown } from '@/io/terminal';
+import { terminalPasteMarkdown } from '@/io/terminal';
 import { CLEAR_OF_TOP_BAR, SAVE_DELAY_MS } from './session';
 
 /** The note's own "/" menu, open since a "/" was typed at document position `from`. */
@@ -177,9 +177,10 @@ export function RichNoteEditor({ id }: { id: string }) {
         },
         // Terminal output (box tables, Claude Code answers) pastes as the Markdown it was.
         handlePaste: (_view, event) => {
-          const text = event.clipboardData?.getData('text/plain') ?? '';
-          if (editor.isActive('codeBlock') || !isTerminalPaste(text)) return false;
-          editor.commands.insertContent(terminalToMarkdown(text));
+          const data = event.clipboardData;
+          const markdown = data ? terminalPasteMarkdown(data.getData('text/plain'), data.getData('text/html')) : null;
+          if (editor.isActive('codeBlock') || markdown === null) return false;
+          editor.commands.insertContent(markdown);
           return true;
         },
       },

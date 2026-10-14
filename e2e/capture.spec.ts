@@ -50,9 +50,10 @@ test('the Add to Inbox shortcut zooms into a new Inbox item named with the date 
   await expect.poll(() => focused(page)).toBe(`${TITLE}:content`);
   await expect(page.getByTestId('empty-outline')).toHaveCount(0);
   expect(await inboxItems(page)).toEqual([[TITLE, 'Ask about the crown']]);
-  // Done editing: the hint to add the first line under it comes back.
+  // Done editing: the line to click for the first item under it comes back,
+  // without the "start writing" words, since the page has a title and a note.
   await page.keyboard.press('Escape');
-  await expect(page.getByTestId('empty-outline')).toHaveText('Click here or press Enter to start writing.');
+  await expect(page.getByTestId('empty-outline')).toHaveText('');
 });
 
 test('on a computer the + at the top and Ctrl+Alt+N add an Inbox item and zoom into it', async ({ page }) => {

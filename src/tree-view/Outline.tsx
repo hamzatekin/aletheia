@@ -4,7 +4,7 @@ import { defaultRangeExtractor, useWindowVirtualizer, type Range } from '@tansta
 import { useUiStore } from '@/store/ui-store';
 import { Row } from './Row';
 import { useOutline } from './outline-context';
-import { usePageRows } from './use-outline';
+import { useNode, usePageRows } from './use-outline';
 import { useDropMonitor } from './use-dnd';
 import { TOP_BAR_CLEARANCE_PX } from './TopBar';
 
@@ -19,6 +19,9 @@ export function Outline({ rootId }: Props) {
   const filtering = useUiStore(ui, (s) => s.filter !== null && s.filter.query.trim() !== '');
   // Typing the page's own title or note (as right after a quick add): no "start writing" hint under it.
   const editingPage = useUiStore(ui, (s) => rootId !== null && s.focus?.id === rootId);
+  // A page with a title or a note already says what it is: the hint would only be clutter.
+  const root = useNode(rootId);
+  const quiet = root !== undefined && (root.content.trim() !== '' || root.note.trim() !== '');
   const listRef = useRef<HTMLDivElement>(null);
   useDropMonitor();
 
@@ -92,7 +95,8 @@ export function Outline({ rootId }: Props) {
           actions.createFirst();
         }}
       >
-        Click here or press Enter to start writing.
+        {/* Without the words, the line stays: clicking under the title still starts the first item. */}
+        {quiet ? <br /> : 'Click here or press Enter to start writing.'}
       </div>
     );
   }

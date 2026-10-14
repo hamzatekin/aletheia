@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { blockToHtml } from '@/editor/markdown';
-import { boxTablesToMarkdown, dedent, formatTerminalContent, formatTerminalNote, hasBoxTable, isTerminalPaste, looksLikeTerminalProse, terminalToMarkdown } from './terminal';
+import { boxTablesToMarkdown, dedent, formatTerminalContent, formatTerminalNote, hasBoxTable, isTerminalPaste, looksLikeTerminalProse, terminalHtmlToText, terminalPasteMarkdown, terminalToMarkdown } from './terminal';
 
 const ruled = [
   '┌──────────┬────────────────┐',
@@ -286,5 +286,112 @@ describe('formatTerminalNote: fences', () => {
   it('leaves an unchanged note exactly as it was, and squeezes blank lines in a changed one', () => {
     expect(formatTerminalNote('a\n\n\n\nb')).toBe('a\n\n\n\nb');
     expect(formatTerminalNote(`a\n\n\n\n\`\`\`\n${prose}\n\`\`\``)).toBe(`a\n\n${prose}`);
+  });
+});
+
+// How Ghostty copies styled terminal text: one pre block, an inline box per style.
+const ghostty = (body: string) => `<div style="font-family: monospace; white-space: pre;">${body}</div>`;
+const bold = (t: string) => `<div style="display: inline;font-weight: bold;">${t}</div>`;
+const blue = (t: string) => `<div style="display: inline;color: rgb(177, 185, 249);">${t}</div>`;
+const grey = (t: string) => `<div style="display: inline;color: rgb(153, 153, 153);">${t}</div>`;
+const green = (t: string) => `<div style="display: inline;color: rgb(78, 186, 101);">${t}</div>`;
+
+describe('styled terminal copies', () => {
+  it('keep bold as bold and colored words as inline code', () => {
+    const html = ghostty(
+      [
+        `${green('⏺')} ${bold('Since Wed 7 Oct')} · 9 pieces of work`,
+        '',
+        `  ${bold('New and improved')}`,
+        `  1. ${bold('An AI check stops texts.')} A firm now presses "Check".`,
+        `     Status: Merged · ${grey('dev only')}`,
+        '',
+        `  ${bold('Sources')} (for you)`,
+        `  - 1: ${blue('e34b418a4')}, ${blue('734008f05')} · fixes: ${blue('a7264167a')}`,
+      ].join('\n'),
+    );
+    expect(terminalPasteMarkdown('⏺ Since Wed 7 Oct · 9 pieces of work', html)).toBe(
+      [
+        '**Since Wed 7 Oct** · 9 pieces of work',
+        '',
+        '**New and improved**',
+        '1. **An AI check stops texts.** A firm now presses "Check".',
+        '   Status: Merged · dev only',
+        '',
+        '**Sources** (for you)',
+        '- 1: `e34b418a4`, `734008f05` · fixes: `a7264167a`',
+      ].join('\n'),
+    );
+  });
+
+  it('keep spaces outside the marks, close them at line ends and merge touching runs', () => {
+    expect(terminalHtmlToText(ghostty(`${bold(' two words ')}x\n${bold('a')}${bold('b\nc')}`))).toBe(' **two words** x\n**ab**\n**c**');
+  });
+
+  it('read palette colors, hex colors, <b> and font weights, and leave the default color alone', () => {
+    const pal = (n: number, t: string) => `<div style="display: inline;color: var(--vt-palette-${n});">${t}</div>`;
+    expect(terminalHtmlToText(ghostty(`${pal(4, 'blue')} ${pal(7, 'white')} ${pal(12, 'bright')} ${pal(21, 'cube')} ${pal(8, 'grey')}`))).toBe('`blue` white `bright` cube grey');
+    expect(terminalHtmlToText(ghostty('<span style="color:#36f">a</span> <span style="color: #333333">b</span> <b>c</b> <span style="font-weight: 700">d</span> <span style="font-weight: 400">e</span>'))).toBe('`a` b **c** **d** e');
+    const wrapped = '<div style="white-space: pre; color: rgb(200, 60, 60);">all red <span style="color: rgb(60, 60, 200)">blue</span></div>';
+    expect(terminalHtmlToText(wrapped)).toBe('all red `blue`');
+  });
+
+  it('tell hues from greys at the edge, and read every way of writing a style', () => {
+    const run = (style: string) => terminalHtmlToText(ghostty(`<span style="${style}">w</span>`));
+    expect(run('color: rgb(100, 100, 148)')).toBe('`w`');
+    expect(run('color: rgb(100, 100, 147)')).toBe('w');
+    // Doubling a 6-digit hex's digits would make this grey look red.
+    expect(run('color: #808a8f')).toBe('w');
+    expect(run('color: blue')).toBe('w');
+    expect(run('background-color: rgb(0, 0, 255)')).toBe('w');
+    expect(run('color : rgb(0, 0, 255)')).toBe('`w`');
+    expect(run('color:rgba(0,0,255,0.5)')).toBe('`w`');
+    expect(run('font-weight:bold')).toBe('**w**');
+    expect(run('font-weight : 600')).toBe('**w**');
+    expect(run('font-weight: 500')).toBe('w');
+    expect(terminalHtmlToText(ghostty("<span style='color: #00f'>w</span> <strong>s</strong>"))).toBe('`w` **s**');
+    const slots = [0, 1, 6, 7, 8, 9, 14, 15, 16, 17].map((n) => `<span style="color: var(--vt-palette-${n})">${n}</span>`);
+    expect(terminalHtmlToText(ghostty(slots.join(' ')))).toBe('0 `1` `6` 7 8 `9` `14` 15 16 17');
+  });
+
+  it('split lines on \\n, \\r\\n and <br>, and read no-break spaces as spaces', () => {
+    expect(terminalHtmlToText(ghostty('a\r\nb\nc<br>d\u00a0e'))).toBe('a\nb\nc\nd e');
+  });
+
+  it('follow the nesting of tags, comments included, and stop at the end of the first block', () => {
+    expect(terminalHtmlToText(ghostty('<b>x<i>y</b>z'))).toBe('**xy**z');
+    expect(terminalHtmlToText(ghostty('<b>x <span style="color:#00f">y</span></b><!-- a > b -->.'))).toBe('**x** **`y`**.');
+    expect(terminalHtmlToText('<pre>a</pre><pre>b</pre>')).toBe('a');
+    expect(terminalHtmlToText('<p style="white-space : pre">open\n<b>b</b> c')).toBe('open\n**b** c');
+    expect(terminalHtmlToText('<div style ="white-space: pre; color: #00f">blue</div>')).toBe('blue');
+  });
+
+  it('leave colored symbols and words with backticks unmarked', () => {
+    expect(terminalHtmlToText(ghostty(`${green('•')} ${blue('──')} ${blue('a`b')} ${blue('(x)')}`))).toBe('• ── a`b `(x)`');
+  });
+
+  it('take only the terminal block, with <br> lines and entities, from the HTML around it', () => {
+    const windows =
+      '<html><head><meta charset="utf-8"><style>p { color: red }</style><title>t</title></head><body><!--StartFragment-->ignored<br>' +
+      '<div style="display:inline-block;white-space:pre;color:#cccccc;font-family:\'Cascadia Mono\'">' +
+      '<span style="color:#cccccc">a &lt;b&gt; &amp;&nbsp;c</span><br><span style="color:#3b78ff">hash</span><br/>end</div>after<!--EndFragment--></body></html>';
+    expect(terminalHtmlToText(windows)).toBe('a <b> & c\n`hash`\nend');
+    expect(terminalHtmlToText('<pre>one\n<b>two</b></pre>')).toBe('one\n**two**');
+  });
+
+  it('are not HTML from editors or web pages', () => {
+    expect(terminalHtmlToText('<p><b>bold</b> text</p>')).toBeNull();
+    // VS Code copies code with a block per line: an ordinary paste.
+    const vscode = '<div style="color: #d4d4d4;white-space: pre;"><div><span style="color: #569cd6;">const</span> a = 1;</div></div>';
+    expect(terminalPasteMarkdown('const a = 1;', vscode)).toBeNull();
+    expect(terminalPasteMarkdown('plain words', '')).toBeNull();
+  });
+
+  it('fall back to the plain text when there is no terminal HTML', () => {
+    expect(terminalPasteMarkdown('⏺ Done • one', '')).toBe('Done • one');
+    expect(terminalPasteMarkdown('⏺ Done', '<p>Done</p>')).toBe('Done');
+    expect(terminalPasteMarkdown('x', ghostty(`${bold('Hi')} there`))).toBe('**Hi** there');
+    expect(terminalPasteMarkdown('x', '<div style="white-space:pre"><span style="display:inline-block;font-weight:bold">Hi</span></div>')).toBe('**Hi**');
+    expect(terminalPasteMarkdown('x', '<div style="white-space: pre"><span style="display : inline; font-weight: bold">Hi</span></div>')).toBe('**Hi**');
   });
 });
