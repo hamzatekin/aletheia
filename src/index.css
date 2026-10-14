@@ -306,7 +306,8 @@ html { scroll-padding-top: 4rem; }
   text-underline-offset: 2px;
 }
 
-/* Block Markdown inside notes. */
+/* Block Markdown inside notes. A long word or link wraps rather than scrolling the page sideways. */
+.prose-note :is(p, li, h1, h2, h3, h4, h5, h6, summary) { overflow-wrap: break-word; }
 .prose-note > :first-child { margin-top: 0; }
 .prose-note > :last-child { margin-bottom: 0; }
 .prose-note p { margin: 0.25rem 0; }
@@ -332,6 +333,48 @@ html { scroll-padding-top: 4rem; }
   border-left: 2px solid var(--line);
 }
 .prose-note :is(h1, h2, h3, h4, h5, h6) { font-weight: 600; margin: 0.5rem 0 0.25rem; }
+/*
+ * GitHub's extras, read and edited alike: alerts ("> [!NOTE]"), images,
+ * footnotes, <kbd>, <details>, :emoji:, and code coloured with GitHub's palette.
+ */
+.prose-note .markdown-alert { --alert: light-dark(#0969da, #4493f8); border-left-color: var(--alert); }
+.prose-note .markdown-alert-tip { --alert: light-dark(#1a7f37, #3fb950); }
+.prose-note .markdown-alert-important { --alert: light-dark(#8250df, #ab7df8); }
+.prose-note .markdown-alert-warning { --alert: light-dark(#9a6700, #d29922); }
+.prose-note .markdown-alert-caution { --alert: light-dark(#cf222e, #f85149); }
+/* The title leads the first line (the editor keeps the marker on the text's line). */
+.prose-note .markdown-alert-title { margin-right: 0.4em; color: var(--alert); font-weight: 600; }
+.prose-note img { display: inline-block; max-width: 100%; height: auto; border-radius: 0.25rem; vertical-align: middle; }
+.prose-note img.ProseMirror-selectednode { outline: 2px solid var(--accent); }
+.prose-note kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  padding: 0.05em 0.35em;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 0.25rem;
+  background: var(--page);
+}
+.prose-note summary { cursor: pointer; }
+.prose-note details { margin: 0.25rem 0; }
+.prose-note mark { background: var(--search-hit); color: inherit; }
+.prose-note sub, .prose-note sup { line-height: 0; }
+.prose-note .footnotes-sep { margin: 0.5rem 0 0.25rem; }
+.prose-note .footnotes { font-size: 0.9em; }
+.prose-note .footnotes-list { list-style: decimal; }
+.prose-note .footnote-ref a, .prose-note .footnote-backref { text-decoration: none; }
+.prose-note :is(.hljs-keyword, .hljs-doctag, .hljs-template-tag, .hljs-template-variable, .hljs-type, .hljs-variable.language_) { color: light-dark(#cf222e, #ff7b72); }
+.prose-note :is(.hljs-title, .hljs-title.class_, .hljs-title.function_) { color: light-dark(#8250df, #d2a8ff); }
+.prose-note :is(.hljs-attr, .hljs-attribute, .hljs-literal, .hljs-meta, .hljs-number, .hljs-operator, .hljs-variable, .hljs-selector-attr, .hljs-selector-class, .hljs-selector-id) { color: light-dark(#0550ae, #79c0ff); }
+.prose-note :is(.hljs-regexp, .hljs-string, .hljs-meta .hljs-string) { color: light-dark(#0a3069, #a5d6ff); }
+.prose-note :is(.hljs-built_in, .hljs-symbol, .hljs-bullet) { color: light-dark(#953800, #ffa657); }
+.prose-note :is(.hljs-comment, .hljs-code, .hljs-formula) { color: light-dark(#6e7781, #8b949e); }
+.prose-note :is(.hljs-name, .hljs-quote, .hljs-selector-tag, .hljs-selector-pseudo) { color: light-dark(#116329, #7ee787); }
+.prose-note .hljs-section { color: light-dark(#0550ae, #1f6feb); font-weight: 600; }
+.prose-note .hljs-emphasis { font-style: italic; }
+.prose-note .hljs-strong { font-weight: 600; }
+.prose-note .hljs-addition { color: light-dark(#116329, #aff5b4); background: light-dark(#dafbe1, #033a16); }
+.prose-note .hljs-deletion { color: light-dark(#82071e, #ffdcd7); background: light-dark(#ffebe9, #67060c); }
 /*
  * Checklists ("- [ ] todo"): a box in place of the bullet, laid out the same
  * in a rendered note and in its editor (both use Tiptap's task list markup).

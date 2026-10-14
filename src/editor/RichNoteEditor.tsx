@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Editor, Extension } from '@tiptap/core';
 import { Plugin, Selection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
-import { Markdown, type MarkdownStorage } from 'tiptap-markdown';
+import { Markdown } from 'tiptap-markdown';
 import { useOutline } from '@/tree-view/outline-context';
 import { useNode } from '@/tree-view/use-outline';
 import { markdownOptions } from './markdown';
@@ -10,6 +10,8 @@ import { takeCaretHandoff } from './caret-handoff';
 import { registerNoteFlush } from './note-flush';
 import { noteTableExtensions } from './note-table';
 import { noteTaskExtensions } from './note-tasks';
+import { NoteAlerts, NoteCodeBlock, NoteImage, NoteText } from './note-gfm';
+import { loadedNote, noteMarkdown, type LoadedNote } from './note-source';
 import { SlashList, slashPlacement } from './SlashMenu';
 import { opensSlashMenu, slashCommands } from './slash-registry';
 import { terminalPasteMarkdown } from '@/io/terminal';
@@ -22,9 +24,6 @@ interface NoteSlash {
   index: number;
 }
 
-function markdownOf(editor: Editor): string {
-  return (editor.storage as unknown as { markdown: MarkdownStorage }).markdown.getMarkdown().replace(/\s+$/, '');
-}
 
 /**
  * Notes edited as rendered Markdown: headings, lists, quotes, code blocks and
@@ -44,6 +43,8 @@ export function RichNoteEditor({ id }: { id: string }) {
    * Markdown (list markers, spacing), and that alone must not count as an edit.
    */
   const loaded = useRef('');
+  /** The note as last loaded into the editor, so blocks left alone are saved exactly as they were. */
+  const source = useRef<LoadedNote | null>(null);
   const [slash, setSlashState] = useState<NoteSlash | null>(null);
   const slashRef = useRef<NoteSlash | null>(null);
   const setSlash = (next: NoteSlash | null) => {
@@ -57,7 +58,7 @@ export function RichNoteEditor({ id }: { id: string }) {
     const save = () => {
       if (timer) clearTimeout(timer);
       timer = null;
-      const md = markdownOf(editor);
+      const md = noteMarkdown(editor, source.current);
       if (md === loaded.current) return;
       loaded.current = md;
       known.current = md;
@@ -162,7 +163,13 @@ export function RichNoteEditor({ id }: { id: string }) {
           gapcursor: false,
           heading: { levels: [1, 2, 3, 4, 5, 6] },
           link: { openOnClick: false, autolink: false, linkOnPaste: true },
+          text: false,
+          codeBlock: false,
         }),
+        NoteText,
+        NoteCodeBlock,
+        NoteImage,
+        NoteAlerts,
         Markdown.configure({ ...markdownOptions, tightLists: true, transformPastedText: true, transformCopiedText: true }),
         ...noteTableExtensions,
         ...noteTaskExtensions,
@@ -197,7 +204,8 @@ export function RichNoteEditor({ id }: { id: string }) {
       },
     });
     editorRef.current = editor;
-    loaded.current = markdownOf(editor);
+    source.current = loadedNote(editor, known.current);
+    loaded.current = noteMarkdown(editor, source.current);
     // The caret goes where the note was clicked (or where it was before a
     // mode switch), else at the end. The page never jumps to show the note:
     // at most the caret itself is scrolled into view, and only from the keyboard.
@@ -230,7 +238,8 @@ export function RichNoteEditor({ id }: { id: string }) {
     if (!editor || stored === known.current) return;
     known.current = stored;
     editor.commands.setContent(stored, { emitUpdate: false });
-    loaded.current = markdownOf(editor);
+    source.current = loadedNote(editor, stored);
+    loaded.current = noteMarkdown(editor, source.current);
   }, [stored]);
 
   const slashItems = slash ? slashCommands(slash.query, 'note') : [];
