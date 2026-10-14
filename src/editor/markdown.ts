@@ -2,6 +2,7 @@ import markdownIt, { type MarkdownIt, type RendererRule } from 'markdown-it';
 import { full as emoji } from 'markdown-it-emoji';
 import footnotes from 'markdown-it-footnote';
 import { alerts, allowedHtml, bareLinks, highlightCode } from './gfm';
+import { math } from './math';
 import { taskLists } from './task-list';
 
 /**
@@ -14,7 +15,8 @@ export const markdownOptions = { html: false, linkify: false, breaks: false } as
 /**
  * Rendering is GitHub's Markdown: on top of tables and strikethrough, task
  * lists, bare links, images, alerts, footnotes, :emoji: shortcodes, coloured
- * code and the HTML tags GitHub keeps. A node's own line takes inline Markdown and bare links only.
+ * code, the HTML tags GitHub keeps and math (drawn after render, see
+ * draw-math.ts). A node's own line takes inline Markdown and bare links only.
  */
 const md: MarkdownIt = markdownIt({ ...markdownOptions, highlight: highlightCode })
   .use(taskLists)
@@ -22,6 +24,7 @@ const md: MarkdownIt = markdownIt({ ...markdownOptions, highlight: highlightCode
   .use(allowedHtml)
   .use(alerts)
   .use(footnotes)
+  .use(math, { render: 'placeholder' })
   // :tada: shortcodes, but not :) and the like, which GitHub leaves alone.
   .use(emoji, { shortcuts: {} });
 const mdInline: MarkdownIt = markdownIt(markdownOptions).use(bareLinks);
@@ -38,9 +41,12 @@ for (const m of [md, mdInline]) {
 }
 
 // Code blocks wrap long lines, except ones drawn with box characters
-// (terminal tables), which only line up unwrapped.
+// (terminal tables), which only line up unwrapped. ```math is a formula.
 const defaultFence: RendererRule = md.renderer.rules.fence!;
 md.renderer.rules.fence = (tokens, idx, options, env, self) => {
+  const token = tokens[idx]!;
+  const lang = token.info.trim().split(/\s+/)[0]!.toLowerCase();
+  if (lang === 'math') return `<div class="math-display">${md.utils.escapeHtml(token.content.trim())}</div>\n`;
   const html = defaultFence(tokens, idx, options, env, self);
   return /[\u2500-\u257f]/.test(tokens[idx]!.content) ? html.replace('<pre>', '<pre class="nowrap">') : html;
 };

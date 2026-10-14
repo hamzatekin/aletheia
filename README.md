@@ -20,7 +20,8 @@ src/store         Zustand stores: the tree (Map<id, Node> + childrenByParent ind
 src/persistence   Repository interface, Dexie implementation, in-memory implementation
 src/commands      Typed commands, the engine (apply → persist → op log → undo/redo)
 src/editor        The single Tiptap editor session, outliner keymap, slash menu, note
-                  editors, GitHub Markdown (markdown-it) and sanitized static rendering
+                  editors, GitHub Markdown (markdown-it) and sanitized static rendering;
+                  math is typeset by KaTeX, loaded only when a note has math
 src/tree-view     Virtualized outline, rows, bullets, breadcrumbs, zoom page;
                   actions/ holds what the page does, one file per group
 src/ui            Small shared UI: media queries, hooks, spinner, buttons
