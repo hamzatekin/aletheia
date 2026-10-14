@@ -165,6 +165,14 @@ new date goes at the top of Work, and items go at the end of their date.
   section (top level first, then the shallowest) and the date (made this
   year), writes the new nodes into the sync space, and answers
   `{ id, url, path }`. Devices see the item on their next sync.
+- **Pages.** A capture can carry `page`, one HTML page (a work report with
+  Mermaid flowcharts and charts, say; ask for "/aletheia with page"). The
+  Worker stores it in D1 (`worker/pages.ts`) and the note starts with a link
+  to `/p/<id>`. That app route (`src/app/PageRoute.tsx`) fetches it from
+  `GET /api/pages/<id>` with the sync key, so only the owner's synced devices
+  can open it, and shows it in an iframe sandboxed without
+  `allow-same-origin`: its scripts run, but can't reach the app's storage or
+  the sync key.
 
 ## AI (optional)
 

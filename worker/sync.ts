@@ -65,6 +65,14 @@ const SCHEMA = [
     space TEXT NOT NULL,
     created_at INTEGER NOT NULL
   )`,
+  // Web pages sent with a capture (worker/pages.ts), opened from a link in the item's note.
+  `CREATE TABLE IF NOT EXISTS pages (
+    id TEXT PRIMARY KEY,
+    space TEXT NOT NULL,
+    title TEXT NOT NULL,
+    html TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  )`,
 ];
 
 /** Columns added after the first release, for databases created before them. */
@@ -136,8 +144,13 @@ function bearerKey(request: Request): string | null {
 
 /** Whether the request carries the key of an existing sync space (how other APIs know it is the owner). */
 export async function hasSyncSpace(request: Request, env: SyncEnv): Promise<boolean> {
+  return (await ownerSpace(request, env)) !== null;
+}
+
+/** The existing sync space whose key the request carries, or null. */
+export async function ownerSpace(request: Request, env: SyncEnv): Promise<string | null> {
   const space = await requestSpace(request, env);
-  return space !== null && (await spaceExists(env.DB, space));
+  return space !== null && (await spaceExists(env.DB, space)) ? space : null;
 }
 
 /** The space id (hash of the request's sync key), with the schema ready; null when the key is missing or short. */
@@ -223,7 +236,7 @@ export async function mergeNodes(db: SqlDatabase, space: string, nodes: WireNode
 const CAPTURE_KEY_PREFIX = 'alc_';
 
 async function createCaptureKey(env: SyncEnv, space: string): Promise<Response> {
-  const key = CAPTURE_KEY_PREFIX + hex(crypto.getRandomValues(new Uint8Array(32)));
+  const key = CAPTURE_KEY_PREFIX + randomHex(32);
   await env.DB.batch([
     env.DB.prepare('DELETE FROM capture_keys WHERE space = ?1').bind(space),
     env.DB.prepare('INSERT INTO capture_keys (hash, space, created_at) VALUES (?1, ?2, ?3)').bind(await sha256(key), space, Date.now()),
@@ -319,6 +332,11 @@ function capTimes(n: WireNode, limit: number): WireNode {
 
 async function sha256(text: string): Promise<string> {
   return hex(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))));
+}
+
+/** `bytes` random bytes as hex. */
+export function randomHex(bytes: number): string {
+  return hex(crypto.getRandomValues(new Uint8Array(bytes)));
 }
 
 function hex(bytes: Uint8Array): string {

@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router';
 import type { AiService } from '@/ai/service';
 import type { Engine } from '@/commands';
 import { CaptureRoute } from '@/app/CaptureRoute';
+import { PageRoute } from '@/app/PageRoute';
 import { EngineProvider } from '@/app/engine-context';
 import type { EditorSession } from '@/editor/session';
 import type { RelatedService } from '@/related/service';
@@ -32,6 +33,7 @@ export function App({ engine, ui, session, search, settings, sync, ai, related }
           <Route path="/n/:id" element={page} />
           <Route path="/share" element={<CaptureRoute ui={ui} mode="share" />} />
           <Route path="/capture" element={<CaptureRoute ui={ui} mode="capture" />} />
+          <Route path="/p/:id" element={<PageRoute sync={sync} />} />
         </Routes>
       </BrowserRouter>
     </EngineProvider>

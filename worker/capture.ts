@@ -3,8 +3,8 @@
  * skill) under a dated node, e.g. Work › 14 Oct › "Fix login bug" with the
  * answer as its note. The new nodes reach every device through sync.
  *
- *   POST /api/capture   { title, note?, under?, date?, tz? } as JSON or form fields
- *                       -> 201 { id, url, path }
+ *   POST /api/capture   { title, note?, under?, date?, tz?, page? } as JSON or form fields
+ *                       -> 201 { id, url, path, page? }
  *
  * Needs `Authorization: Bearer <capture key>` (made in Settings → Sync), a key
  * that can only add nodes, so the machine running Claude Code never holds the
@@ -12,12 +12,14 @@
  * missing; `date` defaults to today ("14 Oct") in the time zone `tz` (like
  * "Europe/Istanbul"; UTC when missing or unknown). A new date goes at the
  * top of `under` (newest first, like the Inbox); items go at the end of their
- * date, in the order they were sent.
+ * date, in the order they were sent. `page` is a web page (HTML) stored with
+ * the item (worker/pages.ts); the note then starts with a link to it.
  */
 import { generateKeyBetween } from 'fractional-indexing';
 import { v7 } from 'uuid';
 import { NO_TIMES, type WireNode } from '../src/sync/wire';
 import { json } from './http';
+import { MAX_PAGE_CHARS, savePage } from './pages';
 import { captureSpace, mergeNodes, type SyncEnv } from './sync';
 
 const MAX_TITLE_CHARS = 1_000;
@@ -32,6 +34,7 @@ interface CaptureRequest {
   note: string;
   under: string;
   date: string;
+  page: string;
 }
 
 interface LiveRow {
@@ -51,7 +54,10 @@ export async function handleCapture(request: Request, env: SyncEnv, now = Date.n
 
   const parsed = await readRequest(request, now);
   if (typeof parsed === 'string') return json({ error: parsed }, 400);
-  const { title, note, under, date } = parsed;
+  const { title, under, date, page } = parsed;
+  // The page first, so the note never links to a page that isn't there.
+  const pageId = page ? await savePage(env.DB, space, title, page, now) : null;
+  const note = pageId ? `[Open the page](/p/${pageId})${parsed.note ? `\n\n${parsed.note}` : ''}` : parsed.note;
 
   const { results } = await env.DB.prepare('SELECT id, parent_id, ord, content, collapsed, created_at FROM nodes WHERE space = ?1 AND deleted_at IS NULL')
     .bind(space)
@@ -89,7 +95,8 @@ export async function handleCapture(request: Request, env: SyncEnv, now = Date.n
   const item = newNode(dayId, generateKeyBetween(orders(dayId).at(-1) ?? null, null), title, note, now);
   writes.push(item);
   await mergeNodes(env.DB, space, writes);
-  return json({ id: item.id, url: `${url.origin}/n/${item.id}`, path: [under, date, title] }, 201);
+  const pageUrl = pageId ? { page: `${url.origin}/p/${pageId}` } : {};
+  return json({ id: item.id, url: `${url.origin}/n/${item.id}`, path: [under, date, title], ...pageUrl }, 201);
 }
 
 /** The request's fields, cleaned, or what is wrong with them. */
@@ -112,11 +119,13 @@ async function readRequest(request: Request, now: number): Promise<CaptureReques
   const note = text('note').replace(/\r\n?/g, '\n').trim();
   const under = line('under') || 'Work';
   const date = line('date') || dayName(now, line('tz'));
+  const page = text('page').trim();
   if (title === '') return 'title is required';
   if (title.length > MAX_TITLE_CHARS) return `title must be at most ${MAX_TITLE_CHARS} characters`;
   if (note.length > MAX_NOTE_CHARS) return `note must be at most ${MAX_NOTE_CHARS} characters`;
   if (under.length > MAX_NAME_CHARS || date.length > MAX_NAME_CHARS) return `under and date must be at most ${MAX_NAME_CHARS} characters`;
-  return { title, note, under, date };
+  if (page.length > MAX_PAGE_CHARS) return `page must be at most ${MAX_PAGE_CHARS} characters`;
+  return { title, note, under, date, page };
 }
 
 /** "14 Oct" for the day `time` falls on in time zone `tz` (UTC when empty or unknown). */
