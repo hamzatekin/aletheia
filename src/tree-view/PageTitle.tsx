@@ -1,6 +1,5 @@
 import type { MouseEvent } from 'react';
-import { renderInline } from '@/editor/render';
-import { RenderedNote } from '@/editor/RenderedNote';
+import { renderBlock, renderInline } from '@/editor/render';
 import { noteAfterTick, taskCheckboxAt } from '@/editor/task-list';
 import { NodeEditor } from '@/editor/NodeEditor';
 import { NoteEditor, NoteHeader, useNoteMode } from '@/editor/NoteEditor';
@@ -59,9 +58,7 @@ export function PageTitle({ rootId, root }: { rootId: string; root: Node }) {
           // icons at the upper right and the same text size, so clicking in moves nothing.
           <div className="note-box relative mt-1 flow-root">
             <NoteHeader id={rootId} raw={noteMode.raw} quiet />
-            <RenderedNote
-              note={root.note}
-              docId={rootId}
+            <div
               className="prose-note row-note cursor-text pb-0.5 text-muted"
               onMouseDown={(e) => {
                 if ((e.target as HTMLElement).closest('a')) return;
@@ -74,6 +71,7 @@ export function PageTitle({ rootId, root }: { rootId: string; root: Node }) {
                 e.preventDefault();
                 engine.execute({ type: 'updateNote', id: rootId, note: noteAfterTick(root.note, box) });
               }}
+              dangerouslySetInnerHTML={{ __html: renderBlock(root.note) }}
             />
           </div>
         )

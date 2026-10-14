@@ -10,7 +10,7 @@ import { takeCaretHandoff } from './caret-handoff';
 import { registerNoteFlush } from './note-flush';
 import { noteTableExtensions } from './note-table';
 import { noteTaskExtensions } from './note-tasks';
-import { NoteAlerts, NoteCodeBlock, NoteImage, NoteText } from './note-gfm';
+import { NoteImage, NoteText } from './note-text';
 import { loadedNote, noteMarkdown, type LoadedNote } from './note-source';
 import { SlashList, slashPlacement } from './SlashMenu';
 import { opensSlashMenu, slashCommands } from './slash-registry';
@@ -164,12 +164,9 @@ export function RichNoteEditor({ id }: { id: string }) {
           heading: { levels: [1, 2, 3, 4, 5, 6] },
           link: { openOnClick: false, autolink: false, linkOnPaste: true },
           text: false,
-          codeBlock: false,
         }),
         NoteText,
-        NoteCodeBlock,
         NoteImage,
-        NoteAlerts,
         Markdown.configure({ ...markdownOptions, tightLists: true, transformPastedText: true, transformCopiedText: true }),
         ...noteTableExtensions,
         ...noteTaskExtensions,
