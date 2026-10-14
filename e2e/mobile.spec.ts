@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { focused, gotoHome, longPress, nodeByText, outline, row, syncOn } from './helpers';
+import { expectPageNoteStill, focused, gotoHome, longPress, nodeByText, outline, row, syncOn } from './helpers';
 
 // A phone: touch screen, no hover, no Tab key.
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
@@ -355,4 +355,9 @@ test('a back arrow beside the breadcrumbs goes up a level, stays pinned at the t
   await expect(page.locator('h1')).toHaveText('Projects');
   await page.getByTestId('zoom-out').tap();
   await expect(page).toHaveURL('/');
+});
+
+test("tapping into a zoomed page's note moves nothing", async ({ page }) => {
+  await gotoHome(page);
+  await expectPageNoteStill(page, (li) => li.tap());
 });
