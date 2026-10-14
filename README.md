@@ -144,6 +144,28 @@ Local development: `pnpm build && npx wrangler dev` serves the app and the
 API with a local D1 on :8787 (`pnpm dev` proxies `/api` to it). Reset local
 sync data with `npx wrangler d1 execute aletheia-sync --local --command "DELETE FROM spaces; DELETE FROM nodes;"`.
 
+## Claude Code: /aletheia
+
+A Claude Code skill saves an answer into the outline: `/aletheia [title]` adds
+an item under **Work › 14 Oct** (today, in the computer's time zone) with the
+answer as its note, in Markdown. Work and the date are made when missing; a
+new date goes at the top of Work, and items go at the end of their date.
+
+- **Setup** (once per computer, sync must be on): Settings → Sync → Claude
+  Code → **Set up Claude Code** shows a shell command. It writes
+  `~/.config/aletheia/capture.curlrc` (the address, a capture key and the
+  time zone, readable only by the user) and downloads the skill from
+  `/claude-code/SKILL.md` (`public/claude-code/SKILL.md`) to
+  `~/.claude/skills/aletheia/`.
+- **Capture key.** `POST /api/sync/capture-key` (with the sync key) makes a
+  key that can only add items, so the computer never holds the sync key.
+  The server keeps its SHA-256; making a new one turns the old one off.
+- **`POST /api/capture`** (`worker/capture.ts`) takes `title`, `note`,
+  `under` (default `Work`), `date` and `tz` as JSON or form fields, finds the
+  section (top level first, then the shallowest) and the date (made this
+  year), writes the new nodes into the sync space, and answers
+  `{ id, url, path }`. Devices see the item on their next sync.
+
 ## AI (optional)
 
 `POST /api/ai/complete` (`worker/ai.ts`) forwards `{ prompt }` to a Claude

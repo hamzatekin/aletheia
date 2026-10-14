@@ -7,6 +7,8 @@
  *   GET  /api/sync/space   200 if the space exists, 404 if not
  *   POST /api/sync/push    { nodes: WireNode[] } -> { seq, rejected: ids }
  *   GET  /api/sync/pull?since=N&limit=M -> { nodes, cursor, more }
+ *   POST /api/sync/capture-key   -> { key }: a new key for /api/capture (worker/capture.ts),
+ *                                   replacing this space's old one
  *
  * Every request needs `Authorization: Bearer <sync key>`.
  */
@@ -57,6 +59,12 @@ const SCHEMA = [
     PRIMARY KEY (space, id)
   )`,
   `CREATE INDEX IF NOT EXISTS nodes_by_seq ON nodes (space, seq)`,
+  // Keys that may only add nodes (Claude Code's /aletheia skill). Only their SHA-256 is kept.
+  `CREATE TABLE IF NOT EXISTS capture_keys (
+    hash TEXT PRIMARY KEY,
+    space TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  )`,
 ];
 
 /** Columns added after the first release, for databases created before them. */
@@ -160,6 +168,8 @@ export async function handleSync(request: Request, env: SyncEnv): Promise<Respon
       return push(env, space, request);
     case 'GET /api/sync/pull':
       return pull(env, space, url);
+    case 'POST /api/sync/capture-key':
+      return createCaptureKey(env, space);
     default:
       return json({ error: 'not found' }, 404);
   }
@@ -194,14 +204,41 @@ async function push(env: SyncEnv, space: string, request: Request): Promise<Resp
     else rejected.push(typeof (n as { id?: unknown })?.id === 'string' ? (n as { id: string }).id : '');
   }
   if (nodes.length === 0) return json({ seq: null, rejected } satisfies PushResponse);
-  // One transaction: reserve n sequence numbers, then merge every node.
-  const results = await env.DB.batch([
-    env.DB.prepare('UPDATE spaces SET seq = seq + ?2 WHERE id = ?1').bind(space, nodes.length),
-    env.DB.prepare(UPSERT).bind(space, nodes.length, JSON.stringify(nodes)),
-    env.DB.prepare('SELECT seq FROM spaces WHERE id = ?1').bind(space),
+  return json({ seq: await mergeNodes(env.DB, space, nodes), rejected } satisfies PushResponse);
+}
+
+/** Merge valid nodes into the space in one transaction; returns the space's new sequence number. */
+export async function mergeNodes(db: SqlDatabase, space: string, nodes: WireNode[]): Promise<number | null> {
+  // Reserve n sequence numbers, then merge every node.
+  const results = await db.batch([
+    db.prepare('UPDATE spaces SET seq = seq + ?2 WHERE id = ?1').bind(space, nodes.length),
+    db.prepare(UPSERT).bind(space, nodes.length, JSON.stringify(nodes)),
+    db.prepare('SELECT seq FROM spaces WHERE id = ?1').bind(space),
   ]);
   const last = results[2] as { results?: { seq: number }[] } | undefined;
-  return json({ seq: last?.results?.[0]?.seq ?? null, rejected } satisfies PushResponse);
+  return last?.results?.[0]?.seq ?? null;
+}
+
+/** Prefix of capture keys, so one pasted in the wrong place is recognizable. */
+const CAPTURE_KEY_PREFIX = 'alc_';
+
+async function createCaptureKey(env: SyncEnv, space: string): Promise<Response> {
+  const key = CAPTURE_KEY_PREFIX + hex(crypto.getRandomValues(new Uint8Array(32)));
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM capture_keys WHERE space = ?1').bind(space),
+    env.DB.prepare('INSERT INTO capture_keys (hash, space, created_at) VALUES (?1, ?2, ?3)').bind(await sha256(key), space, Date.now()),
+  ]);
+  return json({ key });
+}
+
+/** The space a capture key (`Authorization: Bearer alc_...`) belongs to, or null. */
+export async function captureSpace(request: Request, env: SyncEnv): Promise<string | null> {
+  const key = bearerKey(request);
+  // Stryker disable next-line ConditionalExpression: without it a missing key is hashed as "null", which matches no stored key either
+  if (!key) return null;
+  await ensureSchema(env.DB);
+  const row = await env.DB.prepare('SELECT space FROM capture_keys WHERE hash = ?1').bind(await sha256(key)).first<{ space: string }>();
+  return row && (await spaceExists(env.DB, row.space)) ? row.space : null;
 }
 
 async function pull(env: SyncEnv, space: string, url: URL): Promise<Response> {
@@ -281,6 +318,9 @@ function capTimes(n: WireNode, limit: number): WireNode {
 }
 
 async function sha256(text: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return hex(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))));
+}
+
+function hex(bytes: Uint8Array): string {
+  return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
 }

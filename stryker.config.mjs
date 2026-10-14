@@ -17,6 +17,7 @@ export default {
     'src/sync/clock.ts',
     'src/sync/service.ts',
     'worker/sync.ts',
+    'worker/capture.ts',
     '!**/*.test.ts',
     '!src/model/index.ts',
     '!src/commands/index.ts',
