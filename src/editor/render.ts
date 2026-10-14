@@ -4,8 +4,8 @@ import { HTML_TAGS } from './gfm';
 
 import type { Config } from 'dompurify';
 
-/** Classes the renderer itself sets (code colours, alerts, footnotes, terminal tables); others are dropped. */
-const OWN_CLASS = /^(hljs(-[\w-]+)?|language-[\w+#.-]+|markdown-alert(-[\w-]+)?|footnotes?(-[\w-]+)?|footnote-(ref|item|backref)|nowrap)$/;
+/** Classes the renderer itself sets (code colours, alerts, footnotes, terminal tables, math); others are dropped. */
+const OWN_CLASS = /^(hljs(-[\w-]+)?|language-[\w+#.-]+|markdown-alert(-[\w-]+)?|footnotes?(-[\w-]+)?|footnote-(ref|item|backref)|nowrap|math-(inline|display))$/;
 
 DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
   if (data.attrName === 'class') data.attrValue = data.attrValue.split(/\s+/).filter((c) => OWN_CLASS.test(c)).join(' ');

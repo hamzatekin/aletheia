@@ -1,5 +1,6 @@
 import { memo, useRef, type MouseEvent, type TouchEvent } from 'react';
-import { renderBlock, renderInline } from '@/editor/render';
+import { renderInline } from '@/editor/render';
+import { RenderedNote } from '@/editor/RenderedNote';
 import { NodeEditor } from '@/editor/NodeEditor';
 import { NoteEditor, NoteHeader, useNoteMode } from '@/editor/NoteEditor';
 import { useUiStore } from '@/store/ui-store';
@@ -294,11 +295,12 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
             ) : (
               <>
                 <NoteHeader id={id} raw={noteMode.raw} quiet />
-                <div
+                <RenderedNote
+                  note={node.note}
+                  docId={id}
                   className="node-note prose-note row-note cursor-text pb-0.5 text-muted"
                   onMouseDown={onNoteMouseDown}
                   onClick={onNoteClick}
-                  dangerouslySetInnerHTML={{ __html: renderBlock(node.note, id) }}
                 />
               </>
             )}
