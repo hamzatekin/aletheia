@@ -9,6 +9,7 @@ import { markdownOptions } from './markdown';
 import { takeCaretHandoff } from './caret-handoff';
 import { registerNoteFlush } from './note-flush';
 import { noteTableExtensions } from './note-table';
+import { noteTaskExtensions } from './note-tasks';
 import { SlashList, slashPlacement } from './SlashMenu';
 import { opensSlashMenu, slashCommands } from './slash-registry';
 import { terminalPasteMarkdown } from '@/io/terminal';
@@ -124,9 +125,9 @@ export function RichNoteEditor({ id }: { id: string }) {
           'Mod-z': () => (save(), false),
           'Shift-Mod-z': () => (save(), false),
           'Mod-y': () => (save(), false),
-          // Tab only means something inside lists (StarterKit indents there).
-          Tab: () => true,
-          'Shift-Tab': () => true,
+          // Tab only means something inside lists, where it nests or un-nests the item.
+          Tab: ({ editor: e }) => (e.commands.sinkListItem('listItem') || e.commands.sinkListItem('taskItem'), true),
+          'Shift-Tab': ({ editor: e }) => (e.commands.liftListItem('listItem') || e.commands.liftListItem('taskItem'), true),
         };
       },
       addProseMirrorPlugins() {
@@ -159,11 +160,12 @@ export function RichNoteEditor({ id }: { id: string }) {
           trailingNode: false,
           dropcursor: false,
           gapcursor: false,
-          heading: { levels: [1, 2, 3] },
+          heading: { levels: [1, 2, 3, 4, 5, 6] },
           link: { openOnClick: false, autolink: false, linkOnPaste: true },
         }),
         Markdown.configure({ ...markdownOptions, tightLists: true, transformPastedText: true, transformCopiedText: true }),
         ...noteTableExtensions,
+        ...noteTaskExtensions,
         NoteKeys,
       ],
       content: known.current,

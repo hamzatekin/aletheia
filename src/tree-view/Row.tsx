@@ -5,6 +5,7 @@ import { NoteEditor, NoteHeader, useNoteMode } from '@/editor/NoteEditor';
 import { useUiStore } from '@/store/ui-store';
 import { isNoteCollapsed, notePrefs, useNotePrefs } from '@/store/note-prefs';
 import { plainText } from '@/editor/markdown';
+import { noteAfterTick, taskCheckboxAt } from '@/editor/task-list';
 import { Bullet } from './Bullet';
 import { CollapseToggle } from './CollapseToggle';
 import { NodeMenu } from './NodeMenu';
@@ -148,7 +149,17 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
     },
   };
 
-  const onNoteMouseDown = (e: MouseEvent<HTMLDivElement>) => pressText(e, 'note');
+  const onNoteMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+    // A checklist's box ticks on click, without opening the note.
+    if (taskCheckboxAt(e.target)) return e.preventDefault();
+    pressText(e, 'note');
+  };
+  const onNoteClick = (e: MouseEvent<HTMLDivElement>) => {
+    const box = taskCheckboxAt(e.target);
+    if (!box || ui.getState().selection) return;
+    e.preventDefault();
+    engine.execute({ type: 'updateNote', id, note: noteAfterTick(node.note, box) });
+  };
 
   // The grip and its menu sit left of the bullet (desktop only, so the desktop indent).
   const gripLeft = depth * INDENT_PX - 68;
@@ -286,6 +297,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
                 <div
                   className="node-note prose-note row-note cursor-text pb-0.5 text-muted"
                   onMouseDown={onNoteMouseDown}
+                  onClick={onNoteClick}
                   dangerouslySetInnerHTML={{ __html: renderBlock(node.note) }}
                 />
               </>

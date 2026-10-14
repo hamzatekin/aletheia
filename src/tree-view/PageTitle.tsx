@@ -1,5 +1,6 @@
 import type { MouseEvent } from 'react';
 import { renderBlock, renderInline } from '@/editor/render';
+import { noteAfterTick, taskCheckboxAt } from '@/editor/task-list';
 import { NodeEditor } from '@/editor/NodeEditor';
 import { NoteEditor, NoteHeader, useNoteMode } from '@/editor/NoteEditor';
 import type { Node } from '@/model';
@@ -62,7 +63,13 @@ export function PageTitle({ rootId, root }: { rootId: string; root: Node }) {
               onMouseDown={(e) => {
                 if ((e.target as HTMLElement).closest('a')) return;
                 e.preventDefault();
-                ui.focusNode(rootId, { kind: 'end' }, 'note');
+                if (!taskCheckboxAt(e.target)) ui.focusNode(rootId, { kind: 'end' }, 'note');
+              }}
+              onClick={(e) => {
+                const box = taskCheckboxAt(e.target);
+                if (!box) return;
+                e.preventDefault();
+                engine.execute({ type: 'updateNote', id: rootId, note: noteAfterTick(root.note, box) });
               }}
               dangerouslySetInnerHTML={{ __html: renderBlock(root.note) }}
             />

@@ -97,7 +97,7 @@ Typing `/` in a node, or in a note in the rendered editor, opens the slash
 menu, backed by `registerSlashCommand` in `editor/slash-registry.ts`. Like
 WorkFlowy's, it only inserts into the text being edited: text formats (bold,
 italic, strikethrough, inline code, link) everywhere, block formats (headings,
-lists, quote, code block, table, divider) in notes, and AI actions. A command
+lists, checklist, quote, code block, table, divider) in notes, and AI actions. A command
 says where it is offered (`fields`) and receives the editor it was typed in,
 the field and the node. Actions on a node live in its menu (the ≡ grip, or a
 long press on the bullet on touch screens, where a tap zooms in as everywhere
