@@ -10,6 +10,18 @@ interface SerializerState {
   closeBlock(node: PMNode): void;
 }
 
+/** A column's alignment (":---:" in Markdown), kept on each of its cells. */
+function aligned(this: { parent: (() => object) | undefined }) {
+  return {
+    ...this.parent?.(),
+    align: {
+      default: null,
+      parseHTML: (element: HTMLElement) => element.style.textAlign || null,
+      renderHTML: (attributes: { align?: string | null }) => (attributes.align ? { style: `text-align: ${attributes.align}` } : {}),
+    },
+  };
+}
+
 /**
  * GFM tables in the rendered note editor. A cell holds exactly one paragraph,
  * so every table the editor can produce is one Markdown can hold (Enter in a
@@ -23,7 +35,8 @@ export const noteTableExtensions = [
         markdown: {
           serialize(state: SerializerState, node: PMNode) {
             const esc = state.esc;
-            state.esc = (text, startOfLine) => esc.call(state, text, startOfLine).replace(/\|/g, '\\|');
+            // A cell's text never starts a line, so "-3" or "1. x" in a cell needs no escaping.
+            state.esc = (text) => esc.call(state, text, false).replace(/\|/g, '\\|');
             state.inTable = true;
             node.forEach((row, _offset, i) => {
               state.write('| ');
@@ -34,7 +47,8 @@ export const noteTableExtensions = [
               state.write(' |');
               state.ensureNewLine();
               if (i === 0) {
-                state.write(`| ${Array.from({ length: row.childCount }, () => '---').join(' | ')} |`);
+                const rule = (cell: PMNode) => ({ left: ':---', center: ':---:', right: '---:' })[cell.attrs.align as string] ?? '---';
+                state.write(`| ${Array.from({ length: row.childCount }, (_, j) => rule(row.child(j))).join(' | ')} |`);
                 state.ensureNewLine();
               }
             });
@@ -48,6 +62,6 @@ export const noteTableExtensions = [
     },
   }).configure({ resizable: false, allowTableNodeSelection: false }),
   TableRow,
-  TableHeader.extend({ content: 'paragraph' }),
-  TableCell.extend({ content: 'paragraph' }),
+  TableHeader.extend({ content: 'paragraph', addAttributes: aligned }),
+  TableCell.extend({ content: 'paragraph', addAttributes: aligned }),
 ];

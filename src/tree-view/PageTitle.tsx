@@ -71,7 +71,7 @@ export function PageTitle({ rootId, root }: { rootId: string; root: Node }) {
                 e.preventDefault();
                 engine.execute({ type: 'updateNote', id: rootId, note: noteAfterTick(root.note, box) });
               }}
-              dangerouslySetInnerHTML={{ __html: renderBlock(root.note) }}
+              dangerouslySetInnerHTML={{ __html: renderBlock(root.note, rootId) }}
             />
           </div>
         )

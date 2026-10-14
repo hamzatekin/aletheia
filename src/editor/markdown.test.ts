@@ -17,8 +17,8 @@ describe('markdown dialect', () => {
     expect(inlineToHtml('a <script>alert(1)</script>')).toContain('&lt;script&gt;');
   });
 
-  it('does not linkify bare URLs and keeps soft breaks as newlines', () => {
-    expect(inlineToHtml('see https://x.y')).toBe('see https://x.y');
+  it('links bare URLs as GitHub does and keeps soft breaks as newlines', () => {
+    expect(inlineToHtml('see https://x.y')).toBe('see <a href="https://x.y" target="_blank" rel="noopener noreferrer">https://x.y</a>');
     expect(blockToHtml('a\nb')).toBe('<p>a\nb</p>\n');
   });
 

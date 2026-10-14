@@ -3,6 +3,8 @@ import type { MarkdownIt, RendererRule, StateCore, Token } from 'markdown-it';
 /** "[ ]" or "[x]" opening a list item's text, as in GitHub; an empty item ("- [ ]") counts too. */
 const MARKER = /^\[([ xX])\](?:[ \t]+|$)/;
 
+const installed = new WeakSet<MarkdownIt>();
+
 /** A bulleted item's line up to its checkbox, inside any quotes: "- ", "  * ", "> - ". */
 const ITEM_PREFIX = /^((?:[ \t]*>)*[ \t]*[-*+][ \t]+)\[([ xX])\]/;
 
@@ -16,6 +18,9 @@ const ITEM_PREFIX = /^((?:[ \t]*>)*[ \t]*[-*+][ \t]+)\[([ xX])\]/;
  * a list that mixes tasks and plain items shows its "[ ]" as text.
  */
 export function taskLists(md: MarkdownIt): void {
+  // tiptap-markdown sets its parser up again for every note it loads.
+  if (installed.has(md)) return;
+  installed.add(md);
   md.core.ruler.after('block', 'task_lists', (state: StateCore) => {
     const tokens = state.tokens;
     for (let i = 0; i < tokens.length; i++) {
