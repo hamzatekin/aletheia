@@ -41,7 +41,7 @@ pnpm dev        dev server on :5173
 
 ```
 src/main.tsx          wires everything: repository, engine, stores, session, search, sync, AI, related
-src/App.tsx           routes: /, /n/:id (zoom), /share, /capture
+src/App.tsx           routes: /, /n/:id (zoom), /share, /capture, /p/:id (a page sent from Claude Code)
 src/model/            Node type, ids, order keys, pure tree helpers, seed tree, tree repair
 src/commands/         typed commands: pure effect functions + the engine (undo/redo, persist)
 src/persistence/      Repository interface; Dexie (IndexedDB) and in-memory implementations
@@ -61,7 +61,7 @@ src/related/          Related panel: rows elsewhere about an item (text matches,
 src/help/             tutorial dialog (lists every shortcut)
 src/app/              bootstrap, engine context, /share and /capture (share target, Add to Inbox)
 worker/               Cloudflare Worker: only /api/* runs it; sync API on D1 (sync.ts), AI proxy (ai.ts),
-                      capture from Claude Code (capture.ts; the skill is public/claude-code/SKILL.md)
+                      capture from Claude Code (capture.ts, pages.ts; the skill is public/claude-code/SKILL.md)
 pwa/                  service worker and the Vite plugin that builds it
 e2e/                  Playwright specs; helpers.ts drives the app via window.__aletheia
 .claude/              cloud session hook (installs deps, sets CHROMIUM_PATH)

@@ -18,6 +18,8 @@ export default {
     'src/sync/service.ts',
     'worker/sync.ts',
     'worker/capture.ts',
+    'worker/pages.ts',
+    'src/app/pages.ts',
     '!**/*.test.ts',
     '!src/model/index.ts',
     '!src/commands/index.ts',
