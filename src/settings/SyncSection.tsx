@@ -3,6 +3,7 @@ import { useStore } from 'zustand';
 import { keyFromHash, syncLink, type SyncService, type SyncState } from '@/sync/service';
 import { useTick } from '@/ui/hooks';
 import { ago, Button } from '@/ui/widgets';
+import { ClaudeCodeSection } from './ClaudeCodeSection';
 
 interface Props {
   sync: SyncService;
@@ -172,6 +173,7 @@ function SyncOn({
           Turn off here
         </Button>
       </div>
+      <ClaudeCodeSection syncKey={state.key!} />
     </>
   );
 }

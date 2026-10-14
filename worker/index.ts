@@ -1,9 +1,11 @@
 /**
  * The Worker. Static assets (the app) are served by Cloudflare without running
  * this code; only `/api/*` reaches it (see `run_worker_first` in wrangler.jsonc):
- * `/api/sync/*` is the sync API, `/api/ai/*` the proxy to the Claude relay.
+ * `/api/sync/*` is the sync API, `/api/ai/*` the proxy to the Claude relay,
+ * `/api/capture` adds items from Claude Code.
  */
 import { handleAi, type AiEnv } from './ai';
+import { handleCapture } from './capture';
 import { handleSync } from './sync';
 
 interface Env extends AiEnv {
@@ -26,6 +28,14 @@ export default {
         return await handleAi(request, env);
       } catch (error) {
         console.error('ai failed', error);
+        return Response.json({ error: 'server error' }, { status: 500 });
+      }
+    }
+    if (pathname === '/api/capture') {
+      try {
+        return await handleCapture(request, env);
+      } catch (error) {
+        console.error('capture failed', error);
         return Response.json({ error: 'server error' }, { status: 500 });
       }
     }

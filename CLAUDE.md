@@ -60,7 +60,8 @@ src/ai/               AI actions (Suggest title) via the Worker's proxy to the C
 src/related/          Related panel: rows elsewhere about an item (text matches, then AI), chat about it
 src/help/             tutorial dialog (lists every shortcut)
 src/app/              bootstrap, engine context, /share and /capture (share target, Add to Inbox)
-worker/               Cloudflare Worker: only /api/* runs it; sync API on D1 (sync.ts), AI proxy (ai.ts)
+worker/               Cloudflare Worker: only /api/* runs it; sync API on D1 (sync.ts), AI proxy (ai.ts),
+                      capture from Claude Code (capture.ts; the skill is public/claude-code/SKILL.md)
 pwa/                  service worker and the Vite plugin that builds it
 e2e/                  Playwright specs; helpers.ts drives the app via window.__aletheia
 .claude/              cloud session hook (installs deps, sets CHROMIUM_PATH)
