@@ -222,7 +222,7 @@ const TABS: Tab[] = [
           rows={[
             [<Keys k="Shift+Enter" />, 'Open or edit the note of the current node.'],
             [<Keys k="Esc" />, 'Leave the note and go back to the node.'],
-            ['Click a note', 'Edit it. Markdown renders as you type: "## " makes a heading, "- " a list, ``` a code block.'],
+            ['Click a note', 'Edit it. Markdown renders as you type: "## " makes a heading, "- " a list, "[] " a checklist, ``` a code block.'],
             ['Rendered / Markdown', 'Click the small icon at the upper right of a note to switch between rendered and raw Markdown editing.'],
             ['▾ left of a note', 'Notes start collapsed to their first line: expand or collapse one here or in the ≡ menu. A note you open stays open. Settings can start them expanded.'],
           ]}
@@ -230,10 +230,11 @@ const TABS: Tab[] = [
         <H>What works in notes</H>
         <Table
           rows={[
-            [<Code>- item</Code>, 'Bulleted list (1. for numbered)'],
+            [<Code>- item</Code>, 'Bulleted list (1. for numbered). Tab nests an item, Shift+Tab takes it back out.'],
+            [<Code>[] item</Code>, 'Checklist, also "- [ ] " ("[x] " starts it ticked). Click a box to tick it, even without opening the note; Enter adds the next item.'],
             [<Code>&gt; quote</Code>, 'Quote'],
             [<Code>```</Code>, 'Code block'],
-            [<Code># Heading</Code>, 'Heading'],
+            [<Code># Heading</Code>, 'Heading (## to ###### for smaller ones)'],
             [<Code>| a | b |</Code>, 'Table (a header row, then |---|---|)'],
             ['Terminal output', 'Paste an answer copied from Claude Code and its box tables become real tables. For notes imported earlier, use ≡ → Format terminal output.'],
           ]}
@@ -264,7 +265,7 @@ const TABS: Tab[] = [
         <Table
           rows={[
             [<Code>/bold</Code>, 'Bold, Italic, Strikethrough, Inline code, Link. In a line or a note.'],
-            [<Code>/heading</Code>, 'In a note: Heading 1 to 3, Text, Bulleted list, Numbered list, Quote, Code block, Table, Divider.'],
+            [<Code>/heading</Code>, 'In a note: Heading 1 to 3, Text, Bulleted list, Checklist, Numbered list, Quote, Code block, Table, Divider.'],
             [<Code>/suggest</Code>, 'Suggest title: AI names the row from its note and the items under it (Undo to put it back). Needs sync on.'],
           ]}
         />

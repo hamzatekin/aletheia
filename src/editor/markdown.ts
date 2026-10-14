@@ -1,4 +1,5 @@
 import markdownIt, { type MarkdownIt, type RendererRule } from 'markdown-it';
+import { taskLists } from './task-list';
 
 /**
  * The single Markdown dialect used everywhere: static rendering here and
@@ -7,7 +8,7 @@ import markdownIt, { type MarkdownIt, type RendererRule } from 'markdown-it';
  */
 export const markdownOptions = { html: false, linkify: false, breaks: false } as const;
 
-const md: MarkdownIt = markdownIt(markdownOptions);
+const md: MarkdownIt = markdownIt(markdownOptions).use(taskLists);
 
 // Links open in a new tab; the editor owns clicks inside the outline.
 const defaultLinkOpen: RendererRule =

@@ -33,6 +33,7 @@ const defaultSlashCommands: SlashCommand[] = [
     }),
   ),
   { id: 'bullets', title: 'Bulleted list', keywords: 'ul unordered list', group: 'Block', fields: ['note'], run: (c) => c.editor.chain().focus().toggleBulletList().run() },
+  { id: 'checklist', title: 'Checklist', keywords: 'todo task checkbox check', group: 'Block', fields: ['note'], run: (c) => c.editor.chain().focus().toggleTaskList().run() },
   { id: 'numbers', title: 'Numbered list', keywords: 'ol ordered list', group: 'Block', fields: ['note'], run: (c) => c.editor.chain().focus().toggleOrderedList().run() },
   { id: 'quote', title: 'Quote', keywords: 'blockquote', group: 'Block', fields: ['note'], run: (c) => c.editor.chain().focus().toggleBlockquote().run() },
   { id: 'code-block', title: 'Code block', keywords: 'code fence pre', group: 'Block', fields: ['note'], run: (c) => c.editor.chain().focus().toggleCodeBlock().run() },

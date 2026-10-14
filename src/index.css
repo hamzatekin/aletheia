@@ -331,7 +331,54 @@ html { scroll-padding-top: 4rem; }
   padding-left: 0.75rem;
   border-left: 2px solid var(--line);
 }
-.prose-note h1, .prose-note h2, .prose-note h3 { font-weight: 600; margin: 0.5rem 0 0.25rem; }
+.prose-note :is(h1, h2, h3, h4, h5, h6) { font-weight: 600; margin: 0.5rem 0 0.25rem; }
+/*
+ * Checklists ("- [ ] todo"): a box in place of the bullet, laid out the same
+ * in a rendered note and in its editor (both use Tiptap's task list markup).
+ * A ticked item is struck through and faded, as in Dynalist and WorkFlowy,
+ * but not the items nested under it. A nested item's box lines up under its
+ * parent's text, as on GitHub.
+ */
+.prose-note ul[data-type='taskList'] { list-style: none; padding-left: 0; }
+.prose-note li[data-type='taskItem'] { display: flex; align-items: flex-start; gap: 0.45em; }
+.prose-note li[data-type='taskItem'] > label {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 1.45em;
+  cursor: pointer;
+  user-select: none;
+}
+.prose-note li[data-type='taskItem'] > div { flex: 1; min-width: 0; }
+.prose-note li[data-type='taskItem'] > div > p { margin: 0; }
+.prose-note li[data-type='taskItem'][data-checked='true'] > div > p { color: var(--faint); text-decoration: line-through; }
+.prose-note li[data-type='taskItem'] input[type='checkbox'] {
+  appearance: none;
+  display: grid;
+  place-content: center;
+  width: 0.95em;
+  height: 0.95em;
+  margin: 0;
+  border: 1.5px solid var(--faint);
+  border-radius: 0.25em;
+  background: var(--page);
+  cursor: pointer;
+}
+.prose-note li[data-type='taskItem'] input[type='checkbox']:hover { border-color: var(--muted); }
+.prose-note li[data-type='taskItem'] input[type='checkbox']:checked { border-color: var(--accent); background: var(--accent); }
+.prose-note li[data-type='taskItem'] input[type='checkbox']:checked::before {
+  content: '';
+  width: 0.5em;
+  height: 0.28em;
+  margin-top: -0.12em;
+  border: solid var(--page);
+  border-width: 0 0 0.13em 0.13em;
+  transform: rotate(-45deg);
+}
+/* A finger-sized target on touch screens, without moving anything. */
+@media (pointer: coarse) {
+  .prose-note li[data-type='taskItem'] > label { margin: -0.5rem -0.3rem -0.5rem -0.5rem; padding: 0.5rem 0.3rem 0.5rem 0.5rem; box-sizing: content-box; }
+}
 .prose-note hr { margin: 0.75rem 0; border: 0; border-top: 1px solid var(--line); }
 /*
  * Tables (terminal output included) fit the note: as wide as their content up
