@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { edit, focused, gotoHome, openNodeMenu, outline, row, rowCount } from './helpers';
+import { edit, expectPageNoteStill, focused, gotoHome, openNodeMenu, outline, row, rowCount } from './helpers';
 
 test.beforeEach(async ({ page }) => gotoHome(page));
 
@@ -107,4 +107,8 @@ test('the node menu collapses and expands everything inside one node', async ({ 
   await openNodeMenu(page, 'Projects');
   await page.getByTestId('node-menu-expand-all').click();
   await expect(page.locator('[data-node-id]', { hasText: 'Drag and drop' })).toHaveCount(1);
+});
+
+test("clicking into a zoomed page's note moves nothing", async ({ page }) => {
+  await expectPageNoteStill(page, (li) => li.click());
 });

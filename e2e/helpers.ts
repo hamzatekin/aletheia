@@ -137,3 +137,41 @@ export async function longPress(page: Page, target: Locator): Promise<void> {
   await page.waitForTimeout(700);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
+
+/**
+ * Zooms into a page with a long note, then opens the note with `open` (a click
+ * or a tap on its last list item) and checks that nothing moved: crumbs,
+ * title, every block and list item of the note, and its icons.
+ */
+export async function expectPageNoteStill(page: Page, open: (lastItem: Locator) => Promise<void>): Promise<void> {
+  await page.evaluate(() => {
+    const { engine } = (window as any).__aletheia;
+    const node = [...engine.tree.all()].find((n: any) => n.content === 'Write the outliner');
+    const long = 'A long line in the note that is long enough to wrap onto a second line of the page so any change in font size or width would rewrap it somewhere else.';
+    const note = ['New and improved', '', `1. ${long}`, '2. Second item', '', 'Fixes', '', `- ${long}`, '- Another fix'].join('\n');
+    engine.execute({ type: 'updateNote', id: node.id, note });
+    history.pushState({}, '', `/n/${node.id}`);
+    dispatchEvent(new PopStateEvent('popstate'));
+  });
+  const head = page.locator('header[data-title]');
+  await expect(head.locator('.page-title')).toHaveText('Write the outliner');
+  const layout = (note: string) =>
+    page.evaluate((note) => {
+      const box = (el: Element | null) => {
+        const r = el!.getBoundingClientRect();
+        return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)];
+      };
+      const n = document.querySelector(`header[data-title] ${note}`)!;
+      return {
+        crumbs: box(document.querySelector('nav[aria-label=Breadcrumbs]')),
+        title: box(document.querySelector('header[data-title] .page-title')),
+        note: box(n),
+        blocks: [...n.querySelectorAll(':scope > *, li')].map(box),
+        icons: box(document.querySelector('header[data-title] .note-header')),
+      };
+    }, note);
+  const before = await layout('.prose-note');
+  await open(head.locator('.prose-note li').last());
+  await expect(page.locator('.ProseMirror[data-editor=note]')).toBeFocused();
+  expect(await layout('.ProseMirror[data-editor=note]')).toEqual(before);
+}

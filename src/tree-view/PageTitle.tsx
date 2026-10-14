@@ -1,7 +1,7 @@
 import type { MouseEvent } from 'react';
 import { renderBlock, renderInline } from '@/editor/render';
 import { NodeEditor } from '@/editor/NodeEditor';
-import { NoteEditor } from '@/editor/NoteEditor';
+import { NoteEditor, NoteHeader, useNoteMode } from '@/editor/NoteEditor';
 import type { Node } from '@/model';
 import { useUiStore } from '@/store/ui-store';
 import { useOutline } from './outline-context';
@@ -12,6 +12,7 @@ export function PageTitle({ rootId, root }: { rootId: string; root: Node }) {
   const { engine, ui } = useOutline();
   const titleFocus = useUiStore(ui, (s) => (s.focus?.id === rootId ? s.focus.field : null));
   const starred = root.starredAt != null;
+  const noteMode = useNoteMode();
 
   const onTitleMouseDown = (e: MouseEvent<HTMLElement>) => {
     if ((e.target as HTMLElement).closest('a') || e.button !== 0) return;
@@ -20,7 +21,7 @@ export function PageTitle({ rootId, root }: { rootId: string; root: Node }) {
   };
 
   return (
-    <header className="group/title relative mb-4" data-node-id={rootId} data-title="true">
+    <header className="group group/title relative mb-4" data-node-id={rootId} data-title="true">
       {/* In the gutter left of the title, where rows have their bullets: star this page. */}
       <button
         type="button"
@@ -52,15 +53,20 @@ export function PageTitle({ rootId, root }: { rootId: string; root: Node }) {
         </div>
       ) : (
         root.note !== '' && (
-          <div
-            className="prose-note mt-1 cursor-text text-sm text-muted"
-            onMouseDown={(e) => {
-              if ((e.target as HTMLElement).closest('a')) return;
-              e.preventDefault();
-              ui.focusNode(rootId, { kind: 'end' }, 'note');
-            }}
-            dangerouslySetInnerHTML={{ __html: renderBlock(root.note) }}
-          />
+          // Laid out exactly like the editor that replaces it (NoteEditor): the same
+          // icons at the upper right and the same text size, so clicking in moves nothing.
+          <div className="note-box relative mt-1 flow-root">
+            <NoteHeader id={rootId} raw={noteMode.raw} quiet />
+            <div
+              className="prose-note row-note cursor-text pb-0.5 text-muted"
+              onMouseDown={(e) => {
+                if ((e.target as HTMLElement).closest('a')) return;
+                e.preventDefault();
+                ui.focusNode(rootId, { kind: 'end' }, 'note');
+              }}
+              dangerouslySetInnerHTML={{ __html: renderBlock(root.note) }}
+            />
+          </div>
         )
       )}
     </header>
