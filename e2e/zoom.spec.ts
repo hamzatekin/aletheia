@@ -75,11 +75,32 @@ test('Ctrl+. zooms into the focused node and Ctrl+, zooms out', async ({ page })
 
 test('an empty zoomed page offers to create the first node; unknown ids show not found', async ({ page }) => {
   await row(page, 'Plant a tree').getByRole('link', { name: 'Zoom in' }).click();
+  // The page has a title, so the line under it to click is there without the hint's words.
+  await expect(page.getByTestId('empty-outline')).toHaveText('');
   await page.locator('[data-testid=empty-outline]').click();
   await page.keyboard.type('a child');
   await expect.poll(() => outline(page, 'Plant a tree')).toEqual(['a child']);
   await page.goto('/n/nope');
   await expect(page.locator('main')).toContainText('This node does not exist');
+});
+
+test('the "start writing" hint shows only on a page with no title and no note', async ({ page }) => {
+  const id = await page.evaluate(() => {
+    const { engine } = (window as any).__aletheia;
+    const id = crypto.randomUUID();
+    engine.execute({ type: 'createNode', id, parentId: null, at: 'last' });
+    history.pushState({}, '', `/n/${id}`);
+    dispatchEvent(new PopStateEvent('popstate'));
+    return id as string;
+  });
+  const hint = page.getByTestId('empty-outline');
+  await expect(hint).toHaveText('Click here or press Enter to start writing.');
+  await page.evaluate((id) => (window as any).__aletheia.engine.execute({ type: 'updateNote', id, note: 'just a note' }), id);
+  await expect(hint).toHaveText('');
+  await page.evaluate((id) => (window as any).__aletheia.engine.execute({ type: 'updateNote', id, note: '' }), id);
+  await expect(hint).toHaveText('Click here or press Enter to start writing.');
+  await page.evaluate((id) => (window as any).__aletheia.engine.execute({ type: 'updateContent', id, content: 'Named' }), id);
+  await expect(hint).toHaveText('');
 });
 
 test('the top-bar button and Ctrl+Shift+. collapse and expand everything on the page', async ({ page }) => {
