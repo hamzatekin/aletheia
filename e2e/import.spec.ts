@@ -124,6 +124,35 @@ test('terminal output pasted into a note turns into Markdown', async ({ page }) 
     .toContain('| Option | What it means | Effort |\n| --- | --- | --- |');
 });
 
+test('a styled terminal copy keeps its bold and its colored words (as code)', async ({ page }) => {
+  await edit(page, 'Plant a tree');
+  await page.keyboard.press('Shift+Enter');
+  const editor = page.locator('.ProseMirror[data-editor=note]');
+  await expect(editor).toBeFocused();
+  // As Ghostty puts it on the clipboard: text, and HTML with a style box per run.
+  const span = (style: string, text: string) => `<div style="display: inline;${style}">${text}</div>`;
+  const html =
+    '<div style="font-family: monospace; white-space: pre;">' +
+    `${span('font-weight: bold;', 'New and improved')}\n1. ${span('font-weight: bold;', 'An AI check.')} A firm presses it.\n\n` +
+    `- 1: ${span('color: rgb(177, 185, 249);', 'e34b418a4')}, ${span('color: rgb(177, 185, 249);', '734008f05')}</div>`;
+  await page.evaluate(
+    ({ html }) => {
+      const data = new DataTransfer();
+      data.setData('text/plain', 'New and improved\n1. An AI check. A firm presses it.\n\n- 1: e34b418a4, 734008f05');
+      data.setData('text/html', html);
+      document.activeElement!.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    },
+    { html },
+  );
+  await expect(editor.locator('strong')).toHaveText(['New and improved', 'An AI check.']);
+  await expect(editor.locator('ol li')).toHaveText('An AI check. A firm presses it.');
+  await expect(editor.locator('ul li code')).toHaveText(['e34b418a4', '734008f05']);
+  await page.keyboard.press('Escape');
+  await expect
+    .poll(async () => (await nodeByText(page, 'Plant a tree'))?.note)
+    .toBe('**New and improved**\n\n1. **An AI check.** A firm presses it.\n\n- 1: `e34b418a4`, `734008f05`');
+});
+
 test('Format terminal output fixes notes imported before', async ({ page }) => {
   await edit(page, 'Plant a tree');
   const id = await page.evaluate((block) => {

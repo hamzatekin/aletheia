@@ -5,6 +5,8 @@
  * back into Markdown that renders (and wraps) like any other note.
  */
 
+import { decodeEntities } from './workflowy';
+
 const VERTICAL = /[│┃║]/;
 const BOX = /[─-╿]/;
 /** A table border or row separator: only box-drawing characters and spaces. */
@@ -135,9 +137,144 @@ export function looksLikeTerminalProse(code: string): boolean {
   return prose.length / lines.length >= 0.6;
 }
 
+interface Run {
+  text: string;
+  bold: boolean;
+  code: boolean;
+}
+
+const HTML_TAG = /<!--[^]*?-->|<(\/?)([a-z][a-z0-9]*)\b([^>]*)>/gi;
+const PRE_STYLE = /white-space\s*:\s*pre\b/;
+
+function styleOf(attrs: string): string {
+  const m = /\bstyle\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(attrs);
+  return (m?.[1] ?? m?.[2] ?? '').toLowerCase();
+}
+
+/** A CSS text color, as "p<slot>" for a terminal palette slot or "r,g,b", or null. */
+function colorOf(style: string): string | null {
+  const value = /(?:^|;)\s*color\s*:\s*([^;]+)/.exec(style)?.[1] ?? '';
+  const palette = /var\(--vt-palette-(\d+)\)/.exec(value);
+  if (palette) return `p${palette[1]}`;
+  const rgb = /rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/.exec(value);
+  if (rgb) return rgb.slice(1, 4).join(',');
+  const hex = /#([0-9a-f]{3}|[0-9a-f]{6})\b/.exec(value)?.[1];
+  if (!hex) return null;
+  const full = hex.length === 3 ? [...hex].map((c) => c + c).join('') : hex;
+  return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16)).join(',');
+}
+
+/**
+ * Whether text in this color stands out: a hue, not white, black or grey.
+ * Claude Code colors inline code (blue); its secondary text is grey or dimmed.
+ */
+function isHue(color: string): boolean {
+  if (color.startsWith('p')) {
+    // Slots 1-6 and 9-14 are the red to cyan of the 16 basic colors.
+    const slot = Number(color.slice(1));
+    return slot < 16 && slot % 8 >= 1 && slot % 8 <= 6;
+  }
+  const rgb = color.split(',').map(Number);
+  return Math.max(...rgb) - Math.min(...rgb) >= 48;
+}
+
+/** One line's runs as Markdown: bold as **…**, colored text as `…`. */
+function markLine(runs: Run[]): string {
+  const merged: Run[] = [];
+  for (const run of runs) {
+    const last = merged[merged.length - 1];
+    if (last && last.bold === run.bold && last.code === run.code) last.text += run.text;
+    else merged.push({ ...run });
+  }
+  return merged
+    .map(({ text, bold, code }) => {
+      const [, lead, core, trail] = /(\s*)([^]*?)(\s*)$/.exec(text)!;
+      // Marks only around words: a colored bullet or table border stays as it is.
+      if (!/[\p{L}\p{N}]/u.test(core!)) return text;
+      const inner = code && !core!.includes('`') ? `\`${core}\`` : core!;
+      return lead + (bold ? `**${inner}**` : inner) + trail;
+    })
+    .join('');
+}
+
+/**
+ * Styled terminal output from the clipboard's HTML (Ghostty, Windows Terminal
+ * and others copy it alongside the text) as text with Markdown marks: bold
+ * stays bold and colored words become inline code, the way Claude Code drew
+ * them. Only the terminal's block counts (one with `white-space: pre`, or a
+ * <pre>); null when there is none.
+ */
+export function terminalHtmlToText(html: string): string | null {
+  type Frame = { tag: string; bold: boolean; color: string | null };
+  // The elements open inside the terminal's block, the block itself first.
+  const stack: Frame[] = [];
+  const lines: Run[][] = [[]];
+  let base: string | null = null;
+  let found = false;
+  const add = (raw: string) => {
+    const top = stack[stack.length - 1];
+    if (!top) return;
+    const code = top.color !== base && isHue(top.color ?? '');
+    decodeEntities(raw)
+      .replace(/\u00a0/g, ' ')
+      .split(/\r?\n/)
+      .forEach((part, i) => {
+        if (i > 0) lines.push([]);
+        if (part !== '') lines[lines.length - 1]!.push({ text: part, bold: top.bold, code });
+      });
+  };
+  let last = 0;
+  for (const m of html.matchAll(HTML_TAG)) {
+    add(html.slice(last, m.index));
+    last = m.index + m[0].length;
+    const [, close, name, attrs] = m;
+    if (!name) continue;
+    const tag = name.toLowerCase();
+    const top = stack[stack.length - 1];
+    if (tag === 'br') {
+      if (top) lines.push([]);
+    } else if (close) {
+      const at = stack.findLastIndex((f) => f.tag === tag);
+      if (at >= 0) stack.length = at;
+      // The block is over; what follows is the clipboard's packaging.
+      if (found && stack.length === 0) return lines.map(markLine).join('\n');
+    } else {
+      const style = styleOf(attrs!);
+      if (!top && tag !== 'pre' && !PRE_STYLE.test(style)) continue;
+      const color = colorOf(style);
+      if (!top) {
+        found = true;
+        base = color;
+      }
+      stack.push({
+        tag,
+        bold: (top?.bold ?? false) || tag === 'b' || tag === 'strong' || /font-weight\s*:\s*(bold|[6-9]00)/.test(style),
+        color: color ?? top?.color ?? null,
+      });
+    }
+  }
+  add(html.slice(last));
+  return found ? lines.map(markLine).join('\n') : null;
+}
+
 /** Whether pasted text is terminal output worth converting: a box table or a Claude Code answer. */
 export function isTerminalPaste(text: string): boolean {
   return hasBoxTable(text) || /^\s*⏺ /m.test(text);
+}
+
+/**
+ * What a paste into a note becomes when it is terminal output, as Markdown, or
+ * null to paste it as usual. Styled copies keep bold and colored words. HTML
+ * counts as a terminal's when the text is a Claude Code answer or a box table,
+ * or when its styles sit on inline boxes (Ghostty, Windows Terminal): code
+ * copied from an editor such as VS Code also uses `white-space: pre`, but
+ * with a block per line, and stays a normal paste.
+ */
+export function terminalPasteMarkdown(text: string, html: string): string | null {
+  const terminal = isTerminalPaste(text);
+  const styled = terminal || /display\s*:\s*inline/i.test(html) ? terminalHtmlToText(html) : null;
+  if (styled !== null) return terminalToMarkdown(styled);
+  return terminal ? terminalToMarkdown(text) : null;
 }
 
 const NOTE_FENCE = /^(`{3,}|~{3,})[^\n]*\n([^]*?)\n?\1[`~]*[ \t]*$/gm;
