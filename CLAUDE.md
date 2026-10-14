@@ -48,8 +48,7 @@ src/persistence/      Repository interface; Dexie (IndexedDB) and in-memory impl
 src/store/            zustand stores: tree (nodes), ui (focus, selection, menus), settings, note prefs
 src/editor/           the single Tiptap editor (session.ts), keymap, Markdown dialect, slash menu, note editors
                       (notes render GitHub Markdown: markdown.ts + gfm.ts, sanitized in render.ts;
-                      the note editor saves untouched blocks verbatim, note-source.ts;
-                      math is typeset by KaTeX, lazy-loaded and kept out of the SW precache)
+                      the note editor saves untouched blocks verbatim, note-source.ts)
 src/tree-view/        the outline page: rows, bullets, node menu, breadcrumbs, top bar, sidebars,
                       mobile toolbar, drag and drop; layout.ts has row geometry and long-press timing
 src/tree-view/actions/  everything the page does, one file per group (see index.ts)

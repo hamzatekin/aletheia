@@ -2,8 +2,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type MouseEve
 import { useNavigate } from 'react-router';
 import { useStore } from 'zustand';
 import { plainText } from '@/editor/markdown';
-import { renderInline } from '@/editor/render';
-import { RenderedNote } from '@/editor/RenderedNote';
+import { renderBlock, renderInline } from '@/editor/render';
 import { useTreeStore } from '@/store/tree-store';
 import { useOutline } from '@/tree-view/outline-context';
 import { SidebarIcon } from '@/tree-view/OutlineSidebar';
@@ -269,7 +268,7 @@ function Result({ item, path, open, moved, onPeek, onGo, onPull, onUndo }: {
       </div>
       {open && (
         <div className="mt-2 border-l-2 border-line pl-2.5 text-[0.9rem]" data-testid="related-peek">
-          {node.note.trim() !== '' && <RenderedNote note={node.note} className="prose-note mb-1" />}
+          {node.note.trim() !== '' && <div className="prose-note mb-1" dangerouslySetInnerHTML={{ __html: renderBlock(node.note) }} />}
           {kids.length > 0 ? (
             <ul className="list-disc pl-4 text-muted">
               {kids.slice(0, 8).map((k) => (
@@ -362,6 +361,7 @@ function Message({ turn, label, onCite, onInsert, onUndo }: {
     const l = label(n);
     return l === null ? null : l.length > 28 ? `${l.slice(0, 27)}…` : l;
   };
+  const html = renderBlock(linkCitations(turn.text, short));
   const onClick = (e: MouseEvent) => {
     const a = (e.target as HTMLElement).closest('a');
     const m = a?.getAttribute('href')?.match(/^#cite-(\d+)$/);
@@ -371,7 +371,7 @@ function Message({ turn, label, onCite, onInsert, onUndo }: {
   };
   return (
     <div data-testid="related-answer">
-      <RenderedNote note={linkCitations(turn.text, short)} className="prose-note related-answer break-words" onClick={onClick} />
+      <div className="prose-note related-answer break-words" onClick={onClick} dangerouslySetInnerHTML={{ __html: html }} />
       <div className="mt-1 flex gap-3 text-xs">
         {turn.added ? (
           <>

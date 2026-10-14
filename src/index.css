@@ -363,9 +363,6 @@ html { scroll-padding-top: 4rem; }
 .prose-note .footnotes { font-size: 0.9em; }
 .prose-note .footnotes-list { list-style: decimal; }
 .prose-note .footnote-ref a, .prose-note .footnote-backref { text-decoration: none; }
-/* Math, typeset by KaTeX once it loads (draw-math.ts); until then the TeX shows as written. */
-.prose-note .math-display { margin: 0.5em 0; overflow-x: auto; overflow-y: hidden; text-align: center; }
-.prose-note .math-display .katex-display { margin: 0; }
 .prose-note :is(.hljs-keyword, .hljs-doctag, .hljs-template-tag, .hljs-template-variable, .hljs-type, .hljs-variable.language_) { color: light-dark(#cf222e, #ff7b72); }
 .prose-note :is(.hljs-title, .hljs-title.class_, .hljs-title.function_) { color: light-dark(#8250df, #d2a8ff); }
 .prose-note :is(.hljs-attr, .hljs-attribute, .hljs-literal, .hljs-meta, .hljs-number, .hljs-operator, .hljs-variable, .hljs-selector-attr, .hljs-selector-class, .hljs-selector-id) { color: light-dark(#0550ae, #79c0ff); }

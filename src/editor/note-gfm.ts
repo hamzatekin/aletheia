@@ -7,8 +7,6 @@ import { Plugin } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { common, createLowlight } from 'lowlight';
 import { alertMarker } from './gfm';
-import { inlineMathSpans, math } from './math';
-import type { MarkdownIt } from 'markdown-it';
 
 interface TextState {
   esc(text: string, startOfLine?: boolean): string;
@@ -22,9 +20,7 @@ const LINK_LIKE = /\]\s*[([]|^\s*\[(?!\^)[^\]]*\]:/;
  * Text written back as typed: brackets ("[1]", "[!NOTE]", "[^1]") are
  * escaped only where they would otherwise make a link, a lone "*" not at all, and "<" and ">" stay
  * themselves, so tags like <kbd> or <br> keep working. (The default escapes
- * every bracket and writes "<" as "&lt;".) Math is read as the text it is
- * ($$ blocks as ```math code) and $formulas$ are written back unescaped, so
- * TeX's backslashes and underscores survive an edit.
+ * every bracket and writes "<" as "&lt;".)
  */
 export const NoteText = Text.extend({
   addStorage() {
@@ -36,16 +32,10 @@ export const NoteText = Text.extend({
           const bare = (str: string) => (LINK_LIKE.test(text) ? str : str.replace(/\\([[\]])/g, '$1'));
           // A "*" with spaces on both sides mid-line ("5 * 3") can't start emphasis or a list.
           state.esc = (str, startOfLine) => bare(esc.call(state, str, startOfLine)).replace(/(\S\s+)\\\*(?=\s|$)/g, '$1*');
-          let at = 0;
-          for (const [from, to] of inlineMathSpans(text)) {
-            if (from > at) state.text(text.slice(at, from));
-            state.text(text.slice(from, to), false);
-            at = to;
-          }
-          if (at < text.length || text === '') state.text(text.slice(at));
+          state.text(text);
           state.esc = esc;
         },
-        parse: { setup: (md: MarkdownIt) => md.use(math, { render: 'source' }) },
+        parse: {},
       },
     };
   },

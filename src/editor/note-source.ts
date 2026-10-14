@@ -2,7 +2,6 @@ import { createDocument, type Editor } from '@tiptap/core';
 import markdownIt from 'markdown-it';
 import type { MarkdownStorage } from 'tiptap-markdown';
 import { markdownOptions } from './markdown';
-import { math } from './math';
 import { taskLists } from './task-list';
 
 /**
@@ -15,7 +14,7 @@ import { taskLists } from './task-list';
  */
 
 /** Same block structure as the editor sees (it parses with these options). */
-const blockParser = markdownIt(markdownOptions).use(taskLists).use(math, { render: 'source' });
+const blockParser = markdownIt(markdownOptions).use(taskLists);
 
 /** A top-level block of a note: its source lines [from, to). */
 export interface SourceBlock {
