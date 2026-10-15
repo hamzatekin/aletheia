@@ -10,7 +10,7 @@ export type Spec = string | [string, Spec[]];
 export async function gotoHome(page: Page, { collapsedNotes = false } = {}): Promise<void> {
   if (!collapsedNotes) {
     await page.addInitScript(() => {
-      if (localStorage.getItem('aletheia:notes') === null) localStorage.setItem('aletheia:notes', JSON.stringify({ collapsedByDefault: false }));
+      if (localStorage.getItem('aletheia:notes') === null) localStorage.setItem('aletheia:notes', JSON.stringify({ v: 2, collapsedByDefault: false }));
     });
   }
   await page.goto('/');

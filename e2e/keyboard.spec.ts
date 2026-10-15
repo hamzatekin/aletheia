@@ -183,9 +183,9 @@ test('the note toggle switches between rendered and raw Markdown', async ({ page
   await expect(page.locator('.ProseMirror[data-editor=note]')).toBeFocused();
 });
 
-test('notes start collapsed, open when you edit them, and the default is a setting', async ({ page }) => {
+test('notes start collapsed, open while you are on their item, and the default is a setting', async ({ page }) => {
   // The app's own default (the other tests start with notes expanded).
-  await page.evaluate(() => localStorage.setItem('aletheia:notes', JSON.stringify({ collapsedByDefault: true })));
+  await page.evaluate(() => localStorage.setItem('aletheia:notes', JSON.stringify({ v: 2, collapsedByDefault: true })));
   await gotoHome(page, { collapsedNotes: true });
   await page.evaluate(() => {
     const { engine } = (window as any).__aletheia;
@@ -195,14 +195,16 @@ test('notes start collapsed, open when you edit them, and the default is a setti
   const plant = row(page, 'Plant a tree');
   await expect(plant.locator('.node-note')).toHaveText('first line …');
 
-  // Clicking in expands it for editing, and it stays open afterwards.
+  // Clicking in expands it for editing; leaving the item folds it again.
   await plant.locator('.node-note').click();
   await expect(page.locator('.ProseMirror[data-editor=note]')).toBeFocused();
-  await page.keyboard.press('Escape');
+  await expect(page.locator('.ProseMirror[data-editor=note] p')).toHaveCount(2);
   await page.keyboard.press('Escape');
   await expect(plant.locator('.node-note p')).toHaveCount(2);
+  await page.keyboard.press('Escape');
+  await expect(plant.locator('.node-note')).toHaveText('first line …');
   await reloadApp(page);
-  await expect(plant.locator('.node-note p')).toHaveCount(2);
+  await expect(plant.locator('.node-note')).toHaveText('first line …');
 
   // Turning the setting off expands the other notes.
   const welcome = page.locator('[data-node-id]').filter({ has: page.locator('.node-note[data-collapsed]') }).first();

@@ -15,8 +15,7 @@ export function editorKeyHandler(ctx: ActionContext, parts: Parts): (key: Outlin
   const { engine, ui, session, rootId, navigate, tree } = ctx;
   const { closeSlash, openSlash, runSlash, undoRedo, createFirst, focusPrev, focusNext, zoomOut, toggleFilterRow } = parts;
 
-  /** The node has a note that is open on the page. */
-  const noteShown = (id: string) => (tree.get(id)?.note ?? '') !== '' && !isNoteCollapsed(notePrefs.getState(), id);
+  const hasNote = (id: string) => (tree.get(id)?.note ?? '') !== '';
 
   return (key) => {
     if (key === 'undo' || key === 'redo') {
@@ -114,7 +113,8 @@ export function editorKeyHandler(ctx: ActionContext, parts: Parts): (key: Outlin
       case 'up': {
         if (isTitle) return true;
         const prev = ctx.prevOf(id);
-        if (prev !== null && noteShown(prev)) {
+        // Into the note above only when it is open; a collapsed one shows just its first line.
+        if (prev !== null && hasNote(prev) && !isNoteCollapsed(notePrefs.getState(), prev)) {
           session.flush();
           ui.focusNode(prev, { kind: 'end' }, 'note');
           return true;
@@ -123,7 +123,8 @@ export function editorKeyHandler(ctx: ActionContext, parts: Parts): (key: Outlin
         return true;
       }
       case 'down':
-        if (noteShown(id)) {
+        // The item being edited always shows its whole note.
+        if (hasNote(id)) {
           session.flush();
           ui.focusNode(id, { kind: 'start' }, 'note');
           return true;

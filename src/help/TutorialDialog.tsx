@@ -106,7 +106,7 @@ const TABS: Tab[] = [
             ['Long-press a bullet', 'Open the menu for that node: note, star, move, duplicate, copy link, delete. Tap outside it to close it.'],
             ['Tap ☆ by the title', 'Star the page: it shows under Starred at the top of the sidebar.'],
             ['Share → Aletheia', 'Once the app is installed, share a page or some text from any app: it lands at the top of your Inbox (a top-level line called Inbox, made for you the first time).'],
-            ['+ at the bottom right', 'Add a new item to your Inbox and start typing. When you leave it, the first line becomes its name and the rest its note; the Inbox shows when it was added. Long-press the app icon and pick Add to Inbox for the same thing from your home screen.'],
+            ['+ at the bottom right', 'Add a new item to your Inbox and type it; the note button in the bar takes you into its note. The Inbox shows when each item was added. Long-press the app icon and pick Add to Inbox for the same thing from your home screen.'],
             ['Tap the magnifier', 'Search this page, top right. Only matching lines and the lines above them stay on screen.'],
             ['Long-press a line', 'Select it. Tap more lines to add or remove them, then use the bar at the bottom to indent, move, copy, cut, paste below or delete them all at once.'],
             ['Tap the ⇕ button', 'Next to the magnifier: collapse everything on the page, or expand it all.'],
@@ -147,7 +147,7 @@ const TABS: Tab[] = [
             ['Click a bullet', 'Zoom into that node.'],
             [<Keys k="Mod+." />, 'Zoom into the node you are editing.'],
             [<Keys k="Mod+," />, 'Zoom out one level.'],
-            [<Keys k="Mod+Alt+N" />, 'Add to Inbox: a new item at the top of your Inbox, zoomed into, to type into. When you leave it, the first line becomes its name and the rest its note. The + at the top right does the same.'],
+            [<Keys k="Mod+Alt+N" />, 'Add to Inbox: a new item at the top of your Inbox, zoomed into, to type it. Shift+Enter goes on into its note. The + at the top right does the same.'],
             ['Outline sidebar', 'Click any item to zoom straight to it.'],
             ['☆ left of the page title', 'Star the page you are on, like WorkFlowy: it is listed under Starred at the top of the sidebar, on every synced device. The ≡ menu does the same for any node (on a phone, long-press its bullet); click the gold star in the sidebar to unstar.'],
           ]}
@@ -220,11 +220,11 @@ const TABS: Tab[] = [
         <P>Every node can carry a note: the rest of its block, shown right under it in slightly smaller type. Notes take full Markdown. An item with no name takes its note's first line as its name when you leave it.</P>
         <Table
           rows={[
-            [<Keys k="Shift+Enter" />, 'Go on writing in the note of the current node. ↓ at the end of a node and ↑ at the start of the next one go through notes too.'],
+            [<Keys k="Shift+Enter" />, 'Go on writing in the note of the current node. ↓ on its last line does the same.'],
             [<Keys k="Esc" />, 'Leave the note and go back to the node.'],
             ['Click a note', 'Edit it. Markdown renders as you type: "## " makes a heading, "- " a list, "[] " a checklist, ``` a code block.'],
             ['Rendered / Markdown', 'Click the small icon at the upper right of a note to switch between rendered and raw Markdown editing.'],
-            ['▾ left of a note', 'Notes start collapsed to their first line: expand or collapse one here or in the ≡ menu. A note you open stays open. Settings can start them expanded.'],
+            ['▾ left of a note', 'Notes show their first line, and all of it while you are on their item. Keep one open here or in the ≡ menu; Settings can start them all expanded.'],
           ]}
         />
         <H>What works in notes</H>

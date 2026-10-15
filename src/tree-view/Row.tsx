@@ -42,7 +42,8 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
   const selected = useUiStore(ui, (s) => s.selection?.ids.has(id) ?? false);
   const dragging = useUiStore(ui, (s) => s.dragging === id);
   const menuOpen = useUiStore(ui, (s) => s.menu === id);
-  const noteCollapsed = useNotePrefs((s) => isNoteCollapsed(s, id));
+  // A collapsed note shows its first line, and all of it while you're on its item (as in WorkFlowy).
+  const noteFolded = useNotePrefs((s) => isNoteCollapsed(s, id));
   const noteMode = useNoteMode();
   const indicator = useUiStore(ui, (s) => (s.dropIndicator?.targetId === id ? s.dropIndicator : null));
   const coarse = useCoarsePointer();
@@ -53,6 +54,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
   const longPress = useRef<{ timer: number; x: number; y: number; fired: number } | null>(null);
   useRowDnd(id, depth, rowRef, handleRef, gripRef);
   if (!node) return null;
+  const noteCollapsed = noteFolded && focusField === null;
   // Inbox items show when they were added: their name is whatever was typed first.
   const added = node.parentId !== null && node.parentId === findInbox(engine.tree) ? addedLabel(node.createdAt, { short: coarse }) : null;
 
@@ -270,21 +272,17 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
               <button
                 type="button"
                 tabIndex={-1}
-                aria-label={noteCollapsed ? 'Expand note' : 'Collapse note'}
-                aria-expanded={!noteCollapsed}
+                aria-label={noteFolded ? 'Expand note' : 'Collapse note'}
+                aria-expanded={!noteFolded}
                 data-testid="note-toggle"
                 className={
                   'note-toggle absolute -left-6 z-[1] flex h-5 w-5 items-center justify-center rounded-full text-faint hover:bg-hover hover:text-muted ' +
-                  (noteCollapsed && focusField !== 'note' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
+                  (noteCollapsed ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
                 }
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  // Collapsing the note being edited also leaves it.
-                  if (focusField === 'note' && !noteCollapsed) ui.focusNode(id, { kind: 'end' });
-                  notePrefs.getState().toggleCollapsed(id);
-                }}
+                onClick={() => notePrefs.getState().toggleCollapsed(id)}
               >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" className={noteCollapsed && focusField !== 'note' ? '-rotate-90' : ''}>
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" className={noteFolded ? '-rotate-90' : ''}>
                   <path d="M1.5 3.2 5 6.8l3.5-3.6z" />
                 </svg>
               </button>
