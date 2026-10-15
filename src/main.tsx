@@ -8,6 +8,8 @@ import { httpComplete } from './ai/client';
 import { registerAiSlashCommands } from './ai/slash-commands';
 import { createAiService } from './ai/service';
 import { bootstrap } from './app/bootstrap';
+import { liftCaptureTitles } from './app/capture';
+import { nameAllFromNotes, watchNameFromNote } from './editor/first-line';
 import { createRelatedService } from './related/service';
 import { EditorSession } from './editor/session';
 import { SearchIndex } from './search';
@@ -45,6 +47,19 @@ await sync.start();
 sync.setPendingJoin(takeKeyFromLocation());
 watchBrowser(sync);
 connectTabs(engine, sync);
+// An item typed as one block takes its first line as its name when the caret leaves it
+// (or, if the app was closed while in it, on the next start).
+watchNameFromNote(engine, ui, session);
+nameAllFromNotes(engine);
+// Once per device: old quick adds, named with their date, take their note's first line as the name.
+try {
+  if (localStorage.getItem('aletheia.liftedCaptureTitles') === null) {
+    liftCaptureTitles(engine);
+    localStorage.setItem('aletheia.liftedCaptureTitles', '1');
+  }
+} catch {
+  // Storage blocked: skip it, the old names stay.
+}
 const syncKey = () => sync.state.getState().key;
 const complete = httpComplete();
 const ai = createAiService({ engine, session, key: syncKey, complete });

@@ -5,6 +5,7 @@ import { NoteEditor, NoteHeader, useNoteMode } from '@/editor/NoteEditor';
 import { useUiStore } from '@/store/ui-store';
 import { isNoteCollapsed, notePrefs, useNotePrefs } from '@/store/note-prefs';
 import { plainText } from '@/editor/markdown';
+import { addedLabel, findInbox } from '@/app/capture';
 import { noteAfterTick, taskCheckboxAt } from '@/editor/task-list';
 import { Bullet } from './Bullet';
 import { CollapseToggle } from './CollapseToggle';
@@ -52,6 +53,8 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
   const longPress = useRef<{ timer: number; x: number; y: number; fired: number } | null>(null);
   useRowDnd(id, depth, rowRef, handleRef, gripRef);
   if (!node) return null;
+  // Inbox items show when they were added: their name is whatever was typed first.
+  const added = node.parentId !== null && node.parentId === findInbox(engine.tree) ? addedLabel(node.createdAt, { short: coarse }) : null;
 
   // While searching, the search decides what is open; toggling changes only the search, not the outline.
   const collapsed = filterOpen === undefined ? node.collapsed : !filterOpen;
@@ -246,6 +249,11 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
           if (coarse && focusField === null) e.preventDefault();
         }}
       >
+        {added && (
+          <span className="added-at pointer-events-none float-right ml-3 text-xs text-faint select-none" style={{ lineHeight: 'var(--row-lh)' }} data-testid="added-at">
+            {added}
+          </span>
+        )}
         {focusField === 'content' ? (
           <NodeEditor id={id} className="node-content wrap-break-word" />
         ) : (
@@ -285,7 +293,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
               <NoteEditor id={id} />
             ) : noteCollapsed ? (
               <div
-                className="node-note row-note cursor-text truncate pb-0.5 text-muted"
+                className="node-note row-note cursor-text truncate pb-0.5 text-note"
                 data-collapsed="true"
                 onMouseDown={onNoteMouseDown}
               >
@@ -295,7 +303,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
               <>
                 <NoteHeader id={id} raw={noteMode.raw} quiet />
                 <div
-                  className="node-note prose-note row-note cursor-text pb-0.5 text-muted"
+                  className="node-note prose-note row-note cursor-text pb-0.5 text-note"
                   onMouseDown={onNoteMouseDown}
                   onClick={onNoteClick}
                   dangerouslySetInnerHTML={{ __html: renderBlock(node.note) }}

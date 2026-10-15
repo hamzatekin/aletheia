@@ -2,6 +2,7 @@ import { moveDownCommand, moveUpCommand } from '@/commands';
 import type { OutlineKey } from '@/editor/outliner-keymap';
 import { slashCommands } from '@/editor/slash-registry';
 import { newId } from '@/model';
+import { isNoteCollapsed, notePrefs } from '@/store/note-prefs';
 import type { ActionContext } from './context';
 import type { FilterActions } from './filter';
 import type { NavigationActions } from './navigation';
@@ -13,6 +14,9 @@ type Parts = NavigationActions & FilterActions & SlashActions;
 export function editorKeyHandler(ctx: ActionContext, parts: Parts): (key: OutlineKey) => boolean {
   const { engine, ui, session, rootId, navigate, tree } = ctx;
   const { closeSlash, openSlash, runSlash, undoRedo, createFirst, focusPrev, focusNext, zoomOut, toggleFilterRow } = parts;
+
+  /** The node has a note that is open on the page. */
+  const noteShown = (id: string) => (tree.get(id)?.note ?? '') !== '' && !isNoteCollapsed(notePrefs.getState(), id);
 
   return (key) => {
     if (key === 'undo' || key === 'redo') {
@@ -106,11 +110,24 @@ export function editorKeyHandler(ctx: ActionContext, parts: Parts): (key: Outlin
         session.flush();
         return ctx.applyFocus(engine.execute({ type: 'mergeNodes', sourceId: id, targetId: prev }));
       }
-      case 'up':
+      // An item and its note read as one block, so the arrows go through the note.
+      case 'up': {
         if (isTitle) return true;
+        const prev = ctx.prevOf(id);
+        if (prev !== null && noteShown(prev)) {
+          session.flush();
+          ui.focusNode(prev, { kind: 'end' }, 'note');
+          return true;
+        }
         focusPrev(id, { kind: 'line', line: 'last', x: session.caretX() });
         return true;
+      }
       case 'down':
+        if (noteShown(id)) {
+          session.flush();
+          ui.focusNode(id, { kind: 'start' }, 'note');
+          return true;
+        }
         focusNext(id, { kind: 'line', line: 'first', x: session.caretX() });
         return true;
       case 'left':

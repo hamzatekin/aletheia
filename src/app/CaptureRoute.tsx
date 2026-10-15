@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useEngine } from '@/app/engine-context';
 import type { UiStore } from '@/store/ui-store';
-import { addToInbox, captureTitle, sharedItem } from './capture';
+import { addToInbox, sharedItem } from './capture';
 
 // React runs effects twice in development; one visit must add one item.
 const handled = new Set<string>();
@@ -11,9 +11,9 @@ const handled = new Set<string>();
  * /share (Android's share sheet, via share_target in the manifest) and
  * /capture (the app icon's "Add to Inbox" shortcut): put a new item at the
  * top of the Inbox. A share shows the Inbox; Add to Inbox (and the + buttons,
- * Ctrl/⌘+Alt+N) names the new item with the date and time, zooms into it and
- * opens its note to type into. Replacing the URL keeps a reload or Back from
- * adding it again.
+ * Ctrl/⌘+Alt+N) zooms into a new nameless item with the caret in its note:
+ * you type one block, and on leaving it the first line becomes the name
+ * (nameFromNote). Replacing the URL keeps a reload or Back from adding it again.
  */
 export function CaptureRoute({ ui, mode }: { ui: UiStore; mode: 'share' | 'capture' }) {
   const engine = useEngine();
@@ -27,7 +27,7 @@ export function CaptureRoute({ ui, mode }: { ui: UiStore; mode: 'share' | 'captu
     const item =
       mode === 'share'
         ? sharedItem({ title: params.get('title'), text: params.get('text'), url: params.get('url') })
-        : { content: captureTitle(), note: '' };
+        : { content: '', note: '' };
     if (mode === 'share' && item.content === '' && item.note === '') {
       void navigate('/', { replace: true });
       return;

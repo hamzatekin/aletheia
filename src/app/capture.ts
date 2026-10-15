@@ -1,4 +1,5 @@
 import type { Command, Engine } from '@/commands';
+import { liftFirstLine } from '@/editor/first-line';
 import { plainText } from '@/editor/markdown';
 import { newId, type TreeReader } from '@/model';
 
@@ -45,12 +46,46 @@ export function sharedItem({ title, text, url }: Shared): { content: string; not
 }
 
 /**
- * The name a quick-added item starts with: when it was added, in the device's
- * language ("Oct 12, 2026, 1:54 PM"), so Inbox items tell apart and the note
- * can be typed first. Rename it later, or let Suggest title name it.
+ * The name quick adds used to get: when they were added, in the device's
+ * language ("Oct 12, 2026, 1:54 PM"). Quick adds now start nameless and take
+ * the first line typed (see nameFromNote); this finds the old ones.
  */
 export function captureTitle(now: Date = new Date(), locale?: string): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(now);
+}
+
+/**
+ * When an Inbox item was added, shown at its right: day and month, with the
+ * time unless `short` (phones), and the year only when it isn't this year.
+ */
+export function addedLabel(at: number, { now = new Date(), locale, short = false }: { now?: Date; locale?: string | undefined; short?: boolean } = {}): string {
+  const date = new Date(at);
+  const thisYear = date.getFullYear() === now.getFullYear();
+  const options: Intl.DateTimeFormatOptions = thisYear
+    ? { day: 'numeric', month: 'short', ...(short ? {} : { hour: 'numeric', minute: '2-digit' }) }
+    : { day: 'numeric', month: 'short', year: 'numeric' };
+  return new Intl.DateTimeFormat(locale, options).format(date);
+}
+
+/**
+ * Inbox items that an old quick add named with its date and time (still
+ * exactly that name) take their note's first line as the name instead, as
+ * new quick adds do, in one undo step. The date still shows at the right.
+ * Returns how many were renamed.
+ */
+export function liftCaptureTitles(engine: Engine, locale?: string): number {
+  const inbox = findInbox(engine.tree);
+  if (inbox === null) return 0;
+  const commands: Command[] = [];
+  for (const id of engine.tree.children(inbox)) {
+    const node = engine.tree.get(id);
+    if (!node || node.content !== captureTitle(new Date(node.createdAt), locale)) continue;
+    const lifted = liftFirstLine(node.note);
+    if (!lifted) continue;
+    commands.push({ type: 'updateContent', id, content: lifted.content }, { type: 'updateNote', id, note: lifted.note });
+  }
+  if (commands.length > 0) engine.batch(commands, 'liftCaptureTitles');
+  return commands.length / 2;
 }
 
 /** The top-level node called "Inbox", if there is one. */
