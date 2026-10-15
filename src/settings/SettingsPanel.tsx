@@ -189,7 +189,7 @@ export function SettingsPanel({ settings, ui, sync }: Props) {
 
               <Toggle
                 label="Notes start collapsed"
-                hint="Show only a note's first line until you open it"
+                hint="Hide notes in the list until you're on their item"
                 checked={notesCollapsed}
                 onChange={(v) => notePrefs.getState().setCollapsedByDefault(v)}
               />

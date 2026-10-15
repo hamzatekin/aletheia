@@ -49,13 +49,12 @@ test('↓ goes from an item into its note, and ↑ from the next item back into 
   await expect.poll(() => focused(page)).toBe('Alpha:content');
   expect(await note(page, 'alpha')).toBe('Xone\n\ntwoY');
 
-  // A collapsed note: ↑ from the next item skips it, as it shows only its
-  // first line; ↓ from its own item still goes in, since the item you're on
-  // shows its whole note.
+  // A collapsed note: ↑ from the next item skips it, as it is hidden; ↓ from
+  // its own item still goes in, since the item you're on shows its note.
   await page.keyboard.press('Escape');
   await alpha(page).hover();
   await alpha(page).getByTestId('note-toggle').click();
-  await expect(alpha(page).locator('.node-note')).toHaveAttribute('data-collapsed', 'true');
+  await expect(alpha(page).locator('.node-note')).toHaveCount(0);
   await edit(page, 'Beta');
   await page.keyboard.press('ArrowUp');
   await expect.poll(() => focused(page)).toBe('Alpha:content');
@@ -63,25 +62,27 @@ test('↓ goes from an item into its note, and ↑ from the next item back into 
   await expect.poll(() => focused(page)).toBe('Alpha:note');
 });
 
-test('a note shows its first line, and all of it only while you are on its item', async ({ page }) => {
+test('a note is hidden in the list, with a mark, and shows only while you are on its item', async ({ page }) => {
   await gotoHome(page, { collapsedNotes: true });
   await alphaBeta(page);
   const viewNote = alpha(page).locator('.node-note');
-  await expect(viewNote).toHaveAttribute('data-collapsed', 'true');
-  await expect(viewNote).toHaveText('one …');
-  // On the item: the whole note shows, under its text.
+  const marker = alpha(page).getByTestId('note-marker');
+  await expect(viewNote).toHaveCount(0);
+  await expect(marker).toBeVisible();
+  await expect(page.locator('[data-node-id="beta"] [data-testid=note-marker]')).toHaveCount(0);
+  // On the item: the whole note shows, under its text, and the mark goes.
   await edit(page, 'Alpha');
-  await expect(viewNote).not.toHaveAttribute('data-collapsed');
   await expect(viewNote.locator('p')).toHaveText(['one', 'two']);
-  // Editing the note and leaving folds it again: it doesn't stay open.
+  await expect(marker).toHaveCount(0);
+  // Editing the note and leaving hides it again: it doesn't stay open.
   await page.keyboard.press('Shift+Enter');
   await expect.poll(() => focused(page)).toBe('Alpha:note');
   await page.keyboard.type('!');
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
   await expect.poll(() => focused(page)).toBeNull();
-  await expect(viewNote).toHaveAttribute('data-collapsed', 'true');
-  await expect(viewNote).toHaveText('one …');
+  await expect(viewNote).toHaveCount(0);
+  await expect(marker).toBeVisible();
   expect(await note(page, 'alpha')).toBe('one\n\ntwo!');
 });
 

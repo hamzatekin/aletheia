@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { edit, editorText, focused, gotoHome, nodeByText, outline, reloadApp, row, rowCount, setCaret } from './helpers';
+import { edit, editorText, focused, gotoHome, nodeByText, openNodeMenu, outline, reloadApp, row, rowCount, setCaret } from './helpers';
 
 test.beforeEach(async ({ page }) => gotoHome(page));
 
@@ -183,7 +183,7 @@ test('the note toggle switches between rendered and raw Markdown', async ({ page
   await expect(page.locator('.ProseMirror[data-editor=note]')).toBeFocused();
 });
 
-test('notes start collapsed, open while you are on their item, and the default is a setting', async ({ page }) => {
+test('notes start hidden with a mark, show while you are on their item, and the default is a setting', async ({ page }) => {
   // The app's own default (the other tests start with notes expanded).
   await page.evaluate(() => localStorage.setItem('aletheia:notes', JSON.stringify({ v: 2, collapsedByDefault: true })));
   await gotoHome(page, { collapsedNotes: true });
@@ -193,28 +193,33 @@ test('notes start collapsed, open while you are on their item, and the default i
     engine.execute({ type: 'updateNote', id: node.id, note: 'first line\n\nsecond line' });
   });
   const plant = row(page, 'Plant a tree');
-  await expect(plant.locator('.node-note')).toHaveText('first line …');
+  await expect(plant.locator('.node-note')).toHaveCount(0);
+  await expect(plant.getByTestId('note-marker')).toBeVisible();
 
-  // Clicking in expands it for editing; leaving the item folds it again.
-  await plant.locator('.node-note').click();
+  // Clicking into the item shows its note; leaving the item hides it again.
+  await edit(page, 'Plant a tree');
+  await expect(plant.locator('.node-note p')).toHaveText(['first line', 'second line']);
+  await expect(plant.getByTestId('note-marker')).toHaveCount(0);
+  await plant.locator('.node-note p').first().click();
   await expect(page.locator('.ProseMirror[data-editor=note]')).toBeFocused();
-  await expect(page.locator('.ProseMirror[data-editor=note] p')).toHaveCount(2);
   await page.keyboard.press('Escape');
   await expect(plant.locator('.node-note p')).toHaveCount(2);
   await page.keyboard.press('Escape');
-  await expect(plant.locator('.node-note')).toHaveText('first line …');
+  await expect(plant.locator('.node-note')).toHaveCount(0);
   await reloadApp(page);
-  await expect(plant.locator('.node-note')).toHaveText('first line …');
+  await expect(plant.locator('.node-note')).toHaveCount(0);
+  await expect(plant.getByTestId('note-marker')).toBeVisible();
 
-  // Turning the setting off expands the other notes.
-  const welcome = page.locator('[data-node-id]').filter({ has: page.locator('.node-note[data-collapsed]') }).first();
+  // Turning the setting off shows the other notes.
+  const welcome = page.locator('[data-node-id]').filter({ has: page.getByTestId('note-marker') }).first();
   const welcomeId = await welcome.getAttribute('data-node-id');
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByLabel('Notes start collapsed').uncheck();
-  await expect(page.locator(`[data-node-id="${welcomeId}"] .node-note`)).not.toHaveAttribute('data-collapsed', 'true');
+  await expect(page.locator(`[data-node-id="${welcomeId}"] .node-note`)).toHaveCount(1);
+  await expect(page.locator(`[data-node-id="${welcomeId}"] [data-testid=note-marker]`)).toHaveCount(0);
 });
 
-test('a note collapses to its first line and expands again', async ({ page }) => {
+test('a note can be hidden and shown again', async ({ page }) => {
   await edit(page, 'Plant a tree');
   await page.keyboard.press('Shift+Enter');
   await page.keyboard.type('first line');
@@ -225,10 +230,12 @@ test('a note collapses to its first line and expands again', async ({ page }) =>
   const plant = row(page, 'Plant a tree');
   await plant.hover();
   await plant.locator('[data-testid=note-toggle]').click();
-  await expect(plant.locator('.node-note')).toHaveText('first line …');
+  await expect(plant.locator('.node-note')).toHaveCount(0);
+  await expect(plant.getByTestId('note-marker')).toBeVisible();
   await reloadApp(page);
-  await expect(plant.locator('.node-note')).toHaveText('first line …');
-  await plant.locator('[data-testid=note-toggle]').click();
+  await expect(plant.locator('.node-note')).toHaveCount(0);
+  await openNodeMenu(page, 'Plant a tree');
+  await page.getByTestId('node-menu').getByText('Expand note').click();
   await expect(plant.locator('.node-note p')).toHaveCount(2);
 });
 

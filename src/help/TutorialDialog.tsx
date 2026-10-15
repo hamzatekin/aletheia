@@ -224,7 +224,7 @@ const TABS: Tab[] = [
             [<Keys k="Esc" />, 'Leave the note and go back to the node.'],
             ['Click a note', 'Edit it. Markdown renders as you type: "## " makes a heading, "- " a list, "[] " a checklist, ``` a code block.'],
             ['Rendered / Markdown', 'Click the small icon at the upper right of a note to switch between rendered and raw Markdown editing.'],
-            ['▾ left of a note', 'Notes show their first line, and all of it while you are on their item. Keep one open here or in the ≡ menu; Settings can start them all expanded.'],
+            ['Hidden notes', 'Notes are hidden in the list (a small ≡ at the right marks an item with one) and show while you are on their item or zoomed into it. Keep one open here or in the ≡ menu; Settings can show them all.'],
           ]}
         />
         <H>What works in notes</H>

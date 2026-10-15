@@ -45,6 +45,7 @@ test('the Add to Inbox shortcut zooms into a new Inbox item, to type it and then
   // Shift+Enter goes on into its note.
   await page.keyboard.press('Shift+Enter');
   await expect.poll(() => focused(page)).toBe('Ask about the crown:note');
+  await expect(page.locator('.ProseMirror[data-editor=note]')).toBeFocused();
   await page.keyboard.type('before Friday');
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
