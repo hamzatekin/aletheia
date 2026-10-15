@@ -16,7 +16,7 @@ test('sharing a page to the app adds a titled link at the top of the Inbox', asy
   expect((await outline(page))[0]).toEqual(['Inbox', ['Buy bread', '[Mirrors in Workflowy](https://blog.workflowy.com/mirrors)']]);
 });
 
-// Quick adds start nameless; the Inbox shows when they were added.
+// Quick adds start nameless, with the caret in their text; the Inbox shows when they were added.
 const AT = new Date(2026, 9, 12, 13, 54);
 
 /** The Inbox's items as [text, note], top first. */
@@ -28,29 +28,25 @@ function inboxItems(page: Page): Promise<[string, string][]> {
   });
 }
 
-/** A quick add has zoomed into a new nameless Inbox item, with the caret in its note. */
-async function inNewItemNote(page: Page): Promise<void> {
+/** A quick add has zoomed into a new nameless Inbox item, with the caret in its text. */
+async function inNewItem(page: Page): Promise<void> {
   await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toContainText('Inbox');
-  await expect(page.locator('h1')).toHaveText('');
-  await expect.poll(() => focused(page)).toBe(':note');
-  await expect(page.locator('.rich-note .ProseMirror')).toBeFocused();
-  // No "start writing" hint under the note being typed.
-  await expect(page.getByTestId('empty-outline')).toHaveCount(0);
+  await expect(page.locator('h1.page-title, .page-title')).toHaveText('');
+  await expect.poll(() => focused(page)).toBe(':content');
+  await expect(page.locator('.page-title.ProseMirror, .page-title .ProseMirror')).toBeFocused();
 }
 
-test('the Add to Inbox shortcut zooms into a new Inbox item; leaving it names it with the first line typed', async ({ page }) => {
+test('the Add to Inbox shortcut zooms into a new Inbox item, to type it and then its note', async ({ page }) => {
   await page.clock.setFixedTime(AT);
   await gotoHome(page);
   await page.goto('/capture');
-  await inNewItemNote(page);
+  await inNewItem(page);
   await page.keyboard.type('Ask about the crown');
-  await page.keyboard.press('Enter');
+  // Shift+Enter goes on into its note.
+  await page.keyboard.press('Shift+Enter');
+  await expect.poll(() => focused(page)).toBe('Ask about the crown:note');
   await page.keyboard.type('before Friday');
-  // Esc goes up to the item's own text: still in the item, so nothing moves yet.
   await page.keyboard.press('Escape');
-  await expect.poll(() => focused(page)).toBe(':content');
-  expect(await inboxItems(page)).toEqual([['', 'Ask about the crown\n\nbefore Friday']]);
-  // Leaving the item: the first line becomes its name, the rest stays its note.
   await page.keyboard.press('Escape');
   await expect(page.locator('h1')).toHaveText('Ask about the crown');
   expect(await inboxItems(page)).toEqual([['Ask about the crown', 'before Friday']]);
@@ -69,22 +65,16 @@ test('on a computer the + at the top and Ctrl+Alt+N add an Inbox item and zoom i
   // Phones have the round + instead.
   await expect(page.getByTestId('add-to-inbox')).toHaveCount(0);
   await page.getByTestId('add-to-inbox-top').click();
-  await inNewItemNote(page);
+  await inNewItem(page);
   await page.keyboard.type('Book flights');
   await page.keyboard.press('Escape');
 
-  // The shortcut works while editing another line too. (Reloading the app
-  // names an item that was never left, as when a phone closes the app.)
+  // The shortcut works while editing another line too.
   await page.goto('/');
   await edit(page, 'Projects');
   await page.keyboard.press('Control+Alt+n');
-  await inNewItemNote(page);
+  await inNewItem(page);
   await page.keyboard.type('Renew passport');
-  await page.keyboard.press('Escape');
-  expect(await inboxItems(page)).toEqual([
-    ['', 'Renew passport'],
-    ['Book flights', ''],
-  ]);
   await page.keyboard.press('Escape');
   expect(await inboxItems(page)).toEqual([
     ['Renew passport', ''],
@@ -97,7 +87,7 @@ test('on a computer the + at the top and Ctrl+Alt+N add an Inbox item and zoom i
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
-  test('the + button adds an item to the Inbox and zooms into its note', async ({ page }) => {
+  test('the + button adds an item to the Inbox and zooms into it, to type it', async ({ page }) => {
     await page.clock.setFixedTime(AT);
     await gotoHome(page);
     const plus = page.getByTestId('add-to-inbox');
@@ -106,32 +96,34 @@ test.describe('on a phone', () => {
       (window as any).focusLog = [];
       document.addEventListener('focusin', (e) => {
         const el = e.target as HTMLElement;
-        (window as any).focusLog.push(el.dataset.testid ?? (el.closest('.rich-note') ? 'note editor' : el.tagName));
+        (window as any).focusLog.push(el.dataset.testid ?? (el.closest('.page-title') || el.classList.contains('page-title') ? 'title editor' : el.tagName));
       });
     });
     await plus.tap();
     await expect(page).toHaveURL(/\/n\//);
-    await inNewItemNote(page);
-    expect(await page.evaluate(() => (window as any).focusLog)).toEqual(['keyboard-holder', 'note editor']);
+    await inNewItem(page);
+    // (The dev server's strict mode mounts the title editor twice; a production build focuses it once.)
+    expect([...new Set(await page.evaluate(() => (window as any).focusLog))]).toEqual(['keyboard-holder', 'title editor']);
     await expect(page.getByTestId('keyboard-holder')).toHaveCount(0);
     // The editing bar takes the bottom of the screen while typing; the top + is for computers.
     await expect(plus).toHaveCount(0);
     await expect(page.getByTestId('add-to-inbox-top')).toHaveCount(0);
     await page.keyboard.type('Buy milk');
-    // The bar's note button goes up to the item's own text; Done leaves it, naming it.
+    // The bar's note button goes on into its note.
     await page.getByTestId('toolbar-note').tap();
-    await expect.poll(() => focused(page)).toBe(':content');
+    await expect.poll(() => focused(page)).toBe('Buy milk:note');
+    await page.keyboard.type('2 litres');
     await page.getByTestId('toolbar-done').tap();
     await expect(page.locator('h1')).toHaveText('Buy milk');
 
     // A second tap from inside it still goes to the Inbox, on top.
     await plus.tap();
-    await inNewItemNote(page);
+    await inNewItem(page);
     await page.keyboard.type('Water the plants');
     await page.getByTestId('toolbar-done').tap();
     expect(await inboxItems(page)).toEqual([
       ['Water the plants', ''],
-      ['Buy milk', ''],
+      ['Buy milk', '2 litres'],
     ]);
   });
 });

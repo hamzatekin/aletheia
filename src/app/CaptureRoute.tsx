@@ -11,9 +11,9 @@ const handled = new Set<string>();
  * /share (Android's share sheet, via share_target in the manifest) and
  * /capture (the app icon's "Add to Inbox" shortcut): put a new item at the
  * top of the Inbox. A share shows the Inbox; Add to Inbox (and the + buttons,
- * Ctrl/⌘+Alt+N) zooms into a new nameless item with the caret in its note:
- * you type one block, and on leaving it the first line becomes the name
- * (nameFromNote). Replacing the URL keeps a reload or Back from adding it again.
+ * Ctrl/⌘+Alt+N) zooms into a new nameless item with the caret in its text,
+ * as in WorkFlowy: type the item, then go into its note if you want one.
+ * Replacing the URL keeps a reload or Back from adding it again.
  */
 export function CaptureRoute({ ui, mode }: { ui: UiStore; mode: 'share' | 'capture' }) {
   const engine = useEngine();
@@ -33,9 +33,9 @@ export function CaptureRoute({ ui, mode }: { ui: UiStore; mode: 'share' | 'captu
       return;
     }
     const { inbox, id } = addToInbox(engine, item);
-    // A shared item is done; a new one is for typing its note.
+    // A shared item is done; a new one is for typing.
     void navigate(`/n/${mode === 'share' ? inbox : id}`, { replace: true });
-    if (mode === 'capture') ui.focusNode(id, { kind: 'end' }, 'note');
+    if (mode === 'capture') ui.focusNode(id, { kind: 'end' });
   }, [engine, location, mode, navigate, ui]);
 
   return null;

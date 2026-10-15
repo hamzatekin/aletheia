@@ -17,11 +17,11 @@ describe('note prefs', () => {
     notePrefs.getState().toggleCollapsed('a');
     expect(isNoteCollapsed(notePrefs.getState(), 'a')).toBe(false);
     expect(isNoteCollapsed(notePrefs.getState(), 'b')).toBe(true);
-    expect(JSON.parse(data.get('aletheia:notes')!)).toEqual({ raw: false, collapsedByDefault: true, folded: { a: false } });
+    expect(JSON.parse(data.get('aletheia:notes')!)).toEqual({ v: 2, raw: false, collapsedByDefault: true, folded: { a: false } });
   });
 
   it('keeps hand-folded notes when the default changes', async () => {
-    const { notePrefs, isNoteCollapsed } = await prefsWith({ collapsedByDefault: true, folded: { a: false } });
+    const { notePrefs, isNoteCollapsed } = await prefsWith({ v: 2, collapsedByDefault: true, folded: { a: false } });
     notePrefs.getState().setCollapsedByDefault(false);
     expect(isNoteCollapsed(notePrefs.getState(), 'a')).toBe(false);
     expect(isNoteCollapsed(notePrefs.getState(), 'b')).toBe(false);
@@ -29,6 +29,18 @@ describe('note prefs', () => {
     notePrefs.getState().setCollapsedByDefault(true);
     expect(isNoteCollapsed(notePrefs.getState(), 'a')).toBe(false);
     expect(isNoteCollapsed(notePrefs.getState(), 'b')).toBe(true);
+  });
+
+  it('before version 2, drops the notes that editing opened and starts notes collapsed again', async () => {
+    const { notePrefs } = await prefsWith({ raw: true, collapsedByDefault: false, folded: { opened: false, shut: true, junk: 1 } });
+    const { raw, collapsedByDefault, folded } = notePrefs.getState();
+    expect({ raw, collapsedByDefault, folded }).toEqual({ raw: true, collapsedByDefault: true, folded: { shut: true } });
+  });
+
+  it('keeps the setting and notes opened by hand from version 2 on', async () => {
+    const { notePrefs } = await prefsWith({ v: 2, raw: false, collapsedByDefault: false, folded: { opened: false, shut: true } });
+    const { raw, collapsedByDefault, folded } = notePrefs.getState();
+    expect({ raw, collapsedByDefault, folded }).toEqual({ raw: false, collapsedByDefault: false, folded: { opened: false, shut: true } });
   });
 
   it('reads the older list of collapsed notes', async () => {

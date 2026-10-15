@@ -47,8 +47,8 @@ export function sharedItem({ title, text, url }: Shared): { content: string; not
 
 /**
  * The name quick adds used to get: when they were added, in the device's
- * language ("Oct 12, 2026, 1:54 PM"). Quick adds now start nameless and take
- * the first line typed (see nameFromNote); this finds the old ones.
+ * language ("Oct 12, 2026, 1:54 PM"). Quick adds now start nameless, with the
+ * caret in their text; this finds the old ones.
  */
 export function captureTitle(now: Date = new Date(), locale?: string): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(now);

@@ -49,15 +49,40 @@ test('↓ goes from an item into its note, and ↑ from the next item back into 
   await expect.poll(() => focused(page)).toBe('Alpha:content');
   expect(await note(page, 'alpha')).toBe('Xone\n\ntwoY');
 
-  // A collapsed note is skipped, as it shows only its first line.
+  // A collapsed note: ↑ from the next item skips it, as it shows only its
+  // first line; ↓ from its own item still goes in, since the item you're on
+  // shows its whole note.
   await page.keyboard.press('Escape');
   await alpha(page).hover();
   await alpha(page).getByTestId('note-toggle').click();
-  await edit(page, 'Alpha');
-  await page.keyboard.press('ArrowDown');
-  await expect.poll(() => focused(page)).toBe('Beta:content');
+  await expect(alpha(page).locator('.node-note')).toHaveAttribute('data-collapsed', 'true');
+  await edit(page, 'Beta');
   await page.keyboard.press('ArrowUp');
   await expect.poll(() => focused(page)).toBe('Alpha:content');
+  await page.keyboard.press('ArrowDown');
+  await expect.poll(() => focused(page)).toBe('Alpha:note');
+});
+
+test('a note shows its first line, and all of it only while you are on its item', async ({ page }) => {
+  await gotoHome(page, { collapsedNotes: true });
+  await alphaBeta(page);
+  const viewNote = alpha(page).locator('.node-note');
+  await expect(viewNote).toHaveAttribute('data-collapsed', 'true');
+  await expect(viewNote).toHaveText('one …');
+  // On the item: the whole note shows, under its text.
+  await edit(page, 'Alpha');
+  await expect(viewNote).not.toHaveAttribute('data-collapsed');
+  await expect(viewNote.locator('p')).toHaveText(['one', 'two']);
+  // Editing the note and leaving folds it again: it doesn't stay open.
+  await page.keyboard.press('Shift+Enter');
+  await expect.poll(() => focused(page)).toBe('Alpha:note');
+  await page.keyboard.type('!');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await expect.poll(() => focused(page)).toBeNull();
+  await expect(viewNote).toHaveAttribute('data-collapsed', 'true');
+  await expect(viewNote).toHaveText('one …');
+  expect(await note(page, 'alpha')).toBe('one\n\ntwo!');
 });
 
 test('an item with no name takes its note\'s first line when the caret leaves it', async ({ page }) => {
