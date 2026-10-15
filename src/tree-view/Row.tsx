@@ -4,7 +4,6 @@ import { NodeEditor } from '@/editor/NodeEditor';
 import { NoteEditor, NoteHeader, useNoteMode } from '@/editor/NoteEditor';
 import { useUiStore } from '@/store/ui-store';
 import { isNoteCollapsed, notePrefs, useNotePrefs } from '@/store/note-prefs';
-import { plainText } from '@/editor/markdown';
 import { addedLabel, findInbox } from '@/app/capture';
 import { noteAfterTick, taskCheckboxAt } from '@/editor/task-list';
 import { Bullet } from './Bullet';
@@ -16,13 +15,6 @@ import { useHasChildren, useNode } from './use-outline';
 import { useRowDnd } from './use-dnd';
 import { INDENT_PX, LONG_PRESS_MS, LONG_PRESS_SLOP_PX, TOUCH_INDENT_PX } from './layout';
 
-
-/** One line standing in for a collapsed note: its first line of text, marked as cut. */
-function noteSummary(note: string): string {
-  const lines = note.split('\n').filter((l) => l.trim() !== '' && !/^\s*(`{3,}|~{3,})/.test(l));
-  const first = plainText((lines[0] ?? '').replace(/^\s*(#{1,6}\s+|[-*+]\s+|\d+[.)]\s+|>\s*)/, '')).trim();
-  return lines.length > 1 || first === '' ? `${first} …`.trim() : first;
-}
 
 interface Props {
   id: string;
@@ -42,7 +34,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
   const selected = useUiStore(ui, (s) => s.selection?.ids.has(id) ?? false);
   const dragging = useUiStore(ui, (s) => s.dragging === id);
   const menuOpen = useUiStore(ui, (s) => s.menu === id);
-  // A collapsed note shows its first line, and all of it while you're on its item (as in WorkFlowy).
+  // A collapsed note is hidden, with a mark at the right, and shows while you're on its item.
   const noteFolded = useNotePrefs((s) => isNoteCollapsed(s, id));
   const noteMode = useNoteMode();
   const indicator = useUiStore(ui, (s) => (s.dropIndicator?.targetId === id ? s.dropIndicator : null));
@@ -54,7 +46,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
   const longPress = useRef<{ timer: number; x: number; y: number; fired: number } | null>(null);
   useRowDnd(id, depth, rowRef, handleRef, gripRef);
   if (!node) return null;
-  const noteCollapsed = noteFolded && focusField === null;
+  const noteCollapsed = node.note !== '' && noteFolded && focusField === null;
   // Inbox items show when they were added: their name is whatever was typed first.
   const added = node.parentId !== null && node.parentId === findInbox(engine.tree) ? addedLabel(node.createdAt, { short: coarse }) : null;
 
@@ -251,9 +243,15 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
           if (coarse && focusField === null) e.preventDefault();
         }}
       >
-        {added && (
-          <span className="added-at pointer-events-none float-right ml-3 text-xs text-faint select-none" style={{ lineHeight: 'var(--row-lh)' }} data-testid="added-at">
-            {added}
+        {(added || noteCollapsed) && (
+          // At the right: a mark for a hidden note, and when an Inbox item was added.
+          <span className="pointer-events-none float-right ml-3 flex items-center gap-1.5 text-xs text-faint select-none" style={{ height: 'var(--row-lh)' }}>
+            {noteCollapsed && (
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-label="Has a note" role="img" data-testid="note-marker">
+                <path d="M2 3.5h12M2 8h12M2 12.5h7" />
+              </svg>
+            )}
+            {added && <span data-testid="added-at">{added}</span>}
           </span>
         )}
         {focusField === 'content' ? (
@@ -265,7 +263,8 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
             dangerouslySetInnerHTML={{ __html: renderInline(node.content) || '<br>' }}
           />
         )}
-        {(focusField === 'note' || node.note !== '') && (
+        {/* A note shows only while you're on its item, unless it is kept open (Dynalist's "hide notes"). */}
+        {(focusField === 'note' || (node.note !== '' && !noteCollapsed)) && (
           <div className="note-card relative flow-root">
             {/* The same caret while reading and editing, so nothing appears or moves on click. */}
             {node.note !== '' && (
@@ -275,10 +274,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
                 aria-label={noteFolded ? 'Expand note' : 'Collapse note'}
                 aria-expanded={!noteFolded}
                 data-testid="note-toggle"
-                className={
-                  'note-toggle absolute -left-6 z-[1] flex h-5 w-5 items-center justify-center rounded-full text-faint hover:bg-hover hover:text-muted ' +
-                  (noteCollapsed ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
-                }
+                className="note-toggle absolute -left-6 z-[1] flex h-5 w-5 items-center justify-center rounded-full text-faint opacity-0 group-hover:opacity-100 hover:bg-hover hover:text-muted"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => notePrefs.getState().toggleCollapsed(id)}
               >
@@ -289,14 +285,6 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
             )}
             {focusField === 'note' ? (
               <NoteEditor id={id} />
-            ) : noteCollapsed ? (
-              <div
-                className="node-note row-note cursor-text truncate pb-0.5 text-note"
-                data-collapsed="true"
-                onMouseDown={onNoteMouseDown}
-              >
-                {noteSummary(node.note)}
-              </div>
             ) : (
               <>
                 <NoteHeader id={id} raw={noteMode.raw} quiet />
