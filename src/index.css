@@ -21,6 +21,8 @@
   /* Every UI color is derived from the theme's page, ink and accent, so any
      theme (including custom colors) gets matching hovers, borders and scrollbars. */
   --muted: color-mix(in srgb, var(--ink) 62%, var(--page));
+  /* Notes: the rest of their item's block, a step quieter than its first line. */
+  --note: color-mix(in srgb, var(--ink) 80%, var(--page));
   --faint: color-mix(in srgb, var(--ink) 38%, var(--page));
   --line: color-mix(in srgb, var(--ink) 13%, var(--page));
   --hover: color-mix(in srgb, var(--ink) 6%, transparent);
@@ -44,6 +46,7 @@
 @theme inline {
   --color-ink: var(--ink);
   --color-muted: var(--muted);
+  --color-note: var(--note);
   --color-faint: var(--faint);
   --color-line: var(--line);
   --color-hover: var(--hover);
@@ -91,8 +94,8 @@ body {
   line-height: var(--row-lh);
 }
 .row-note {
-  font-size: calc(var(--font-size) * 0.78);
-  line-height: 1.45;
+  font-size: calc(var(--font-size) * 0.89);
+  line-height: 1.5;
 }
 .page-title {
   font-size: calc(var(--font-size) * 1.6);
@@ -468,19 +471,15 @@ html { scroll-padding-top: 4rem; }
 }
 
 /*
- * A note is a card under its node, like a code block in WorkFlowy: its copy
- * and Rendered/Markdown icons sit inside the card's top right corner, and the
- * card looks the same whether the note is being read or edited.
+ * A note is the rest of its item's block, as in Bear or Logseq: no box, flush
+ * under the item's text at the same left edge. Its copy and Rendered/Markdown
+ * icons float at its top right, the same whether it is read or edited.
  */
 .note-card {
-  --card-pad-y: 0.35rem;
-  margin: 0.125rem 0 0.25rem;
-  padding: var(--card-pad-y) 0.6rem;
-  border-radius: 0.5rem;
-  background: var(--subtle);
+  margin: 0 0 0.25rem;
 }
-/* The ▾ beside the card lines up with the note's first line. */
-.note-card > .note-toggle { top: var(--card-pad-y); }
+/* The ▾ beside the note lines up with its first line. */
+.note-card > .note-toggle { top: 0.1rem; }
 
 /* Touch screens: fingers need bigger targets than the drawn icons. The
    collapse arrow at the row's right edge reaches a little above and below it. */

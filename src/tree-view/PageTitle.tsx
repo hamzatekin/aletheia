@@ -59,7 +59,7 @@ export function PageTitle({ rootId, root }: { rootId: string; root: Node }) {
           <div className="note-box relative mt-1 flow-root">
             <NoteHeader id={rootId} raw={noteMode.raw} quiet />
             <div
-              className="prose-note row-note cursor-text pb-0.5 text-muted"
+              className="prose-note row-note cursor-text pb-0.5 text-note"
               onMouseDown={(e) => {
                 if ((e.target as HTMLElement).closest('a')) return;
                 e.preventDefault();

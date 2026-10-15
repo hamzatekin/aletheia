@@ -176,7 +176,7 @@ export function RichNoteEditor({ id }: { id: string }) {
       editorProps: {
         ...CLEAR_OF_TOP_BAR,
         attributes: {
-          class: 'prose-note row-note pb-0.5 text-muted outline-none',
+          class: 'prose-note row-note pb-0.5 text-note outline-none',
           'data-editor': 'note',
           'aria-label': 'Note',
           spellcheck: 'true',
@@ -215,6 +215,7 @@ export function RichNoteEditor({ id }: { id: string }) {
       editor.commands.focus(undefined, { scrollIntoView: false });
     }
     else if (point) editor.commands.focus('end', { scrollIntoView: false });
+    else if (caret?.kind === 'start') editor.commands.focus('start');
     else {
       editor.commands.focus('end', { scrollIntoView: false });
       editor.commands.scrollIntoView();
