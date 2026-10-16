@@ -110,7 +110,7 @@ const UPSERT = `
 const GROUP_COLUMNS = ['content_t', 'note_t', 'pos_t', 'collapsed_t', 'starred_t', 'deleted_t'];
 
 let schemaReady: Promise<unknown> | null = null;
-function ensureSchema(db: SqlDatabase): Promise<unknown> {
+export function ensureSchema(db: SqlDatabase): Promise<unknown> {
   schemaReady ??= db
     .batch(SCHEMA.map((s) => db.prepare(s)))
     .then(async () => {

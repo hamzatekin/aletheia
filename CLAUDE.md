@@ -64,6 +64,7 @@ src/help/             tutorial dialog (lists every shortcut)
 src/app/              bootstrap, engine context, /share and /capture (share target, Add to Inbox)
 worker/               Cloudflare Worker: only /api/* runs it; sync API on D1 (sync.ts), AI proxy (ai.ts),
                       capture from Claude Code (capture.ts, pages.ts; the skill is public/claude-code/SKILL.md)
+                      feed for pergent (feed.ts: read-only, FEED_TOKEN secret, FEED_PILES allow-list)
 pwa/                  service worker and the Vite plugin that builds it
 e2e/                  Playwright specs; helpers.ts drives the app via window.__aletheia
 .claude/              cloud session hook (installs deps, sets CHROMIUM_PATH)

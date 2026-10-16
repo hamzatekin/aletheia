@@ -174,6 +174,24 @@ new date goes at the top of Work, and items go at the end of their date.
   `allow-same-origin`: its scripts run, but can't reach the app's storage or
   the sync key.
 
+## Feed for pergent
+
+`GET /api/feed` (`worker/feed.ts`) is a read-only feed of the sync space for
+pergent's morning task: a flat list of nodes (`id`, `parentId`, `path`,
+`text`, `note`, `order`, `createdAt`, `updatedAt`) from the piles on an
+allow-list. It only has what a device has synced.
+
+- **Token.** `Authorization: Bearer <FEED_TOKEN>`, a Worker secret (type
+  **Secret**); a missing or wrong token gets `401` with an empty body.
+- **Allow-list.** `FEED_PILES`, a Worker variable: a JSON list of paths like
+  `["Inbox", "Work", "Personal/Fitness"]`, compared without case, Markdown
+  marks or spaces around `/`. A nested pile starts its own `path` and has no
+  `parentId`, so nothing above it is sent. Rows named Passwords or Budget are
+  never sent, at any depth, even when listed.
+- **`?since=<ISO time>`** returns only nodes whose text, note or place changed
+  after it, plus `deleted: [{ id, deletedAt }]` for nodes deleted after it.
+- There is no completed state in the app, so nodes have no `done`.
+
 ## AI (optional)
 
 `POST /api/ai/complete` (`worker/ai.ts`) forwards `{ prompt }` to a Claude

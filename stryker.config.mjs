@@ -19,6 +19,7 @@ export default {
     'worker/sync.ts',
     'worker/capture.ts',
     'worker/pages.ts',
+    'worker/feed.ts',
     'src/app/pages.ts',
     '!**/*.test.ts',
     '!src/model/index.ts',

@@ -19,6 +19,8 @@
   // wiping them. Tokens never go in "vars" (this file is public): set
   // CLAUDE_RELAY_TOKEN as a secret (`npx wrangler secret put CLAUDE_RELAY_TOKEN`
   // or the dashboard's Secret type). Deploys never touch secrets.
+  // GET /api/feed (pergent) needs the FEED_TOKEN secret and a FEED_PILES variable
+  // (a JSON list of piles), both set in the dashboard.
   "keep_vars": true,
   "vars": {
     // Sync spaces this deployment accepts. 1 = the first device to turn sync
