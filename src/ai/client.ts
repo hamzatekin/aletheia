@@ -37,23 +37,24 @@ export function httpComplete(base = '', fetchFn: typeof fetch = (...args) => fet
 }
 
 /**
- * One step of a conversation with AI. `session` null starts one; the reply's
+ * One step of a conversation with AI. `session` null starts one, with
+ * `system` as its system prompt (ignored for a later step); the reply's
  * session is null when the relay keeps none, and then each step must carry
  * the whole conversation.
  */
-export type Step = (key: string, prompt: string, session: string | null) => Promise<{ text: string; session: string | null }>;
+export type Step = (key: string, prompt: string, session: string | null, system: string) => Promise<{ text: string; session: string | null }>;
 
 /** The relay forgot the session (it idled out or restarted): start again with the whole conversation. */
 export class SessionExpired extends AiError {}
 
 export function httpStep(base = '', fetchFn: typeof fetch = (...args) => fetch(...args)): Step {
-  return async (key, prompt, session) => {
+  return async (key, prompt, session, system) => {
     let res: Response;
     try {
       res = await fetchFn(`${base}/api/ai/complete`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, session }),
+        body: JSON.stringify(session === null ? { prompt, session, system } : { prompt, session }),
         signal: AbortSignal.timeout(CLIENT_TIMEOUT_MS),
       });
     } catch {

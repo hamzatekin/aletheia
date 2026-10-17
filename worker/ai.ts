@@ -4,13 +4,16 @@
  * owner's) may call it.
  *
  *   POST /api/ai/complete   { prompt } -> { text, model, durationMs } or { error }
- *   POST /api/ai/complete   { prompt, session } -> the same plus { session }
+ *   POST /api/ai/complete   { prompt, session, system? } -> the same plus { session }
  *
- * With `session` (null to start one), the prompt goes to the relay's /v1/chat,
- * which keeps one Claude conversation alive per session so an agent's later
- * steps send only what's new. A relay without /v1/chat answers 404; then a new
- * session falls back to /v1/complete and comes back as `session: null`, and
- * the app keeps sending the whole conversation. An unknown session is 410.
+ * With `session` (null to start one, with `system` as its system prompt), the
+ * prompt goes to the relay's /v1/chat, which keeps one Claude conversation
+ * alive per session so an agent's later steps send only what's new. A relay
+ * without /v1/chat answers 404; then a new session falls back to /v1/complete
+ * (system prompt first) and comes back as `session: null`, and the app keeps
+ * sending the whole conversation. An unknown or ended session is 410; the app
+ * starts a new one with the whole conversation. When all relay sessions are
+ * busy (503) the Worker waits and tries again.
  *
  * Needs `Authorization: Bearer <sync key>` and the CLAUDE_RELAY_TOKEN secret.
  */
@@ -31,6 +34,9 @@ const DEFAULT_RELAY_URL = 'https://ai.hamzatekin.dev/v1/complete';
 const RELAY_TIMEOUT_MS = 90_000;
 const MAX_PROMPT_CHARS = 100_000;
 const MAX_SESSION_CHARS = 200;
+const MAX_SYSTEM_CHARS = 20_000;
+/** Waits before trying again when every relay session is busy. */
+const BUSY_RETRY_MS = [1_500, 3_000];
 
 interface RelayReply {
   text?: string;
@@ -40,42 +46,60 @@ interface RelayReply {
   error?: string;
 }
 
-export async function handleAi(request: Request, env: AiEnv, fetchFn: typeof fetch = fetch): Promise<Response> {
+export async function handleAi(
+  request: Request,
+  env: AiEnv,
+  fetchFn: typeof fetch = fetch,
+  wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
+): Promise<Response> {
   const { pathname } = new URL(request.url);
   if (`${request.method} ${pathname}` !== 'POST /api/ai/complete') return json({ error: 'not found' }, 404);
   if (!(await hasSyncSpace(request, env))) return json({ error: 'AI needs sync to be on for this device.' }, 401);
   if (!env.CLAUDE_RELAY_TOKEN) return json({ error: 'AI is not set up on this server (the CLAUDE_RELAY_TOKEN secret is missing).' }, 503);
 
-  let body: { prompt?: unknown; session?: unknown };
+  let body: { prompt?: unknown; session?: unknown; system?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
     return json({ error: 'body must be JSON' }, 400);
   }
-  const { prompt, session } = body;
+  const { prompt, session, system } = body;
   if (typeof prompt !== 'string' || prompt.trim() === '') return json({ error: 'prompt is required' }, 400);
   if (prompt.length > MAX_PROMPT_CHARS) return json({ error: 'That is too much text to send to AI.' }, 413);
   if (session !== undefined && session !== null && (typeof session !== 'string' || session === '' || session.length > MAX_SESSION_CHARS)) {
     return json({ error: 'session must be a string or null' }, 400);
   }
+  if (system !== undefined && (typeof system !== 'string' || system.length > MAX_SYSTEM_CHARS)) return json({ error: 'system must be a short string' }, 400);
 
   const relayUrl = env.CLAUDE_RELAY_URL || DEFAULT_RELAY_URL;
   if (session === undefined) return answer(await callRelay(relayUrl, { prompt }, env.CLAUDE_RELAY_TOKEN, fetchFn), false);
 
   const chatUrl = env.CLAUDE_RELAY_CHAT_URL || relayUrl.replace(/\/complete$/, '/chat');
-  const chat = await callRelay(chatUrl, { session, prompt }, env.CLAUDE_RELAY_TOKEN, fetchFn);
+  // A system prompt only goes with a new session; the relay refuses it on a later step.
+  const payload = session === null && typeof system === 'string' && system !== '' ? { session, prompt, system } : { session, prompt };
+  let chat = await callRelay(chatUrl, payload, env.CLAUDE_RELAY_TOKEN, fetchFn, SESSION_STATUSES);
+  for (const ms of BUSY_RETRY_MS) {
+    if (!('status' in chat) || chat.status !== 503) break;
+    await wait(ms);
+    chat = await callRelay(chatUrl, payload, env.CLAUDE_RELAY_TOKEN, fetchFn, SESSION_STATUSES);
+  }
   if ('status' in chat && chat.status === 404) {
     // No session endpoint on this relay: an ongoing session can't exist, a new one runs as a plain completion.
     if (session !== null) return json({ error: 'session expired' }, 410);
-    return answer(await callRelay(relayUrl, { prompt }, env.CLAUDE_RELAY_TOKEN, fetchFn), true);
+    const whole = typeof system === 'string' && system !== '' ? `${system}\n\n${prompt}` : prompt;
+    return answer(await callRelay(relayUrl, { prompt: whole }, env.CLAUDE_RELAY_TOKEN, fetchFn), true);
   }
   return answer(chat, true);
 }
 
+/** The relay's text, a session status for the caller to handle, or an error response ready to send. */
 type RelayResult = { reply: RelayReply } | { status: number; reply: RelayReply | null } | { failed: Response };
 
+/** Statuses /v1/chat uses to say something about the session, passed on to be handled. */
+const SESSION_STATUSES = [404, 409, 410, 503];
+
 /** POST to the relay; a reply the app can't use is turned into an error response here. */
-async function callRelay(url: string, payload: object, token: string, fetchFn: typeof fetch): Promise<RelayResult> {
+async function callRelay(url: string, payload: object, token: string, fetchFn: typeof fetch, passOn: readonly number[] = []): Promise<RelayResult> {
   let res: Response;
   try {
     res = await fetchFn(url, {
@@ -100,7 +124,7 @@ async function callRelay(url: string, payload: object, token: string, fetchFn: t
     console.error('relay rejected the token', res.status);
     return { failed: json({ error: 'The AI relay rejected this server (check CLAUDE_RELAY_TOKEN).' }, 502) };
   }
-  if (res.status === 404 || res.status === 409 || res.status === 410) return { status: res.status, reply };
+  if (passOn.includes(res.status)) return { status: res.status, reply };
   if (!res.ok || !reply || reply.error || typeof reply.text !== 'string') {
     console.error('relay failed', res.status, reply?.error);
     return { failed: json({ error: reply?.error ? `AI failed: ${reply.error}` : `AI is unavailable right now (relay ${res.status}).` }, 502) };
@@ -113,7 +137,7 @@ function answer(result: RelayResult, withSession: boolean): Response {
   if ('status' in result) {
     if (result.status === 410) return json({ error: 'session expired' }, 410);
     if (result.status === 409) return json({ error: 'AI is still answering the last step.' }, 409);
-    return json({ error: 'AI is unavailable right now (relay 404).' }, 502);
+    return json({ error: 'AI is busy with other chats. Try again in a moment.' }, 503);
   }
   const { reply } = result;
   return json({
