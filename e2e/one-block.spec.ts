@@ -87,19 +87,22 @@ test('a note is hidden in the list, with a mark, and shows only while you are on
   expect(await note(page, 'alpha')).toBe('one\n\ntwo!');
 });
 
-test('clicking between an item and its hidden note keeps the note open, with the caret where you clicked', async ({ page }) => {
+test('clicking between an item and its hidden note keeps the item highlighted and the note open, with the caret where you clicked', async ({ page }) => {
   await gotoHome(page, { collapsedNotes: true });
   await alphaBeta(page);
   await edit(page, 'Alpha');
   await expect(alpha(page).locator('.node-note p')).toHaveText(['one', 'two']);
-  // Count every change to the row that leaves it without its note.
+  // Count every change to the row that leaves it without its note, or without its highlight.
   await alpha(page).evaluate((el) => {
     (window as any).noteGone = 0;
+    (window as any).unhighlighted = 0;
     new MutationObserver(() => {
       if (!el.querySelector('.note-card')) (window as any).noteGone++;
-    }).observe(el, { childList: true, subtree: true });
+      if (!el.matches('.row-focused') && !el.querySelector('.row-focused')) (window as any).unhighlighted++;
+    }).observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
   });
   const noteGone = () => page.evaluate(() => (window as any).noteGone);
+  const unhighlighted = () => page.evaluate(() => (window as any).unhighlighted);
   // To the right of the note's last line: the caret goes to its end.
   await alpha(page).locator('.node-note p').nth(1).click();
   await expect.poll(() => focused(page)).toBe('Alpha:note');
@@ -109,6 +112,7 @@ test('clicking between an item and its hidden note keeps the note open, with the
   await alpha(page).locator('.node-content').click();
   await expect.poll(() => focused(page)).toBe('Alpha:content');
   expect(await noteGone()).toBe(0);
+  expect(await unhighlighted()).toBe(0);
   // A note that is always shown doesn't slide when you get on its item.
   await alpha(page).getByTestId('note-toggle').click();
   await page.evaluate(() => (window as any).__aletheia.engine.flush());

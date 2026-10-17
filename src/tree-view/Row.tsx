@@ -36,7 +36,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
   const menuOpen = useUiStore(ui, (s) => s.menu === id);
   // A collapsed note is hidden, with a mark at the right, and shows while you're on its item.
   const noteFolded = useNotePrefs((s) => isNoteCollapsed(s, id));
-  // Pressing elsewhere on the item you're on leaves it until the press ends; its note stays shown meanwhile.
+  // Pressing elsewhere on the item you're on leaves it until the press ends; it stays highlighted, with its note shown, meanwhile.
   const [noteHeld, setNoteHeld] = useState(false);
   const noteMode = useNoteMode();
   const indicator = useUiStore(ui, (s) => (s.dropIndicator?.targetId === id ? s.dropIndicator : null));
@@ -177,7 +177,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
       ref={rowRef}
       className={
         'group relative flex items-start ' +
-        (selected ? 'rounded bg-selection ' : focusField ? 'row-focused ' : '') +
+        (selected ? 'rounded bg-selection ' : focusField || noteHeld ? 'row-focused ' : '') +
         (dragging ? 'opacity-40' : '')
       }
       style={{ paddingLeft: depth * indent }}
@@ -216,7 +216,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
         tabIndex={-1}
         className={
           'grip absolute flex h-6 w-6 pointer-coarse:hidden cursor-pointer items-center justify-center rounded-full text-faint transition-[opacity,background-color] ' +
-          (focusField || menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
+          (focusField || noteHeld || menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
         }
         style={{ left: gripLeft, top: 'calc((var(--row-lh) - 1.5rem) / 2 + 1px)' }}
         data-testid="drag-grip"
