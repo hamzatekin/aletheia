@@ -3,6 +3,7 @@ import type { AiService } from '@/ai/service';
 import type { Engine } from '@/commands';
 import { CaptureRoute } from '@/app/CaptureRoute';
 import { PageRoute } from '@/app/PageRoute';
+import { inSandbox, SANDBOX_PATH } from '@/app/sandbox';
 import { EngineProvider } from '@/app/engine-context';
 import type { EditorSession } from '@/editor/session';
 import type { RelatedService } from '@/related/service';
@@ -18,7 +19,7 @@ interface Props {
   session: EditorSession;
   search: SearchIndex;
   settings: SettingsStore;
-  sync?: SyncService;
+  sync?: SyncService | undefined;
   ai?: AiService;
   related?: RelatedService;
 }
@@ -27,7 +28,8 @@ export function App({ engine, ui, session, search, settings, sync, ai, related }
   const page = <OutlinePage ui={ui} session={session} search={search} settings={settings} sync={sync} ai={ai} related={related} />;
   return (
     <EngineProvider value={engine}>
-      <BrowserRouter>
+      {/* In the sandbox every route sits under /sandbox, so links and navigate('/n/…') stay inside it. */}
+      <BrowserRouter basename={inSandbox ? SANDBOX_PATH : '/'}>
         <Routes>
           <Route path="/" element={page} />
           <Route path="/n/:id" element={page} />

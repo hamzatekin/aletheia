@@ -1,6 +1,7 @@
 import { createContext, memo, useContext, useMemo, useState, type MouseEvent } from 'react';
 import { Link } from 'react-router';
 import { useEngine } from '@/app/engine-context';
+import { HOME_LABEL } from '@/app/sandbox';
 import { plainText } from '@/editor/markdown';
 import { ancestorIds, parentKey } from '@/model';
 import { useSettings, type SettingsStore } from '@/store/settings-store';
@@ -86,7 +87,7 @@ export function OutlineSidebar({ settings }: Props) {
               (rootId === null ? 'bg-active font-medium' : 'text-muted hover:bg-hover')
             }
           >
-            Home
+            {HOME_LABEL}
           </Link>
           {starred.length > 0 && (
             <section className="mb-2 border-b border-line pb-2" aria-label="Starred" data-testid="starred-list">

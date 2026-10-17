@@ -11,6 +11,7 @@ import type { SearchIndex } from '@/search';
 import { SearchPalette } from '@/search/SearchPalette';
 import { FilterBar } from '@/search/FilterBar';
 import { useEngine } from '@/app/engine-context';
+import { HOME_LABEL, inSandbox } from '@/app/sandbox';
 import { RelatedButton, RelatedPanel } from '@/related/RelatedPanel';
 import type { RelatedService } from '@/related/service';
 import { TutorialDialog } from '@/help/TutorialDialog';
@@ -92,7 +93,7 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, related }
   }, [related, ui]);
 
   useEffect(() => {
-    document.title = root && !missing ? plainText(root.content) || 'Untitled' : 'Aletheia';
+    document.title = root && !missing ? plainText(root.content) || 'Untitled' : inSandbox ? HOME_LABEL : 'Aletheia';
   }, [root, missing]);
 
   const sidebarOpen = useSettings(settings, (s) => s.sidebarOpen);
@@ -136,6 +137,7 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, related }
             <PageResizeHandles settings={settings} />
             <FilterBar />
             {rootId !== null && <Breadcrumbs rootId={rootId} />}
+            {inSandbox && rootId === null && <SandboxHeader />}
             {missing ? (
               <div className="text-muted">
                 This node does not exist.{' '}
@@ -157,5 +159,20 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, related }
         <SelectionBar />
       </div>
     </OutlineProvider>
+  );
+}
+
+/** Top of the sandbox, so it never passes for the real notes. Zoomed in, the breadcrumbs say "Sandbox". */
+function SandboxHeader() {
+  return (
+    <header className="mb-4" data-testid="sandbox-header">
+      <h1 className="page-title font-normal tracking-tight">{HOME_LABEL}</h1>
+      <p className="mt-1 text-sm text-muted">
+        Only in this browser. It never syncs, so nothing here touches your notes.{' '}
+        <a href="/" className="underline underline-offset-2 hover:text-ink">
+          Back to my notes
+        </a>
+      </p>
+    </header>
   );
 }

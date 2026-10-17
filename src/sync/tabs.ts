@@ -14,6 +14,8 @@ type Message =
 export interface TabsOptions {
   /** Another tab replaced every node. Default: reload this tab. */
   onReplaced?: () => void;
+  /** Tabs on the same channel share one database. Default: the real notes'. */
+  channel?: string;
 }
 
 /**
@@ -25,9 +27,9 @@ export interface TabsOptions {
  * saving it again. A tab that comes back into view re-reads the disk too, in
  * case the browser froze it and it missed messages.
  */
-export function connectTabs(engine: Engine, sync: SyncService, opts: TabsOptions = {}): () => void {
+export function connectTabs(engine: Engine, sync: SyncService | null, opts: TabsOptions = {}): () => void {
   if (typeof BroadcastChannel === 'undefined') return () => {};
-  const channel = new BroadcastChannel('aletheia-tabs');
+  const channel = new BroadcastChannel(opts.channel ?? 'aletheia-tabs');
   const send = (m: Message) => channel.postMessage(m);
   const onReplaced = opts.onReplaced ?? (() => window.location.reload());
 
@@ -37,23 +39,24 @@ export function connectTabs(engine: Engine, sync: SyncService, opts: TabsOptions
   });
   const offReplace = engine.onReplace(() => send({ type: 'replaced' }));
 
-  let { key, lastKey } = sync.state.getState();
+  let { key, lastKey } = sync?.state.getState() ?? { key: null, lastKey: null };
   let following = false;
-  const offState = sync.state.subscribe((s) => {
-    if (s.key === key && s.lastKey === lastKey) return;
-    ({ key, lastKey } = s);
-    if (!following) send({ type: 'sync-key' });
-  });
+  const offState =
+    sync?.state.subscribe((s) => {
+      if (s.key === key && s.lastKey === lastKey) return;
+      ({ key, lastKey } = s);
+      if (!following) send({ type: 'sync-key' });
+    }) ?? (() => {});
 
   channel.onmessage = (event: MessageEvent<Message>) => {
     const m = event.data;
     if (m.type === 'nodes') {
       engine.applyPeer(m.nodes);
       // Backup in case that tab closes before its own upload runs.
-      if (m.local) sync.schedule();
+      if (m.local) sync?.schedule();
     } else if (m.type === 'replaced') {
       onReplaced();
-    } else if (m.type === 'sync-key') {
+    } else if (m.type === 'sync-key' && sync) {
       following = true;
       void sync.reloadKey().finally(() => {
         following = false;

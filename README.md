@@ -144,6 +144,18 @@ Local development: `pnpm build && npx wrangler dev` serves the app and the
 API with a local D1 on :8787 (`pnpm dev` proxies `/api` to it). Reset local
 sync data with `npx wrangler d1 execute aletheia-sync --local --command "DELETE FROM spaces; DELETE FROM nodes;"`.
 
+## Sandbox
+
+`/sandbox` (Settings → Open sandbox) is a second outline for trying things,
+such as AI that rearranges items, without touching the real notes. It starts
+blank and lives in its own IndexedDB database (`aletheia-sandbox`), so it is
+only in that browser. It never syncs: no sync service runs there and Settings
+has no Sync section. AI still works, because the sandbox reads the real
+outline's sync key once at startup and sends it with AI requests. The router's
+basename is `/sandbox`, so zooming and every other route stay inside it, and
+its tabs talk on their own BroadcastChannel. Switching between the two is a
+full page load (`src/app/sandbox.ts`).
+
 ## Claude Code: /aletheia
 
 A Claude Code skill saves an answer into the outline: `/aletheia [title]` adds

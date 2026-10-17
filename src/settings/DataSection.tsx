@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { HOME_LABEL } from '@/app/sandbox';
 import { downloadText, pickTextFile, safeFilename } from '@/io/browser';
 import { exportJson, exportMarkdown, exportOpml, parseBackup } from '@/io/export';
 import { countItems, importAsTopNode, importTitle, parseMarkdownOutline, parseOpml } from '@/io/import';
@@ -39,7 +40,7 @@ export function DataSection() {
     ui.blur();
     if (!importAsTopNode(engine, importTitle(file.name, new Date()), items)) return setMessage({ text: 'Import failed.', error: true });
     const n = countItems(items);
-    setMessage({ text: `Imported ${n} ${n === 1 ? 'item' : 'items'} at the top of Home.` });
+    setMessage({ text: `Imported ${n} ${n === 1 ? 'item' : 'items'} at the top of ${HOME_LABEL}.` });
     showHome();
   };
 
@@ -66,7 +67,7 @@ export function DataSection() {
   return (
     <section data-testid="data-section" className="mt-4 border-t border-line pt-4">
       <h2 className="mb-2 font-semibold">Import & export</h2>
-      <p className="mb-1.5 text-xs text-muted">Import a file as a new item at the top of Home.</p>
+      <p className="mb-1.5 text-xs text-muted">Import a file as a new item at the top of {HOME_LABEL}.</p>
       <div className="mb-3 flex flex-wrap gap-2">
         <Button onClick={() => void importFile('.md,.markdown,.txt,text/markdown,text/plain', parseMarkdownOutline)}>Markdown</Button>
         <Button onClick={() => void importFile('.opml,.xml,text/xml,text/x-opml', parseOpml)}>OPML (WorkFlowy, Dynalist)</Button>

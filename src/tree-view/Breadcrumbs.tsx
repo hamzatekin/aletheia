@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
+import { HOME_LABEL } from '@/app/sandbox';
 import { plainText } from '@/editor/markdown';
 import { isMac, useCoarsePointer } from '@/ui/media';
 import { useAncestors } from './use-outline';
@@ -48,7 +49,7 @@ export function Breadcrumbs({ rootId }: Props) {
   }, [coarse]);
 
   const parent = ancestors.at(-1);
-  const parentName = parent ? plainText(parent.content) || 'Untitled' : 'Home';
+  const parentName = parent ? plainText(parent.content) || 'Untitled' : HOME_LABEL;
   // The nav's negative margin equals the crumbs' padding, so the first crumb's text lines up with the title.
   const crumb =
     'truncate rounded hover:bg-hover hover:text-ink ' + (coarse ? 'max-w-40 shrink-0 px-1.5 py-1.5' : 'max-w-48 px-1 py-0.5');
@@ -84,7 +85,7 @@ export function Breadcrumbs({ rootId }: Props) {
         onScroll={coarse ? (e) => setOverflowLeft(e.currentTarget.scrollLeft > 0) : undefined}
       >
         <Link to="/" state={{ from: ancestors[0]?.id ?? rootId }} className={crumb}>
-          Home
+          {HOME_LABEL}
         </Link>
         {ancestors.map((a, i) => (
           <span key={a.id} className="flex shrink-0 items-center">
