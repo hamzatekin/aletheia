@@ -93,6 +93,33 @@ test('one AI chat for the app: it starts from the row you are on, acts, and keep
   await expect(panel.getByTestId('agent-answer')).toHaveCount(0);
 });
 
+test('AI keeps a memory in the outline and reads it in the next chat', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await build(page);
+  await syncOn(page);
+  const prompts: string[] = [];
+  await page.route('**/api/ai/complete', async (route) => {
+    const body = route.request().postDataJSON();
+    prompts.push(body.prompt);
+    const structured = prompts.length === 1 ? { answer: 'Good luck with it, Avvos.', changes: [{ remember: 'Training for a 10k' }] } : { answer: 'Keep going.' };
+    await route.fulfill({ json: { text: '', structured, model: 'm', durationMs: 5, session: 's1' } });
+  });
+  await page.getByTestId('agent-button').click();
+  const panel = page.getByTestId('agent-panel');
+  await panel.getByTestId('agent-input').fill('I started training for a 10k');
+  await page.keyboard.press('Enter');
+  await expect(panel.getByTestId('agent-answer').locator('.agent-answer')).toHaveText('Good luck with it, Avvos.');
+  await panel.getByTestId('agent-did').locator('summary').click();
+  await expect(panel.getByTestId('agent-did')).toContainText('Remembered “Training for a 10k”.');
+  await expect.poll(() => outline(page, 'AI memory')).toEqual(['Training for a 10k']);
+
+  await panel.getByTestId('agent-clear').click();
+  await panel.getByTestId('agent-input').fill('How am I doing?');
+  await page.keyboard.press('Enter');
+  await expect(panel.getByTestId('agent-answer').locator('.agent-answer')).toHaveText('Keep going.');
+  expect(prompts[1]).toContain('What you remember about Avvos:\n[1] Training for a 10k\n');
+});
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 

@@ -1,6 +1,7 @@
 import type { BatchItem } from '@/commands';
 import { plainText } from '@/editor/markdown';
 import { isLive, isSelfOrDescendant, newId, previousSibling, type TreeReader } from '@/model';
+import { MEMORY_TITLE, memoryRow } from './memory';
 import type { Refs } from './prompt';
 
 /** The changes AI asked for, ready to run as one batch, with what they did and how to take them back. */
@@ -26,7 +27,8 @@ const quote = (tree: TreeReader, id: string | null, fallback: string) => {
 /**
  * Turn AI's change list into commands. Rows are AI's numbers, "top", or a
  * name a create in the same list gave its new row ("as"). Anything naming a
- * row that doesn't exist is dropped rather than guessed at.
+ * row that doesn't exist is dropped rather than guessed at. A memory goes in
+ * the memory row, made at the end of the top level the first time.
  */
 export function planChanges(tree: TreeReader, refs: Refs, changes: readonly unknown[]): Plan {
   const items: BatchItem[] = [];
@@ -36,6 +38,7 @@ export function planChanges(tree: TreeReader, refs: Refs, changes: readonly unkn
   const named = new Map<string, string>();
   const created = new Set<string>();
   let dropped = 0;
+  let memory = memoryRow(tree);
 
   /** A row that exists now or will once the creates before it ran. */
   const row = (v: unknown): string | undefined => {
@@ -112,6 +115,21 @@ export function planChanges(tree: TreeReader, refs: Refs, changes: readonly unkn
       items.push({ type: 'toggleStar', id, starred: on });
       undo.push({ type: 'toggleStar', id, starred: was });
       checks.push((t) => (Boolean(t.get(id)?.starredAt) === on && was !== on ? `${on ? 'Starred' : 'Unstarred'} ${quote(t, id, 'a row')}.` : null));
+    } else if (typeof c.remember === 'string') {
+      const text = str(c.remember) ?? '';
+      if (text === '') {
+        dropped++;
+        continue;
+      }
+      if (memory === null) {
+        memory = newId();
+        items.push({ type: 'createNode', id: memory, parentId: null, at: 'last', content: MEMORY_TITLE });
+        undo.push({ type: 'deleteSubtree', id: memory });
+      }
+      const id = newId();
+      items.push({ type: 'createNode', id, parentId: memory, at: 'last', content: text });
+      if (undo.length === 0) undo.push({ type: 'deleteSubtree', id });
+      checks.push((t) => (isLive(t.get(id)) ? `Remembered ${quote(t, id, text)}.` : null));
     } else {
       dropped++;
     }
