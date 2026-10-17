@@ -5,7 +5,7 @@ import { createRelatedService } from '@/related/service';
 import { SearchIndex } from '@/search';
 import { fixture, outline } from '@/test/helpers';
 import { planChanges } from './changes';
-import { parseReply, readResults, Refs, startPrompt } from './prompt';
+import { AGENT_SYSTEM, parseReply, readResults, Refs, startPrompt } from './prompt';
 import { runAgent } from './run';
 
 const session = { flush: () => {} } as unknown as EditorSession;
@@ -49,6 +49,10 @@ describe('prompts', () => {
     expect(p).toContain('The top of their outline:\n[3] Work  (2 inside)\n  [4] 14 Oct\n  [5] Suppliers\n[6] Inbox  (3 inside)\n  [1] Lavazza  (has a note)\n  [2] Liquidline\n  [7] Call mum');
     expect(p).toContain('The conversation so far:\nThem: hi\nYou: hello\n\nThem: Move this to Work');
     expect(refs.list()).toEqual([f.ids.Lavazza, f.ids.Liquidline, f.ids.Work, f.ids['14 Oct'], f.ids.Suppliers, f.ids.Inbox, f.ids['Call mum']]);
+    // The rules go as the system prompt, never next to note text.
+    expect(p.startsWith('They are on this row:\n')).toBe(true);
+    expect(p).not.toContain('Reply with exactly one JSON object');
+    expect(AGENT_SYSTEM).toContain('Reply with exactly one JSON object and nothing else.');
   });
 
   it('answers searches and opens with numbered rows', () => {
@@ -145,16 +149,17 @@ describe('runAgent', () => {
   it('sends only what is new within a relay session, and starts over when it expires', async () => {
     const f = spec();
     const replies = ['{"read":[{"open":1}]}', '{"read":[{"open":2}]}', '{"answer":"ok"}'];
-    const sent: { prompt: string; session: string | null }[] = [];
+    const sent: { prompt: string; session: string | null; system: string }[] = [];
     let n = 0;
-    const step: Step = async (_k, prompt, s) => {
-      sent.push({ prompt, session: s });
+    const step: Step = async (_k, prompt, s, system) => {
+      sent.push({ prompt, session: s, system });
       if (++n === 3) throw new SessionExpired('gone');
       return { text: replies.shift()!, session: 's1' };
     };
     const run = await runAgent({ tree: f.engine.tree, search: new SearchIndex(f.engine), step, key: 'k', item: null, related: [], history: [], question: 'q', progress: () => {} });
     expect(run.answer).toBe('ok');
     expect(sent.map((s) => s.session)).toEqual([null, 's1', 's1', null]);
+    expect(sent.every((s) => s.system === AGENT_SYSTEM)).toBe(true);
     expect(sent[1]!.prompt.startsWith('Results:\nopen [1]:')).toBe(true);
     // After the session ended, the whole conversation goes again.
     expect(sent[3]!.prompt.startsWith(sent[0]!.prompt)).toBe(true);

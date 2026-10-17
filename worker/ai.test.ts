@@ -31,10 +31,15 @@ function relay(reply: () => Response | Promise<Response>) {
   return { sent, fetchFn };
 }
 
+const waits: number[] = [];
+beforeEach(() => {
+  waits.length = 0;
+});
+
 function ask(key: string | null, body: unknown = { prompt: 'Suggest a title' }, env: Partial<AiEnv> = {}, fetchFn?: typeof fetch) {
   const headers: Record<string, string> = key ? { Authorization: `Bearer ${key}` } : {};
   const req = new Request('https://aletheia.test/api/ai/complete', { method: 'POST', headers, body: JSON.stringify(body) });
-  return handleAi(req, { DB: db, CLAUDE_RELAY_TOKEN: 'relay-secret', ...env }, fetchFn);
+  return handleAi(req, { DB: db, CLAUDE_RELAY_TOKEN: 'relay-secret', ...env }, fetchFn, async (ms) => void waits.push(ms));
 }
 
 describe('AI proxy', () => {
@@ -117,5 +122,41 @@ describe('AI proxy', () => {
     expect((await ask(OWNER, { prompt: 'Start', session: 5 }, {}, r.fetchFn)).status).toBe(400);
     expect((await ask(OWNER, { prompt: 'Start', session: '' }, {}, r.fetchFn)).status).toBe(400);
     expect(r.sent).toHaveLength(1);
+  });
+
+  it('sends the system prompt only when a session starts', async () => {
+    const r = relay(() => Response.json({ text: 'x', session: 's1' }));
+    await ask(OWNER, { prompt: 'Start', session: null, system: 'Reply in JSON' }, {}, r.fetchFn);
+    await ask(OWNER, { prompt: 'Next', session: 's1', system: 'Reply in JSON' }, {}, r.fetchFn);
+    expect(r.sent.map((s) => s.body)).toEqual([
+      { session: null, prompt: 'Start', system: 'Reply in JSON' },
+      { session: 's1', prompt: 'Next' },
+    ]);
+    expect((await ask(OWNER, { prompt: 'Start', session: null, system: 7 }, {}, r.fetchFn)).status).toBe(400);
+    expect((await ask(OWNER, { prompt: 'Start', session: null, system: 'x'.repeat(20_001) }, {}, r.fetchFn)).status).toBe(400);
+    expect(r.sent).toHaveLength(2);
+  });
+
+  it('puts the system prompt first when falling back to a plain completion', async () => {
+    const r = relay(() => (r.sent.length === 1 ? new Response('Not found', { status: 404 }) : Response.json({ text: 'Answer' })));
+    await ask(OWNER, { prompt: 'Start', session: null, system: 'Reply in JSON' }, {}, r.fetchFn);
+    expect(r.sent[1]).toEqual({ url: 'https://ai.hamzatekin.dev/v1/complete', auth: 'Bearer relay-secret', body: { prompt: 'Reply in JSON\n\nStart' } });
+  });
+
+  it('waits and tries again while every relay session is busy', async () => {
+    const busy = () => Response.json({ error: 'too many chat sessions' }, { status: 503 });
+    const r = relay(() => (r.sent.length < 3 ? busy() : Response.json({ text: 'ok', session: 's1' })));
+    const res = await ask(OWNER, { prompt: 'Start', session: null }, {}, r.fetchFn);
+    expect(await res.json()).toEqual({ text: 'ok', model: null, durationMs: null, session: 's1' });
+    expect(waits).toEqual([1_500, 3_000]);
+
+    waits.length = 0;
+    const always = relay(busy);
+    const gaveUp = await ask(OWNER, { prompt: 'Start', session: null }, {}, always.fetchFn);
+    expect({ status: gaveUp.status, body: await gaveUp.json() }).toEqual({ status: 503, body: { error: 'AI is busy with other chats. Try again in a moment.' } });
+    expect(always.sent).toHaveLength(3);
+    // A plain completion doesn't wait: a 503 there means the relay is down.
+    const plain = await ask(OWNER, undefined, {}, relay(busy).fetchFn);
+    expect({ status: plain.status, body: await plain.json() }).toEqual({ status: 502, body: { error: 'AI failed: too many chat sessions' } });
   });
 });
