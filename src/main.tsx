@@ -11,7 +11,7 @@ import { bootstrap } from './app/bootstrap';
 import { liftCaptureTitles } from './app/capture';
 import { inSandbox, mainSyncKey, sandboxDb } from './app/sandbox';
 import { nameAllFromNotes, watchNameFromNote } from './editor/first-line';
-import { createRelatedService } from './related/service';
+import { createAgentService } from './agent/service';
 import { EditorSession } from './editor/session';
 import { SearchIndex } from './search';
 import { applySettings, createSettingsStore, loadSettings } from './store/settings-store';
@@ -71,7 +71,7 @@ const sandboxKey = inSandbox ? await mainSyncKey() : null;
 const syncKey = () => (sync ? sync.state.getState().key : sandboxKey);
 const complete = httpComplete();
 const ai = createAiService({ engine, session, key: syncKey, complete });
-const related = createRelatedService({ engine, session, search, key: syncKey, complete, step: httpStep() });
+const agent = createAgentService({ engine, session, search, key: syncKey, step: httpStep() });
 registerAiSlashCommands(ai);
 // On narrow screens the sidebar would cover the page, so start with it hidden (without saving that).
 const saved = loadSettings();
@@ -88,11 +88,11 @@ settings.subscribe(apply);
 darkQuery.addEventListener('change', apply);
 if (import.meta.env.DEV) {
   // Test hook: Playwright drives the engine directly to build large trees.
-  (window as unknown as { __aletheia: unknown }).__aletheia = { engine, ui, session, search, settings, sync, ai, related };
+  (window as unknown as { __aletheia: unknown }).__aletheia = { engine, ui, session, search, settings, sync, ai, agent };
 }
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App engine={engine} ui={ui} session={session} search={search} settings={settings} sync={sync} ai={ai} related={related} />
+    <App engine={engine} ui={ui} session={session} search={search} settings={settings} sync={sync} ai={ai} agent={agent} />
   </StrictMode>,
 );
 // Installed app (PWA): lets it open offline. See pwa/sw.js.

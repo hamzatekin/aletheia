@@ -24,14 +24,13 @@ export async function runAgent(o: {
   key: string;
   /** The row they're on, or null for the whole outline. */
   item: string | null;
-  related: readonly string[];
   history: readonly ChatTurn[];
   question: string;
   /** Called with each step's reads ("Searching “coffee”, Reading “Work”"), for the chat to show. */
   progress(label: string): void;
 }): Promise<AgentRun> {
   const refs = new Refs();
-  const transcript: string[] = [startPrompt({ tree: o.tree, refs, item: o.item, related: o.related, history: o.history, question: o.question })];
+  const transcript: string[] = [startPrompt({ tree: o.tree, refs, item: o.item, history: o.history, question: o.question })];
   let session: string | null = null;
   let next = transcript[0]!;
 

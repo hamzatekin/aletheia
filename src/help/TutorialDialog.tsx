@@ -256,9 +256,9 @@ const TABS: Tab[] = [
             [<Keys k="Mod+K" />, 'Jump anywhere: search every node, ↑ ↓ to pick, Enter to go there, Esc to close.'],
           ]}
         />
-        <H>Related</H>
+        <H>Ask AI</H>
         <P>
-          The linked-dots button at the top (or Show related in an item's ≡ menu) lists what else in your notes is about the row you're on (the one you last clicked into, else the page), with no tags or links needed. Rows sharing its words show at once; with sync on, AI adds rows related by meaning and says why. Tap a row to peek at it, Go there to zoom in, or Move here to put it under this item. Ask AI about the item and those rows at the bottom, or tap Next steps; Add to outline puts an answer's bullets under the item (Undo takes them back).
+          The sparkle button at the top opens one chat about your notes (sync must be on). Ask anything: AI searches and opens your rows by itself, starting from the row you're on, and adds, moves, edits or stars rows when you ask. It never deletes. What it changed is listed under the answer, and Undo takes it all back. The chat stays while you move around; New chat starts over.
         </P>
         <H>Slash commands</H>
         <P>

@@ -113,6 +113,8 @@ test.describe('on a phone', () => {
     // The bar's note button goes on into its note.
     await page.getByTestId('toolbar-note').tap();
     await expect.poll(() => focused(page)).toBe('Buy milk:note');
+    // The store says "note" a moment before the note's editor has the caret; typing earlier loses keys.
+    await expect(page.locator('.ProseMirror[data-editor=note]')).toBeFocused();
     await page.keyboard.type('2 litres');
     await page.getByTestId('toolbar-done').tap();
     await expect(page.locator('h1')).toHaveText('Buy milk');

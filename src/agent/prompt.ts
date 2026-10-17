@@ -128,17 +128,14 @@ export function startPrompt(o: {
   tree: TreeReader;
   refs: Refs;
   item: string | null;
-  related: readonly string[];
   history: readonly ChatTurn[];
   question: string;
 }): string {
   const { tree, refs, item } = o;
   const here = item && isLive(tree.get(item)) ? ['They are on this row:', ...openLines(tree, refs, item)] : ['They are on the home page (the whole outline).'];
-  const related = o.related.filter((r) => isLive(tree.get(r)));
   const turns = o.history.slice(-HISTORY_TURNS).map((t) => `${t.role === 'user' ? 'Them' : 'You'}: ${t.text}`);
   return [
     ...here,
-    ...(related.length > 0 ? ['', 'Rows elsewhere that seem related to it:', ...related.map((r) => rowLine(tree, refs, r, true))] : []),
     '',
     'The top of their outline:',
     ...treeLines(tree, refs, null, 2, TOP_LINES),
@@ -201,4 +198,22 @@ export function readLabel(tree: TreeReader, refs: Refs, r: Read): string {
   if ('search' in r) return `Searching “${one(r.search, 40)}”`;
   const id = refs.id(r.open);
   return `Reading ${id && tree.get(id) ? `“${one(title(tree, id), 40)}”` : 'a row'}`;
+}
+
+/** Citations like [2] or [1, 3] in an answer. */
+const CITATION = /\s?\[(\d+(?:\s*,\s*\d+)*)\](?!\()/g;
+
+/** The answer with each citation as a `#cite-<n>` link the panel turns into a jump to that row. */
+export function linkCitations(text: string, label: (n: number) => string | null): string {
+  return text.replace(CITATION, (whole, list: string) => {
+    const links = list
+      .split(',')
+      .map((s) => Number(s.trim()))
+      .map((n) => {
+        const l = label(n);
+        return l === null ? null : ` [${l.replace(/[[\]]/g, '')}](#cite-${n})`;
+      })
+      .filter((l): l is string => l !== null);
+    return links.length > 0 ? links.join('') : whole;
+  });
 }

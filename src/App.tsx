@@ -6,7 +6,7 @@ import { PageRoute } from '@/app/PageRoute';
 import { inSandbox, SANDBOX_PATH } from '@/app/sandbox';
 import { EngineProvider } from '@/app/engine-context';
 import type { EditorSession } from '@/editor/session';
-import type { RelatedService } from '@/related/service';
+import type { AgentService } from '@/agent/service';
 import type { SearchIndex } from '@/search';
 import type { SettingsStore } from '@/store/settings-store';
 import type { SyncService } from '@/sync/service';
@@ -21,11 +21,11 @@ interface Props {
   settings: SettingsStore;
   sync?: SyncService | undefined;
   ai?: AiService;
-  related?: RelatedService;
+  agent?: AgentService;
 }
 
-export function App({ engine, ui, session, search, settings, sync, ai, related }: Props) {
-  const page = <OutlinePage ui={ui} session={session} search={search} settings={settings} sync={sync} ai={ai} related={related} />;
+export function App({ engine, ui, session, search, settings, sync, ai, agent }: Props) {
+  const page = <OutlinePage ui={ui} session={session} search={search} settings={settings} sync={sync} ai={ai} agent={agent} />;
   return (
     <EngineProvider value={engine}>
       {/* In the sandbox every route sits under /sandbox, so links and navigate('/n/…') stay inside it. */}

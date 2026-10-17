@@ -34,7 +34,7 @@ src/settings      Settings panel (appearance, sync, import & export), sync statu
 src/help          Tutorial dialog
 src/sync          Opt-in sync: wire format, outbox, sync service, browser triggers
 src/ai            AI actions (Suggest title) through the Worker's relay proxy
-src/related       Related panel: what else is about an item, and a chat about it
+src/agent         Ask AI: one chat that searches your notes and makes changes
 worker            Cloudflare Worker: the sync API on D1 and the AI proxy (only `/api/*` runs it)
 pwa               Service worker and the Vite plugin that builds it
 e2e               Playwright specs
@@ -224,34 +224,33 @@ waiting, it offers the title instead of overwriting. New actions: write the
 prompt next to `src/ai/suggest-title.ts`, add a method to `src/ai/service.ts`,
 and register it in `src/ai/slash-commands.ts` and `NodeMenu.tsx`.
 
-## Related panel
+## Ask AI
 
-For the row you're on (the one you last clicked into or selected, or picked
-via ≡ → Show related; else the zoomed item),
-`src/related/` lists what else in the outline is about it, with no tags or
-links. `find.ts` runs an OR search of the item's title words (weighed more),
-note and children over the MiniSearch index, leaving out the item, its rows
-and its parents; that list shows at once and gives the top button its count.
-With sync on, `prompts.ts` then sends AI the item plus the rest of the
-outline as numbered, indented rows (text matches and their parents first,
-then level by level up to about 40k characters) and reads back up to 10
-picks with a reason. AI asks only once you have stayed on a row for a moment,
-and its picks are kept in localStorage per row with a fingerprint of the
-row's own text (title, note, rows under it): coming back is instant, an edit
-to the row makes AI look again, and Look again covers changes elsewhere.
-While AI looks the panel shows grey placeholder rows, not the word matches,
-which would otherwise show and then move. Once AI has looked, rows it did not
-pick sit under "N more rows share words with it"; without sync the word
-matches are the list.
+The sparkle button at the top opens one chat for the whole app
+(`src/agent/`). It stays as you move around and starts each question from
+the row you're on (the one you last clicked into or selected, else the
+zoomed item, else Home); New chat clears it. It needs sync on, like every
+AI feature.
 
-The chat at the bottom sends the item as `[0]` and the listed rows as `[1]`,
-`[2]`…, plus the last few turns; answers cite rows as `[n]`, which the panel
-turns into jumps. The quick buttons (Next steps, What do I know?,
-Duplicates?) are canned questions. Add to outline puts an answer's bullets
-(or paragraphs) under the item as one undo step; Move here moves a related
-row under the item. Both have Undo in the panel. The panel docks on the
-right on wide screens (it and Settings close each other), is a drawer below
-1024px, and a sheet from the bottom on phones.
+It's a small agent. The rules (`AGENT_SYSTEM` in `prompt.ts`) go to the relay
+as the session's system prompt, and the first message carries the row you're
+on and the top two levels of the outline, with each row numbered (`[12]`).
+Each reply is one JSON object: either reads (`search` words, `open` a row),
+which the app runs on the device against the search index and the tree and
+sends back as the next message, or the answer plus a list of changes
+(create, move, edit, star; never delete). `run.ts` stops after 6 steps.
+`changes.ts` turns the changes into one `engine.batch`, drops anything naming
+a row AI wasn't shown, and records the batch that undoes it: the panel lists
+what changed under the answer with Undo, and Ctrl+Z works too. Answers cite
+rows as `[n]`, which the panel turns into jumps.
+
+The Worker sends each step to the relay's `/v1/chat`, which keeps one Claude
+conversation per question, so later steps send only what's new. When the
+session has ended (410) the app replays the whole conversation into a new
+one; a relay without `/v1/chat` gets the whole conversation through
+`/v1/complete` each step. The panel docks on the right on wide screens (it
+and Settings close each other), is a drawer below 1024px, and a sheet from
+the bottom on phones.
 
 ## Installable app (PWA)
 
@@ -302,7 +301,7 @@ since the build has no `404.html`. Don't add a `_redirects` catch-all
 (`/* /index.html 200`); Workers rejects it as an infinite redirect loop.
 
 The browser tests drive the app through `window.__aletheia` (engine, UI
-store, editor session, search index, settings, sync, AI, related), which dev
+store, editor session, search index, settings, sync, AI, agent), which dev
 builds expose. Set
 `CHROMIUM_PATH` to use a preinstalled Chromium instead of the one Playwright
 downloads.
