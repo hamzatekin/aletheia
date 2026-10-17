@@ -1,12 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { AiError, SessionExpired, type Step } from '@/ai/client';
 import type { EditorSession } from '@/editor/session';
-import { createRelatedService } from '@/related/service';
 import { SearchIndex } from '@/search';
 import { fixture, outline } from '@/test/helpers';
 import { planChanges } from './changes';
-import { AGENT_SYSTEM, parseReply, readResults, Refs, startPrompt } from './prompt';
+import { AGENT_SYSTEM, linkCitations, parseReply, readResults, Refs, startPrompt } from './prompt';
 import { runAgent } from './run';
+import { createAgentService } from './service';
 
 const session = { flush: () => {} } as unknown as EditorSession;
 
@@ -39,20 +39,44 @@ describe('parseReply', () => {
 });
 
 describe('prompts', () => {
-  it('starts with the rules, the row they are on, the top of the outline and the question', () => {
+  it('starts with the row they are on, the top of the outline and the question', () => {
     const f = spec();
     const refs = new Refs();
     f.engine.execute({ type: 'updateNote', id: f.ids.Lavazza!, note: 'Espresso beans' });
-    const p = startPrompt({ tree: f.engine.tree, refs, item: f.ids.Lavazza!, related: [f.ids.Liquidline!], history: [{ role: 'user', text: 'hi' }, { role: 'ai', text: 'hello' }], question: 'Move this to Work' });
-    expect(p).toContain('They are on this row:\n[1] Lavazza  (inside: Inbox)\nNote:\nEspresso beans\nNothing inside it.');
-    expect(p).toContain('Rows elsewhere that seem related to it:\n[2] Liquidline  (inside: Inbox)');
-    expect(p).toContain('The top of their outline:\n[3] Work  (2 inside)\n  [4] 14 Oct\n  [5] Suppliers\n[6] Inbox  (3 inside)\n  [1] Lavazza  (has a note)\n  [2] Liquidline\n  [7] Call mum');
-    expect(p).toContain('The conversation so far:\nThem: hi\nYou: hello\n\nThem: Move this to Work');
-    expect(refs.list()).toEqual([f.ids.Lavazza, f.ids.Liquidline, f.ids.Work, f.ids['14 Oct'], f.ids.Suppliers, f.ids.Inbox, f.ids['Call mum']]);
+    const p = startPrompt({ tree: f.engine.tree, refs, item: f.ids.Lavazza!, history: [{ role: 'user', text: 'hi' }, { role: 'ai', text: 'hello' }], question: 'Move this to Work' });
+    expect(p).toBe(
+      [
+        'They are on this row:',
+        '[1] Lavazza  (inside: Inbox)',
+        'Note:',
+        'Espresso beans',
+        'Nothing inside it.',
+        '',
+        'The top of their outline:',
+        '[2] Work  (2 inside)',
+        '  [3] 14 Oct',
+        '  [4] Suppliers',
+        '[5] Inbox  (3 inside)',
+        '  [1] Lavazza  (has a note)',
+        '  [6] Liquidline',
+        '  [7] Call mum',
+        '',
+        'The conversation so far:',
+        'Them: hi',
+        'You: hello',
+        '',
+        'Them: Move this to Work',
+      ].join('\n'),
+    );
+    expect(refs.list()).toEqual([f.ids.Lavazza, f.ids.Work, f.ids['14 Oct'], f.ids.Suppliers, f.ids.Inbox, f.ids.Liquidline, f.ids['Call mum']]);
     // The rules go as the system prompt, never next to note text.
-    expect(p.startsWith('They are on this row:\n')).toBe(true);
-    expect(p).not.toContain('Reply with exactly one JSON object');
     expect(AGENT_SYSTEM).toContain('Reply with exactly one JSON object and nothing else.');
+    expect(startPrompt({ tree: f.engine.tree, refs: new Refs(), item: null, history: [], question: 'q' }).startsWith('They are on the home page (the whole outline).\n\nThe top of their outline:\n[1] Work')).toBe(true);
+  });
+
+  it('turns citations into jump links', () => {
+    const out = linkCitations('Do it [1, 2] now [3]. See [9]. A [link](x).', (n) => (n === 9 ? null : `Row ${n}`));
+    expect(out).toBe('Do it [Row 1](#cite-1) [Row 2](#cite-2) now [Row 3](#cite-3). See [9]. A [link](x).');
   });
 
   it('answers searches and opens with numbered rows', () => {
@@ -135,7 +159,7 @@ describe('runAgent', () => {
     const f = spec();
     const { sent, step } = scripted(['{"read":[{"search":"call"}]}', '{"answer":"Starred it [7].","changes":[{"star":{"row":7}}]}']);
     const progress: string[] = [];
-    const run = await runAgent({ tree: f.engine.tree, search: new SearchIndex(f.engine), step, key: 'k', item: null, related: [], history: [], question: 'Star the call', progress: (l) => progress.push(l) });
+    const run = await runAgent({ tree: f.engine.tree, search: new SearchIndex(f.engine), step, key: 'k', item: null, history: [], question: 'Star the call', progress: (l) => progress.push(l) });
     expect(run.answer).toBe('Starred it [7].');
     expect(run.changes).toEqual([{ star: { row: 7 } }]);
     expect(run.refs.id(7)).toBe(f.ids['Call mum']);
@@ -156,7 +180,7 @@ describe('runAgent', () => {
       if (++n === 3) throw new SessionExpired('gone');
       return { text: replies.shift()!, session: 's1' };
     };
-    const run = await runAgent({ tree: f.engine.tree, search: new SearchIndex(f.engine), step, key: 'k', item: null, related: [], history: [], question: 'q', progress: () => {} });
+    const run = await runAgent({ tree: f.engine.tree, search: new SearchIndex(f.engine), step, key: 'k', item: null, history: [], question: 'q', progress: () => {} });
     expect(run.answer).toBe('ok');
     expect(sent.map((s) => s.session)).toEqual([null, 's1', 's1', null]);
     expect(sent.every((s) => s.system === AGENT_SYSTEM)).toBe(true);
@@ -169,33 +193,65 @@ describe('runAgent', () => {
   it('gives up when AI keeps reading', async () => {
     const f = spec();
     const { step } = scripted(Array.from({ length: 6 }, () => '{"read":[{"search":"x"}]}'));
-    const run = runAgent({ tree: f.engine.tree, search: new SearchIndex(f.engine), step, key: 'k', item: null, related: [], history: [], question: 'q', progress: () => {} });
+    const run = runAgent({ tree: f.engine.tree, search: new SearchIndex(f.engine), step, key: 'k', item: null, history: [], question: 'q', progress: () => {} });
     await expect(run).rejects.toThrow(AiError);
     await expect(run).rejects.toThrow("AI kept reading and didn't answer in 6 steps. Try a narrower question.");
   });
 });
 
-describe('asking from the Related panel', () => {
-  beforeEach(() => {
-    const data = new Map<string, string>();
-    vi.stubGlobal('localStorage', { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => data.set(k, v) });
-  });
+describe('AgentService', () => {
+  const setup = (replies: string[], key: string | null = 'k') => {
+    const f = spec();
+    const r = scripted(replies);
+    const agent = createAgentService({ engine: f.engine, session, search: new SearchIndex(f.engine), key: () => key, step: r.step });
+    return { f, agent, sent: r.sent };
+  };
 
   it('makes the changes asked for about the whole outline, with Undo', async () => {
-    const f = spec();
+    // On Home, rows are numbered from the top of the outline: Work is [1], Lavazza [5].
+    const { f, agent } = setup(['{"answer":"Done.","changes":[{"create":{"under":1,"text":"Coffee","as":"c"}},{"move":{"row":5,"under":"c"}}]}']);
     const before = outline(f);
-    // At home with nothing picked, rows are numbered from the top of the outline: Work is [1], Lavazza [5].
-    const { step } = scripted(['{"answer":"Done.","changes":[{"create":{"under":1,"text":"Coffee","as":"c"}},{"move":{"row":5,"under":"c"}}]}']);
-    const related = createRelatedService({ engine: f.engine, session, search: new SearchIndex(f.engine), key: () => 'k', complete: async () => '{"related":[]}', step });
-    await related.ask('Make Coffee in Work and move Lavazza there');
-    const answer = related.state.getState().chat.turns[1]!;
-    expect(answer).toMatchObject({ role: 'ai', text: 'Done.', did: ['Created “Coffee” in “Work”.', 'Moved “Lavazza” to “Coffee”.'], undoable: true });
+    await agent.ask('Make Coffee in Work and move Lavazza there');
+    const s = agent.state.getState();
+    expect(s.turns).toEqual([
+      { role: 'user', text: 'Make Coffee in Work and move Lavazza there' },
+      { role: 'ai', text: 'Done.', rows: s.turns[1]!.rows, did: ['Created “Coffee” in “Work”.', 'Moved “Lavazza” to “Coffee”.'], undoable: true },
+    ]);
+    expect({ busy: s.busy, steps: s.steps, error: s.error }).toEqual({ busy: false, steps: [], error: null });
     expect(outline(f)).toEqual([
       ['Work', ['14 Oct', 'Suppliers', ['Coffee', ['Lavazza']]]],
       ['Inbox', ['Liquidline', 'Call mum']],
     ]);
-    related.undoChanges(1);
+    agent.undoChanges(1);
     expect(outline(f)).toEqual(before);
-    expect(related.state.getState().chat.turns[1]!.undone).toBe(true);
+    expect(agent.state.getState().turns[1]!.undone).toBe(true);
+  });
+
+  it('starts from the row you are on, and keeps one chat as you move around', async () => {
+    const { f, agent, sent } = setup(['{"answer":"One"}', '{"answer":"Two"}']);
+    agent.setPageRoot(f.ids.Inbox!);
+    agent.setCurrentRow(f.ids.Lavazza!);
+    expect(agent.here()).toBe(f.ids.Lavazza);
+    await agent.ask('First');
+    expect(sent[0]!.prompt.startsWith('They are on this row:\n[1] Lavazza  (inside: Inbox)')).toBe(true);
+    // Zooming out keeps the row; zooming elsewhere is about the new page.
+    agent.setPageRoot(null);
+    expect(agent.here()).toBe(f.ids.Lavazza);
+    agent.setPageRoot(f.ids.Work!);
+    expect(agent.here()).toBe(f.ids.Work);
+    await agent.ask('Second');
+    expect(sent[1]!.prompt).toContain('The conversation so far:\nThem: First\nYou: One\n\nThem: Second');
+    expect(agent.state.getState().turns.map((t) => t.text)).toEqual(['First', 'One', 'Second', 'Two']);
+    agent.clear();
+    expect(agent.state.getState().turns).toEqual([]);
+  });
+
+  it('needs sync on, and shows a failed step as an error', async () => {
+    const off = setup([], null);
+    await off.agent.ask('hi');
+    expect(off.agent.state.getState().error).toBe('Turn on sync in Settings to use AI on this device.');
+    const { agent } = setup([]);
+    await agent.ask('hi');
+    expect(agent.state.getState()).toMatchObject({ busy: false, error: 'AI failed.', turns: [{ role: 'user', text: 'hi' }] });
   });
 });

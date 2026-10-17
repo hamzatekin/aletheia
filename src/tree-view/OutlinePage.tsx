@@ -12,8 +12,8 @@ import { SearchPalette } from '@/search/SearchPalette';
 import { FilterBar } from '@/search/FilterBar';
 import { useEngine } from '@/app/engine-context';
 import { HOME_LABEL, inSandbox } from '@/app/sandbox';
-import { RelatedButton, RelatedPanel } from '@/related/RelatedPanel';
-import type { RelatedService } from '@/related/service';
+import { AgentButton, AgentPanel } from '@/agent/AgentPanel';
+import type { AgentService } from '@/agent/service';
 import { TutorialDialog } from '@/help/TutorialDialog';
 import { SettingsPanel } from '@/settings/SettingsPanel';
 import { SyncIndicator } from '@/settings/SyncIndicator';
@@ -41,15 +41,15 @@ interface Props {
   settings: SettingsStore;
   sync?: SyncService | undefined;
   ai?: AiService | undefined;
-  related?: RelatedService | undefined;
+  agent?: AgentService | undefined;
 }
 
-/** Stand in for the Related panel's and sync's state when there are none (tests). */
+/** Stand in for the AI panel's and sync's state when there are none (tests). */
 const closedPanel = createStore(() => ({ open: false }));
 const noSync = createStore(() => ({ key: null as string | null }));
 
 /** `/` shows the top level; `/n/:id` zooms into a node. */
-export function OutlinePage({ ui, session, search, settings, sync, ai, related }: Props) {
+export function OutlinePage({ ui, session, search, settings, sync, ai, agent }: Props) {
   const engine: Engine = useEngine();
   const { id } = useParams<{ id: string }>();
   const rootId = id ?? null;
@@ -62,8 +62,8 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, related }
     [engine, ui, session, search, rootId, navigate],
   );
   const context = useMemo(
-    () => ({ engine, ui, session, search, actions, rootId, ai, related }),
-    [engine, ui, session, search, actions, rootId, ai, related],
+    () => ({ engine, ui, session, search, actions, rootId, ai }),
+    [engine, ui, session, search, actions, rootId, ai],
   );
 
   usePageEvents(actions, session, ui, settings);
@@ -71,26 +71,26 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, related }
   // A search belongs to the page it was typed on; zooming elsewhere leaves it.
   useEffect(() => () => ui.setFilter(null), [ui, rootId]);
 
-  // The Related panel follows the zoomed item.
-  useEffect(() => related?.setPageRoot(rootId), [related, rootId]);
+  // AI questions start from the zoomed item...
+  useEffect(() => agent?.setPageRoot(rootId), [agent, rootId]);
 
-  // Related and Settings share the right side: opening one closes the other.
+  // AI and Settings share the right side: opening one closes the other.
   useEffect(() => {
-    if (!related) return;
-    const offRelated = related.state.subscribe((s, prev) => {
+    if (!agent) return;
+    const offAgent = agent.state.subscribe((s, prev) => {
       if (s.open && !prev.open) ui.setSettingsOpen(false);
     });
     const offUi = ui.subscribe((s, prev) => {
-      if (s.settingsOpen && !prev.settingsOpen) related.hide();
-      // The panel is about the row you're on: the one you clicked into or selected.
+      if (s.settingsOpen && !prev.settingsOpen) agent.hide();
+      // ...or the row you're on: the one you clicked into or selected.
       const row = s.focus?.id ?? s.selection?.head;
-      if (row && row !== (prev.focus?.id ?? prev.selection?.head)) related.setCurrentRow(row);
+      if (row && row !== (prev.focus?.id ?? prev.selection?.head)) agent.setCurrentRow(row);
     });
     return () => {
-      offRelated();
+      offAgent();
       offUi();
     };
-  }, [related, ui]);
+  }, [agent, ui]);
 
   useEffect(() => {
     document.title = root && !missing ? plainText(root.content) || 'Untitled' : inSandbox ? HOME_LABEL : 'Aletheia';
@@ -98,7 +98,7 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, related }
 
   const sidebarOpen = useSettings(settings, (s) => s.sidebarOpen);
   const settingsOpen = useUiStore(ui, (s) => s.settingsOpen);
-  const relatedOpen = useStore(related?.state ?? closedPanel, (s) => s.open);
+  const aiOpen = useStore(agent?.state ?? closedPanel, (s) => s.open);
   const syncOn = useStore(sync?.state ?? noSync, (s) => s.key !== null);
 
   const onBackgroundMouseDown = (e: MouseEvent<HTMLElement>) => {
@@ -110,7 +110,7 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, related }
 
   return (
     <OutlineProvider value={context}>
-      <div className="app-shell" data-sidebar={sidebarOpen ? 'open' : 'closed'} data-settings={settingsOpen ? 'open' : 'closed'} data-related={relatedOpen ? 'open' : 'closed'}>
+      <div className="app-shell" data-sidebar={sidebarOpen ? 'open' : 'closed'} data-settings={settingsOpen ? 'open' : 'closed'} data-ai={aiOpen ? 'open' : 'closed'}>
         <TopBar />
         <OutlineSidebar settings={settings} />
         {!sidebarOpen && (
@@ -129,8 +129,8 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, related }
         <AddToInboxTopButton syncOn={syncOn} />
         <SettingsPanel settings={settings} ui={ui} sync={sync} />
         <TutorialDialog ui={ui} />
-        {related && <RelatedButton related={related} />}
-        {related && <RelatedPanel related={related} />}
+        {agent && <AgentButton agent={agent} />}
+        {agent && <AgentPanel agent={agent} />}
         {ai && <AiNotice ai={ai} />}
         <div className="desk min-h-screen" onMouseDown={onBackgroundMouseDown}>
           <main className="book-page" onMouseDown={onBackgroundMouseDown}>

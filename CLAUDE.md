@@ -40,7 +40,7 @@ pnpm dev        dev server on :5173
 ## Where things are
 
 ```
-src/main.tsx          wires everything: repository, engine, stores, session, search, sync, AI, related
+src/main.tsx          wires everything: repository, engine, stores, session, search, sync, AI, agent
 src/App.tsx           routes: /, /n/:id (zoom), /share, /capture, /p/:id (a page sent from Claude Code);
                       all of them again under /sandbox (a blank outline in its own database that never syncs)
 src/model/            Node type, ids, order keys, pure tree helpers, seed tree, tree repair
@@ -60,9 +60,9 @@ src/io/               Markdown / OPML / JSON import and export, clipboard, WorkF
 src/sync/             opt-in sync client: wire format, outbox, service, tabs, clock, browser triggers
 src/settings/         Settings panel (appearance, sync, import/export), sync status at the top right
 src/ai/               AI actions (Suggest title) via the Worker's proxy to the Claude relay
-src/related/          Related panel: rows elsewhere about an item (text matches, then AI), chat about it
-src/agent/            the chat's agent: AI searches and opens rows (run on the device), then answers and
-                      makes changes (create, move, edit, star; no delete) as one batch with its own Undo
+src/agent/            Ask AI: one chat for the app (sparkle button, right panel). AI searches and opens rows
+                      (run on the device), then answers and makes changes (create, move, edit, star; no
+                      delete) as one batch with its own Undo; questions start from the row you're on
 src/help/             tutorial dialog (lists every shortcut)
 src/app/              bootstrap, engine context, /share and /capture (share target, Add to Inbox)
 worker/               Cloudflare Worker: only /api/* runs it; sync API on D1 (sync.ts), AI proxy (ai.ts: /v1/complete,

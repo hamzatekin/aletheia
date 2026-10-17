@@ -10,7 +10,7 @@ const SPIN_DELAY_MS = 500;
 /**
  * Sync status at the top right, like Dynalist's: synced, syncing, offline or
  * failed. Click to sync now. Hidden while sync is off, so it sits leftmost
- * (left of Related) and leaves no gap. While joining, a bar at the top of the
+ * (left of Ask AI) and leaves no gap. While joining, a bar at the top of the
  * page counts the notes as they arrive.
  */
 export function SyncIndicator({ sync }: { sync: SyncService }) {
