@@ -206,24 +206,50 @@ function Message({ turn, label, onCite, onUndo }: { turn: Turn; label(n: number)
   return (
     <div data-testid="agent-answer">
       <div className="prose-note agent-answer break-words" onClick={onClick} dangerouslySetInnerHTML={{ __html: html }} />
-      {turn.did && (
-        <div className="mt-1.5 text-xs text-muted" data-testid="agent-did">
-          {turn.did.map((line, i) => (
-            <div key={i} className={turn.undone ? 'line-through' : undefined}>
-              {line}
-            </div>
-          ))}
-          {turn.undone ? (
-            <div className="mt-1">Undone.</div>
-          ) : (
-            turn.undoable && (
-              <button type="button" onClick={onUndo} className="mt-1 font-medium text-accent hover:underline">
-                Undo
-              </button>
-            )
-          )}
-        </div>
-      )}
+      {(turn.did || turn.skipped) && <Changes turn={turn} onUndo={onUndo} />}
     </div>
+  );
+}
+
+/** What AI changed, folded to one line with Undo; open it to see each change. */
+function Changes({ turn, onUndo }: { turn: Turn; onUndo(): void }) {
+  const did = turn.did ?? [];
+  const count = did.length === 0 ? 'No changes' : did.length === 1 ? '1 change' : `${did.length} changes`;
+  const skipped = turn.skipped ? ` (${turn.skipped} skipped: ${turn.skipped === 1 ? 'it names' : 'they name'} rows AI couldn't find)` : '';
+  return (
+    <details className="group mt-1.5 text-xs text-muted" data-testid="agent-did">
+      <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
+        <svg className="size-3 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+          <path d="m4.5 3 3 3-3 3" />
+        </svg>
+        <span className={turn.undone ? 'line-through' : undefined}>
+          {count}
+          {skipped}
+        </span>
+        {turn.undone ? (
+          <span>Undone.</span>
+        ) : (
+          turn.undoable && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault(); // don't open or close the list
+                onUndo();
+              }}
+              className="font-medium text-accent hover:underline"
+            >
+              Undo
+            </button>
+          )
+        )}
+      </summary>
+      <div className="mt-1 pl-5">
+        {did.map((line, i) => (
+          <div key={i} className={turn.undone ? 'line-through' : undefined}>
+            {line}
+          </div>
+        ))}
+      </div>
+    </details>
   );
 }
