@@ -4,7 +4,8 @@ import type { SearchIndex } from '@/search';
 
 /**
  * Rows are shown to AI by number ([12]) rather than by id: short, and AI can
- * only name rows it was shown. Numbers start at 1 and stay fixed for a run.
+ * only name rows it was shown. Numbers start at 1 and stay fixed for a chat,
+ * so earlier answers' citations still name the same rows.
  */
 export class Refs {
   private readonly nums = new Map<string, number>();
@@ -112,6 +113,7 @@ export const AGENT_SYSTEM = [
   'Reply with exactly one JSON object and nothing else. Either:',
   `- To look further: {"read":[{"search":"words"},{"open":12}]}. "search" finds rows by their words (best ${SEARCH_HITS}); "open" shows a row's note and the rows inside it. Up to ${MAX_READS} reads per step; read only what you need.`,
   '- To finish: {"answer":"...","changes":[...]}',
+  'Write the object once, with no code fence and no words before or after it: only the JSON is read.',
   '',
   'Changes run in order, and one Undo takes them all back:',
   '- {"create":{"under":12,"text":"Title","note":"optional","at":"last","as":"a"}}: a new row. "under" is a row number, or "top" for the top level. "at" is "first" or "last". "as" names the new row so later changes can use "a" as a row.',
@@ -167,30 +169,65 @@ export function readResults(tree: TreeReader, search: SearchIndex, refs: Refs, r
   return ['Results:', ...out].join('\n');
 }
 
+/** Where the object opening at `start` closes, skipping braces in strings; -1 if it doesn't. */
+function closing(text: string, start: number): number {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (c === '\\') escaped = true;
+      else if (c === '"') inString = false;
+    } else if (c === '"') inString = true;
+    else if (c === '{') depth++;
+    else if (c === '}' && --depth === 0) return i;
+  }
+  return -1;
+}
+
+/** Every JSON object written in the text, in order: models sometimes add words, a code fence, or the object twice. */
+function jsonObjects(text: string): unknown[] {
+  const found: unknown[] = [];
+  let start = text.indexOf('{');
+  while (start >= 0) {
+    const end = closing(text, start);
+    if (end > start) {
+      try {
+        found.push(JSON.parse(text.slice(start, end + 1)));
+        start = text.indexOf('{', end + 1);
+        continue;
+      } catch {
+        // a brace in prose, not JSON: try the next one
+      }
+    }
+    start = text.indexOf('{', start + 1);
+  }
+  return found;
+}
+
+/** One of the two shapes, or null. */
+function toReply(value: unknown): Reply | null {
+  const v = value as { read?: unknown; answer?: unknown; changes?: unknown };
+  if (typeof v.answer === 'string') return { answer: v.answer.trim(), changes: Array.isArray(v.changes) ? v.changes : [] };
+  if (!Array.isArray(v.read)) return null;
+  const reads: Read[] = [];
+  for (const r of v.read as { search?: unknown; open?: unknown }[]) {
+    if (typeof r?.search === 'string' && r.search.trim() !== '') reads.push({ search: r.search.trim() });
+    else if (typeof r?.open === 'number' || (typeof r?.open === 'string' && /^\d+$/.test(r.open))) reads.push({ open: Number(r.open) });
+  }
+  return reads.length > 0 ? { reads } : null;
+}
+
 /**
- * Read one reply. Anything that isn't one of the two JSON shapes is taken
- * as a plain answer, so a model that forgets the format still gets heard.
+ * Read one reply: the last JSON object in it with one of the two shapes.
+ * A reply with none is taken as a plain answer, so a model that forgets the
+ * format still gets heard.
  */
 export function parseReply(text: string): Reply {
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start >= 0 && end > start) {
-    try {
-      const parsed = JSON.parse(text.slice(start, end + 1)) as { read?: unknown; answer?: unknown; changes?: unknown };
-      if (typeof parsed.answer === 'string') return { answer: parsed.answer.trim(), changes: Array.isArray(parsed.changes) ? parsed.changes : [] };
-      if (Array.isArray(parsed.read)) {
-        const reads: Read[] = [];
-        for (const r of parsed.read as { search?: unknown; open?: unknown }[]) {
-          if (typeof r?.search === 'string' && r.search.trim() !== '') reads.push({ search: r.search.trim() });
-          else if (typeof r?.open === 'number' || (typeof r?.open === 'string' && /^\d+$/.test(r.open))) reads.push({ open: Number(r.open) });
-        }
-        if (reads.length > 0) return { reads };
-      }
-    } catch {
-      // not JSON after all: a plain answer
-    }
-  }
-  return { answer: text.trim(), changes: [] };
+  const replies = jsonObjects(text).map(toReply).filter((r): r is Reply => r !== null);
+  return replies.at(-1) ?? { answer: text.trim(), changes: [] };
 }
 
 /** What the progress line says while a read runs. */

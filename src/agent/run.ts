@@ -26,10 +26,12 @@ export async function runAgent(o: {
   item: string | null;
   history: readonly ChatTurn[];
   question: string;
+  /** The chat's row numbers, kept across questions so earlier answers' [n] still mean the same rows. */
+  refs?: Refs;
   /** Called with each step's reads ("Searching “coffee”, Reading “Work”"), for the chat to show. */
   progress(label: string): void;
 }): Promise<AgentRun> {
-  const refs = new Refs();
+  const refs = o.refs ?? new Refs();
   const transcript: string[] = [startPrompt({ tree: o.tree, refs, item: o.item, history: o.history, question: o.question })];
   let session: string | null = null;
   let next = transcript[0]!;
