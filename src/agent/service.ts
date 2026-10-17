@@ -13,6 +13,8 @@ export interface Turn extends ChatTurn {
   rows?: string[];
   /** What AI changed in the outline for this answer, one line each. */
   did?: string[];
+  /** Changes AI asked for that named rows it couldn't find. */
+  skipped?: number;
   /** AI's changes can be taken back (until they are: `undone`). */
   undoable?: boolean;
   undone?: boolean;
@@ -130,14 +132,12 @@ export function createAgentService({ engine, session, search, key, step }: Deps)
           did = plan.done(engine.tree);
           undos.set(index, plan.undo());
         }
-        const undoable = did.length > 0;
-        if (plan.dropped > 0) did.push(`Skipped ${plan.dropped === 1 ? 'a change' : `${plan.dropped} changes`} naming rows it couldn't find.`);
         const answer: Turn = {
           role: 'ai',
           text: run.answer || 'AI gave an empty answer.',
           rows: run.refs.list(),
-          ...(did.length > 0 ? { did } : {}),
-          ...(undoable ? { undoable } : {}),
+          ...(did.length > 0 ? { did, undoable: true } : {}),
+          ...(plan.dropped > 0 ? { skipped: plan.dropped } : {}),
         };
         state.setState({ turns: [...state.getState().turns, answer], busy: false, steps: [] });
       } catch (e) {

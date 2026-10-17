@@ -64,8 +64,13 @@ test('one AI chat for the app: it starts from the row you are on, acts, and keep
 
   await panel.getByTestId('agent-input').fill('Make Coffee in Work and move this there');
   await page.keyboard.press('Enter');
-  await expect(panel.getByTestId('agent-did')).toContainText('Created “Coffee” in “Work”.');
-  await expect(panel.getByTestId('agent-did')).toContainText('Moved “Lavazza” to “Coffee”.');
+  // What changed is folded to one line; the list opens on a tap.
+  const changes = panel.getByTestId('agent-did');
+  await expect(changes.locator('summary')).toHaveText('2 changesUndo');
+  await expect(changes.getByText('Created “Coffee” in “Work”.')).toBeHidden();
+  await changes.locator('summary').click();
+  await expect(changes.getByText('Created “Coffee” in “Work”.')).toBeVisible();
+  await expect(changes.getByText('Moved “Lavazza” to “Coffee”.')).toBeVisible();
   expect(prompts[0]).toContain('They are on this row:\n[1] Lavazza');
   // The second step sends only the search results: the relay keeps the session.
   expect(prompts[1]!.startsWith('Results:\nsearch "coffee":')).toBe(true);
