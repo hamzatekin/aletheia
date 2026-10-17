@@ -62,7 +62,8 @@ src/settings/         Settings panel (appearance, sync, import/export), sync sta
 src/ai/               AI actions (Suggest title) via the Worker's proxy to the Claude relay
 src/agent/            Ask AI: one chat for the app (sparkle button, right panel). AI searches and opens rows
                       (run on the device), then answers and makes changes (create, move, edit, star; no
-                      delete) as one batch with its own Undo; questions start from the row you're on
+                      delete) as one batch with its own Undo; questions start from the row you're on;
+                      a personal assistant with a memory: rows under the "AI memory" row (memory.ts)
 src/help/             tutorial dialog (lists every shortcut)
 src/app/              bootstrap, engine context, /share and /capture (share target, Add to Inbox)
 worker/               Cloudflare Worker: only /api/* runs it; sync API on D1 (sync.ts), AI proxy (ai.ts: /v1/complete,

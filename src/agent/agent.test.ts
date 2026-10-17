@@ -94,7 +94,28 @@ describe('prompts', () => {
     expect(refs.list()).toEqual([f.ids.Lavazza, f.ids.Work, f.ids['14 Oct'], f.ids.Suppliers, f.ids.Inbox, f.ids.Liquidline, f.ids['Call mum']]);
     // The rules go as the system prompt, never next to note text.
     expect(AGENT_SYSTEM).toContain('Reply with exactly one JSON object and nothing else.');
+    expect(AGENT_SYSTEM.startsWith("You are Avvos's personal assistant inside Aletheia")).toBe(true);
     expect(startPrompt({ tree: f.engine.tree, refs: new Refs(), item: null, history: [], question: 'q' }).startsWith('They are on the home page (the whole outline).\n\nThe top of their outline:\n[1] Work')).toBe(true);
+  });
+
+  it('shows what AI remembers on its own, not in the outline', () => {
+    const f = fixture([['Work', ['14 Oct']], ['AI memory', ['Prefers short answers', 'Training for a 10k']]]);
+    const p = startPrompt({ tree: f.engine.tree, refs: new Refs(), item: null, history: [], question: 'q' });
+    expect(p).toBe(
+      [
+        'They are on the home page (the whole outline).',
+        '',
+        'What you remember about Avvos:',
+        '[1] Prefers short answers',
+        '[2] Training for a 10k',
+        '',
+        'The top of their outline:',
+        '[3] Work  (1 inside)',
+        '  [4] 14 Oct',
+        '',
+        'Them: q',
+      ].join('\n'),
+    );
   });
 
   it('turns citations into jump links', () => {
@@ -154,6 +175,27 @@ describe('planChanges', () => {
     expect(f.engine.batch(plan.undo(), 'undo ai').ok).toBe(true);
     expect(outline(f)).toEqual(before);
     expect(f.node('Work').starredAt ?? null).toBeNull();
+  });
+
+  it('remembers in a memory row it makes at the end of the top level, and undoes that too', () => {
+    const f = spec();
+    const before = outline(f);
+    const plan = planChanges(f.engine.tree, new Refs(), [{ remember: 'Prefers short answers' }, { remember: ' Training for a 10k ' }, { remember: '  ' }]);
+    expect(plan.dropped).toBe(1);
+    expect(f.engine.batch(plan.items, 'ai').ok).toBe(true);
+    expect(outline(f)).toEqual([...before, ['AI memory', ['Prefers short answers', 'Training for a 10k']]]);
+    expect(plan.done(f.engine.tree)).toEqual(['Remembered “Prefers short answers”.', 'Remembered “Training for a 10k”.']);
+    expect(f.engine.batch(plan.undo(), 'undo ai').ok).toBe(true);
+    expect(outline(f)).toEqual(before);
+  });
+
+  it('adds memories to the memory row that is there, and undoes only them', () => {
+    const f = fixture([['Work', []], ['AI memory', ['Prefers short answers']]]);
+    const plan = planChanges(f.engine.tree, new Refs(), [{ remember: 'Training for a 10k' }]);
+    f.engine.batch(plan.items, 'ai');
+    expect(outline(f)).toEqual(['Work', ['AI memory', ['Prefers short answers', 'Training for a 10k']]]);
+    f.engine.batch(plan.undo(), 'undo ai');
+    expect(outline(f)).toEqual(['Work', ['AI memory', ['Prefers short answers']]]);
   });
 
   it('drops changes naming rows it was not shown, empty edits and moves into itself', () => {
@@ -335,6 +377,16 @@ describe('AgentService', () => {
     agent.clear();
     await agent.ask('q');
     expect(sent[2]!.prompt.startsWith('They are on this row:\n[1] Call mum  (inside: Inbox)')).toBe(true);
+  });
+
+  it('remembers across chats: a memory from one chat is in the next', async () => {
+    const { f, agent, sent } = setup(['{"answer":"Noted, Avvos.","changes":[{"remember":"Training for a 10k"}]}', '{"answer":"Keep going."}']);
+    await agent.ask('I started training for a 10k');
+    expect(agent.state.getState().turns[1]!.did).toEqual(['Remembered “Training for a 10k”.']);
+    agent.clear();
+    await agent.ask('How am I doing?');
+    expect(sent[1]!.prompt).toContain('What you remember about Avvos:\n[1] Training for a 10k\n\nThe top of their outline:\n[2] Work');
+    expect(f.kids(null)).toEqual(['Work', 'Inbox', 'AI memory']);
   });
 
   it('needs sync on, and shows a failed step as an error', async () => {

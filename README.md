@@ -247,6 +247,13 @@ a row AI wasn't shown, and records the batch that undoes it: the panel lists
 what changed under the answer with Undo, and Ctrl+Z works too. Answers cite
 rows as `[n]`, which the panel turns into jumps.
 
+AI talks to Avvos as a calm, warm personal assistant with its own thoughts
+(the "Who you are" part of `AGENT_SYSTEM`). It has a memory: a `remember`
+change adds a line under a top-level row called "AI memory" (`memory.ts`),
+made at the end of Home the first time. Every chat starts with those lines,
+and since they are ordinary rows they sync and can be read, edited or
+deleted like any other.
+
 The Worker sends each step to the relay's `/v1/chat`, which keeps one Claude
 conversation per question, so later steps send only what's new. When the
 session has ended (410) the app replays the whole conversation into a new
