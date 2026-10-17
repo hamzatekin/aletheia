@@ -9,10 +9,6 @@ const ROW_CHARS = 100;
 const MAX_AI_RELATED = 10;
 const ITEM_LINES = 60;
 const ITEM_NOTE_CHARS = 3_000;
-const RELATED_NOTE_CHARS = 400;
-const RELATED_CHILD_LINES = 8;
-/** Earlier turns sent with a question; older ones are dropped. */
-const HISTORY_TURNS = 6;
 
 const one = (text: string, max: number) => {
   const t = text.replace(/\s+/g, ' ').trim();
@@ -135,42 +131,6 @@ export function parseRelated(tree: TreeReader, id: string, text: string, rows: r
     if (out.length >= MAX_AI_RELATED) break;
   }
   return out;
-}
-
-export interface ChatTurn {
-  role: 'user' | 'ai';
-  text: string;
-}
-
-/**
- * The prompt for a question about the item. The item is row [0] and the
- * related rows are [1], [2]…, in `related` order, so answers can cite them.
- */
-export function chatPrompt(tree: TreeReader, id: string, related: readonly string[], history: readonly ChatTurn[], question: string): string {
-  const relatedLines: string[] = [];
-  related.forEach((rid, i) => {
-    const node = tree.get(rid);
-    if (!node) return;
-    const path = pathText(tree, rid);
-    relatedLines.push(`[${i + 1}] ${rowText(tree, rid)}${path !== '' ? `  (inside: ${one(path, 120)})` : ''}`);
-    const note = one(node.note, RELATED_NOTE_CHARS);
-    if (note !== '') relatedLines.push(`    Note: ${note}`);
-    relatedLines.push(...subtreeLines(tree, rid, RELATED_CHILD_LINES, '    '));
-  });
-  const turns = history.slice(-HISTORY_TURNS).map((t) => `${t.role === 'user' ? 'Them' : 'You'}: ${t.text}`);
-  return [
-    'You help someone act on one item in their outliner (like WorkFlowy). Base your answer on their notes below; say so plainly when the notes do not cover it.',
-    '',
-    'The item [0]:',
-    ...describeItem(tree, id),
-    ...(relatedLines.length > 0 ? ['', 'Related rows elsewhere in their outline:', ...relatedLines] : []),
-    ...(turns.length > 0 ? ['', 'The conversation so far:', ...turns] : []),
-    '',
-    `Them: ${question}`,
-    '',
-    'Answer briefly, in the language they write in, as plain Markdown. When you give steps, ideas or a list, use "- " bullets, one short line each, so they can be added to the outline as items.',
-    'Cite the rows you used as [n] right after the point, for example [2] or [0].',
-  ].join('\n');
 }
 
 /** Citations like [2] or [1, 3] in an answer. */

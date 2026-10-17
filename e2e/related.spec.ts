@@ -51,8 +51,10 @@ async function stubAi(page: Page) {
       });
       return route.fulfill({ json: { text, model: 'm', durationMs: 5 } });
     }
-    const text = 'Here is a plan:\n- Settle on $4 a month [1]\n- Ask Deniz for the logo draft [3]\n- Write the page around the phone app [2]';
-    return route.fulfill({ json: { text, model: 'm', durationMs: 5 } });
+    // The chat numbers rows as it meets them; cite them by those numbers.
+    const n = (text: string) => new RegExp(`\\[(\\d+)\\] ${text}`).exec(prompt)?.[1];
+    const answer = `Here is a plan:\n- Settle on $4 a month [${n('Pricing: free tier')}]\n- Ask Deniz for the logo draft [${n('Call with Deniz')}]\n- Write the page around the phone app [${n('Landing page should')}]`;
+    return route.fulfill({ json: { text: JSON.stringify({ answer, changes: [] }), model: 'm', durationMs: 5, session: null } });
   });
 }
 
@@ -116,6 +118,42 @@ test('asks AI for next steps and adds them under the item, with Undo', async ({ 
   await panel.getByTestId('related-input').fill('What is left?');
   await page.keyboard.press('Enter');
   await expect(panel.getByTestId('related-answer')).toHaveCount(2);
+});
+
+test('asked on Home, AI looks through the notes and moves rows, with Undo', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await build(page);
+  await syncOn(page);
+  const prompts: string[] = [];
+  await page.route('**/api/ai/complete', async (route) => {
+    const prompt: string = route.request().postDataJSON().prompt;
+    prompts.push(prompt);
+    const n = (text: string) => Number(new RegExp(`\\[(\\d+)\\] ${text}`).exec(prompt)?.[1]);
+    const text = prompt.includes('Results:')
+      ? JSON.stringify({
+          answer: 'Grouped the Deniz rows.',
+          changes: [
+            { create: { under: n('Meetings'), text: 'Deniz', as: 'd' } },
+            { move: { row: n('Ask Deniz about the logo'), under: 'd' } },
+          ],
+        })
+      : JSON.stringify({ read: [{ search: 'Deniz' }] });
+    await route.fulfill({ json: { text, model: 'm', durationMs: 5, session: null } });
+  });
+  await page.getByTestId('related-button').click();
+  const panel = page.getByTestId('related-panel');
+  await panel.getByTestId('related-input').fill('Put everything about Deniz under Meetings');
+  await page.keyboard.press('Enter');
+  await expect(panel.getByTestId('related-did')).toContainText('Created “Deniz” in “Meetings”.');
+  await expect(panel.getByTestId('related-did')).toContainText('Moved “Ask Deniz about the logo” to “Deniz”.');
+  expect(prompts).toHaveLength(2);
+  expect(prompts[1]).toContain('search "Deniz":');
+  const call = ['Call with Deniz', ['Logo: two colours, simple', 'Launch in November']];
+  await expect.poll(() => outline(page, 'Meetings')).toEqual([call, ['Deniz', ['Ask Deniz about the logo']]]);
+  await expect.poll(() => outline(page, 'Aletheia launch')).toEqual(['Pick a price', 'Write the landing page']);
+  await panel.getByTestId('related-did').getByRole('button', { name: 'Undo' }).click();
+  await expect.poll(() => outline(page, 'Aletheia launch')).toEqual(['Pick a price', 'Write the landing page', 'Ask Deniz about the logo']);
+  await expect.poll(() => outline(page, 'Meetings')).toEqual([call]);
 });
 
 test('Move here puts a related row under the item, and Undo puts it back', async ({ page }) => {

@@ -3,7 +3,7 @@ import type { EditorSession } from '@/editor/session';
 import { SearchIndex } from '@/search';
 import { fixture } from '@/test/helpers';
 import { textMatches } from './find';
-import { answerItems, chatPrompt, linkCitations, outlineDigest, parseRelated, relatedPrompt } from './prompts';
+import { answerItems, linkCitations, outlineDigest, parseRelated, relatedPrompt } from './prompts';
 import { createRelatedService, fingerprint } from './service';
 
 const session = { flush: () => {} } as unknown as EditorSession;
@@ -52,16 +52,6 @@ describe('parseRelated', () => {
 });
 
 describe('chat helpers', () => {
-  it('numbers the item [0] and the related rows from [1]', () => {
-    const f = spec();
-    const p = chatPrompt(f.engine.tree, f.ids['Launch pricing']!, [f.ids['Pricing page copy']!], [{ role: 'user', text: 'hi' }], 'Next?');
-    expect(p).toContain('The item [0]:\nTitle: Launch pricing');
-    expect(p).toContain('[1] Pricing page copy  (inside: Ideas)');
-    expect(p).toContain('    - Pricing FAQ');
-    expect(p).toContain('Them: hi');
-    expect(p).toContain('Them: Next?');
-  });
-
   it('turns citations into jump links', () => {
     const out = linkCitations('Do it [1, 2] now [0]. See [9].', (n) => (n === 9 ? null : `Row ${n}`));
     expect(out).toBe('Do it [Row 1](#cite-1) [Row 2](#cite-2) now [Row 0](#cite-0). See [9].');
@@ -86,7 +76,7 @@ describe('RelatedService', () => {
   });
   const setup = (complete: (prompt: string) => Promise<string>, key: string | null = 'k') => {
     const f = spec();
-    const related = createRelatedService({ engine: f.engine, session, search: new SearchIndex(f.engine), key: () => key, complete: (_k, p) => complete(p) });
+    const related = createRelatedService({ engine: f.engine, session, search: new SearchIndex(f.engine), key: () => key, complete: (_k, p) => complete(p), step: async (_k, p) => ({ text: await complete(p), session: null }) });
     return { f, related };
   };
 
@@ -164,7 +154,7 @@ describe('RelatedService', () => {
     related.show();
     await vi.waitFor(() => expect(related.state.getState().ai.status).toBe('done'));
     // A fresh start (reload) reads the saved picks: no second call.
-    const again = createRelatedService({ engine: f.engine, session, search: new SearchIndex(f.engine), key: () => 'k', complete: async (_k, p) => (calls.push(p), '{"related":[]}') });
+    const again = createRelatedService({ engine: f.engine, session, search: new SearchIndex(f.engine), key: () => 'k', complete: async (_k, p) => (calls.push(p), '{"related":[]}'), step: async () => ({ text: '', session: null }) });
     again.setPageRoot(id);
     again.show();
     expect(again.state.getState().ai).toMatchObject({ status: 'done', items: [{ why: 'x' }] });

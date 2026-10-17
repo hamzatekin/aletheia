@@ -4,7 +4,7 @@ import '@fontsource-variable/inter';
 import '@fontsource-variable/literata';
 import './index.css';
 import { App } from './App';
-import { httpComplete } from './ai/client';
+import { httpComplete, httpStep } from './ai/client';
 import { registerAiSlashCommands } from './ai/slash-commands';
 import { createAiService } from './ai/service';
 import { bootstrap } from './app/bootstrap';
@@ -71,7 +71,7 @@ const sandboxKey = inSandbox ? await mainSyncKey() : null;
 const syncKey = () => (sync ? sync.state.getState().key : sandboxKey);
 const complete = httpComplete();
 const ai = createAiService({ engine, session, key: syncKey, complete });
-const related = createRelatedService({ engine, session, search, key: syncKey, complete });
+const related = createRelatedService({ engine, session, search, key: syncKey, complete, step: httpStep() });
 registerAiSlashCommands(ai);
 // On narrow screens the sidebar would cover the page, so start with it hidden (without saving that).
 const saved = loadSettings();

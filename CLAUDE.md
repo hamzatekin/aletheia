@@ -61,9 +61,12 @@ src/sync/             opt-in sync client: wire format, outbox, service, tabs, cl
 src/settings/         Settings panel (appearance, sync, import/export), sync status at the top right
 src/ai/               AI actions (Suggest title) via the Worker's proxy to the Claude relay
 src/related/          Related panel: rows elsewhere about an item (text matches, then AI), chat about it
+src/agent/            the chat's agent: AI searches and opens rows (run on the device), then answers and
+                      makes changes (create, move, edit, star; no delete) as one batch with its own Undo
 src/help/             tutorial dialog (lists every shortcut)
 src/app/              bootstrap, engine context, /share and /capture (share target, Add to Inbox)
-worker/               Cloudflare Worker: only /api/* runs it; sync API on D1 (sync.ts), AI proxy (ai.ts),
+worker/               Cloudflare Worker: only /api/* runs it; sync API on D1 (sync.ts), AI proxy (ai.ts: /v1/complete,
+                      or the relay's /v1/chat session endpoint when the app sends `session`),
                       capture from Claude Code (capture.ts, pages.ts; the skill is public/claude-code/SKILL.md)
                       feed for pergent (feed.ts: read-only, FEED_TOKEN secret, FEED_PILES allow-list)
 pwa/                  service worker and the Vite plugin that builds it

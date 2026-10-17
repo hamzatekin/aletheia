@@ -35,3 +35,40 @@ export function httpComplete(base = '', fetchFn: typeof fetch = (...args) => fet
     return body.text;
   };
 }
+
+/**
+ * One step of a conversation with AI. `session` null starts one; the reply's
+ * session is null when the relay keeps none, and then each step must carry
+ * the whole conversation.
+ */
+export type Step = (key: string, prompt: string, session: string | null) => Promise<{ text: string; session: string | null }>;
+
+/** The relay forgot the session (it idled out or restarted): start again with the whole conversation. */
+export class SessionExpired extends AiError {}
+
+export function httpStep(base = '', fetchFn: typeof fetch = (...args) => fetch(...args)): Step {
+  return async (key, prompt, session) => {
+    let res: Response;
+    try {
+      res = await fetchFn(`${base}/api/ai/complete`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, session }),
+        signal: AbortSignal.timeout(CLIENT_TIMEOUT_MS),
+      });
+    } catch {
+      throw new AiError(navigator.onLine === false ? 'You are offline.' : 'Could not reach the server.');
+    }
+    let body: { text?: unknown; session?: unknown; error?: unknown } = {};
+    try {
+      body = (await res.json()) as typeof body;
+    } catch {
+      // not JSON; keep the generic message below
+    }
+    if (res.status === 410) throw new SessionExpired('The AI session ended.');
+    if (!res.ok || typeof body.text !== 'string') {
+      throw new AiError(typeof body.error === 'string' ? body.error : `AI is unavailable right now (${res.status}).`);
+    }
+    return { text: body.text, session: typeof body.session === 'string' ? body.session : null };
+  };
+}

@@ -91,7 +91,7 @@ export function RelatedPanel({ related }: { related: RelatedService }) {
   const turns = s.chat.turns.length;
   useEffect(() => {
     if (turns > 0) endRef.current?.scrollIntoView({ block: 'end' });
-  }, [turns, s.chat.busy]);
+  }, [turns, s.chat.busy, s.chat.steps?.length]);
 
   if (!s.open) return null;
   const id = related.target();
@@ -137,7 +137,12 @@ export function RelatedPanel({ related }: { related: RelatedService }) {
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
           {!item ? (
-            <p className="py-2 text-muted">Zoom into an item, or pick Related from an item's ≡ menu, to see what else in your notes is about it.</p>
+            turns === 0 && (
+              <p className="py-2 text-muted">
+                {ai ? 'Ask anything about your notes. AI can search them, and add, move or edit rows when you ask. ' : ''}
+                Zoom into an item, or pick Related from an item's ≡ menu, to see what else in your notes is about it.
+              </p>
+            )
           ) : (
             <>
               {main.length === 0 && (looking ? <Skeleton /> : <p className="py-2 text-muted">Nothing else in your notes seems to be about this yet.</p>)}
@@ -162,25 +167,39 @@ export function RelatedPanel({ related }: { related: RelatedService }) {
                 </button>
               )}
               <AiStatus related={related} ai={ai} />
-
               {(turns > 0 || s.chat.busy || s.chat.error) && <div className="my-3 border-t border-line" />}
+            </>
+          )}
+          {(item || !id) && (
+            <>
               <div className="flex flex-col gap-3" data-testid="related-chat">
                 {s.chat.turns.map((t, i) => (
                   <Message
                     key={i}
                     turn={t}
-                    label={(n) => (n === 0 ? title(id!) : t.rows?.[n - 1] ? title(t.rows[n - 1]!) : null)}
+                    label={(n) => {
+                      const rid = n === 0 ? id : t.rows?.[n - 1];
+                      return rid ? title(rid) : null;
+                    }}
                     onCite={(n) => {
-                      const rid = n === 0 ? id! : t.rows?.[n - 1];
+                      const rid = n === 0 ? id : t.rows?.[n - 1];
                       if (rid) go(rid);
                     }}
-                    onInsert={() => related.insertAnswer(i)}
+                    onInsert={item ? () => related.insertAnswer(i) : null}
                     onUndo={() => related.undoInsert(i)}
+                    onUndoChanges={() => related.undoChanges(i)}
                   />
                 ))}
                 {s.chat.busy && (
-                  <div className="flex items-center gap-2 text-muted" role="status">
-                    <Spinner /> Thinking…
+                  <div className="flex flex-col gap-1 text-muted" role="status" data-testid="related-steps">
+                    {s.chat.steps?.map((line, i) => (
+                      <div key={i} className="text-xs">
+                        {line}
+                      </div>
+                    ))}
+                    <div className="flex items-center gap-2">
+                      <Spinner /> Thinking…
+                    </div>
                   </div>
                 )}
                 {s.chat.error && <p className="text-danger" role="alert">{s.chat.error}</p>}
@@ -190,9 +209,9 @@ export function RelatedPanel({ related }: { related: RelatedService }) {
           )}
         </div>
 
-        {item && ai && (
+        {(item || !id) && ai && (
           <div className="border-t border-line px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            <div className="mb-2 flex gap-1.5 overflow-x-auto">
+            <div className={item ? 'mb-2 flex gap-1.5 overflow-x-auto' : 'hidden'}>
               {QUICK.map((q) => (
                 <button
                   key={q.label}
@@ -217,8 +236,8 @@ export function RelatedPanel({ related }: { related: RelatedService }) {
                   }
                 }}
                 rows={1}
-                placeholder="Ask about this…"
-                aria-label="Ask about this item"
+                placeholder={item ? 'Ask about this…' : 'Ask about your notes…'}
+                aria-label={item ? 'Ask about this item' : 'Ask about your notes'}
                 className="max-h-32 min-h-9 flex-1 resize-none rounded-md border border-line bg-transparent px-2.5 py-1.5 text-base outline-none focus:border-accent sm:text-sm"
                 data-testid="related-input"
               />
@@ -347,12 +366,14 @@ function AiStatus({ related, ai }: { related: RelatedService; ai: boolean }) {
 }
 
 /** A chat message. Answers show their citations as jumps to the rows, and can be added to the outline. */
-function Message({ turn, label, onCite, onInsert, onUndo }: {
+function Message({ turn, label, onCite, onInsert, onUndo, onUndoChanges }: {
   turn: Turn;
   label(n: number): string | null;
   onCite(n: number): void;
-  onInsert(): void;
+  /** Null where there's no item to add the answer under. */
+  onInsert: (() => void) | null;
   onUndo(): void;
+  onUndoChanges(): void;
 }) {
   if (turn.role === 'user') {
     return <div className="ml-8 self-end rounded-lg bg-selection px-3 py-2 break-words whitespace-pre-wrap">{turn.label ?? turn.text}</div>;
@@ -372,16 +393,27 @@ function Message({ turn, label, onCite, onInsert, onUndo }: {
   return (
     <div data-testid="related-answer">
       <div className="prose-note related-answer break-words" onClick={onClick} dangerouslySetInnerHTML={{ __html: html }} />
-      <div className="mt-1 flex gap-3 text-xs">
-        {turn.added ? (
-          <>
-            <span className="text-muted">Added {turn.added.length === 1 ? '1 item' : `${turn.added.length} items`} to the outline.</span>
-            <LinkButton onClick={onUndo}>Undo</LinkButton>
-          </>
-        ) : (
-          <LinkButton onClick={onInsert}>Add to outline</LinkButton>
-        )}
-      </div>
+      {turn.did ? (
+        <div className="mt-1.5 text-xs text-muted" data-testid="related-did">
+          {turn.did.map((line, i) => (
+            <div key={i} className={turn.undone ? 'line-through' : undefined}>
+              {line}
+            </div>
+          ))}
+          {turn.undone ? <div className="mt-1">Undone.</div> : turn.undoable && <div className="mt-1"><LinkButton onClick={onUndoChanges}>Undo</LinkButton></div>}
+        </div>
+      ) : (
+        <div className="mt-1 flex gap-3 text-xs">
+          {turn.added ? (
+            <>
+              <span className="text-muted">Added {turn.added.length === 1 ? '1 item' : `${turn.added.length} items`} to the outline.</span>
+              <LinkButton onClick={onUndo}>Undo</LinkButton>
+            </>
+          ) : (
+            onInsert && <LinkButton onClick={onInsert}>Add to outline</LinkButton>
+          )}
+        </div>
+      )}
     </div>
   );
 }

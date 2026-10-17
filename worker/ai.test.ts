@@ -79,4 +79,43 @@ describe('AI proxy', () => {
     const timeout = Object.assign(new Error('timed out'), { name: 'TimeoutError' });
     expect(await error(() => Promise.reject(timeout))).toEqual({ status: 504, error: 'AI took too long to answer.' });
   });
+
+  it('sends a session step to the relay chat endpoint and returns the session', async () => {
+    const r = relay(() => Response.json({ text: '{"read":[]}', model: 'm', duration_ms: 300, session: 's1' }));
+    const first = await ask(OWNER, { prompt: 'Start', session: null }, {}, r.fetchFn);
+    expect(await first.json()).toEqual({ text: '{"read":[]}', model: 'm', durationMs: 300, session: 's1' });
+    await ask(OWNER, { prompt: 'Next', session: 's1' }, {}, r.fetchFn);
+    expect(r.sent).toEqual([
+      { url: 'https://ai.hamzatekin.dev/v1/chat', auth: 'Bearer relay-secret', body: { session: null, prompt: 'Start' } },
+      { url: 'https://ai.hamzatekin.dev/v1/chat', auth: 'Bearer relay-secret', body: { session: 's1', prompt: 'Next' } },
+    ]);
+  });
+
+  it('falls back to a plain completion when the relay has no chat endpoint', async () => {
+    const r = relay(() => {
+      const last = r.sent[r.sent.length - 1]!;
+      return last.url.endsWith('/v1/chat') ? new Response('Not found', { status: 404 }) : Response.json({ text: 'Answer' });
+    });
+    const res = await ask(OWNER, { prompt: 'Start', session: null }, {}, r.fetchFn);
+    expect(await res.json()).toEqual({ text: 'Answer', model: null, durationMs: null, session: null });
+    expect(r.sent.map((s) => s.url)).toEqual(['https://ai.hamzatekin.dev/v1/chat', 'https://ai.hamzatekin.dev/v1/complete']);
+    const later = await ask(OWNER, { prompt: 'Next', session: 's1' }, {}, r.fetchFn);
+    expect(later.status).toBe(410);
+  });
+
+  it('passes on an expired or busy session', async () => {
+    const expired = await ask(OWNER, { prompt: 'Next', session: 's1' }, {}, relay(() => Response.json({ error: 'session expired' }, { status: 410 })).fetchFn);
+    expect({ status: expired.status, body: await expired.json() }).toEqual({ status: 410, body: { error: 'session expired' } });
+    const busy = await ask(OWNER, { prompt: 'Next', session: 's1' }, {}, relay(() => Response.json({ error: 'session busy' }, { status: 409 })).fetchFn);
+    expect({ status: busy.status, body: await busy.json() }).toEqual({ status: 409, body: { error: 'AI is still answering the last step.' } });
+  });
+
+  it('uses the configured chat URL and rejects a bad session', async () => {
+    const r = relay(() => Response.json({ text: 'x', session: 's2' }));
+    await ask(OWNER, { prompt: 'Start', session: null }, { CLAUDE_RELAY_CHAT_URL: 'https://relay.test/chat' }, r.fetchFn);
+    expect(r.sent[0]!.url).toBe('https://relay.test/chat');
+    expect((await ask(OWNER, { prompt: 'Start', session: 5 }, {}, r.fetchFn)).status).toBe(400);
+    expect((await ask(OWNER, { prompt: 'Start', session: '' }, {}, r.fetchFn)).status).toBe(400);
+    expect(r.sent).toHaveLength(1);
+  });
 });
