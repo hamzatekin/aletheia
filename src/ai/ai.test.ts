@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { EditorSession } from '@/editor/session';
 import { fixture } from '@/test/helpers';
-import { AiError, type Complete } from './client';
+import { AiError, httpStep, SessionExpired, type Complete } from './client';
 import { createAiService } from './service';
 import { cleanTitle, titlePrompt } from './suggest-title';
 
@@ -75,5 +75,33 @@ describe('suggestTitle', () => {
     expect(ai.available()).toBe(false);
     await ai.suggestTitle(id);
     expect(ai.state.getState().notice?.kind).toBe('error');
+  });
+});
+
+describe('httpStep', () => {
+  const server = (replies: Response[]) => {
+    const sent: unknown[] = [];
+    const fetchFn = (async (_url: string, init: RequestInit) => {
+      sent.push(JSON.parse(init.body as string));
+      return replies.shift()!;
+    }) as typeof fetch;
+    return { sent, step: httpStep('', fetchFn) };
+  };
+
+  it('sends the system prompt and schema only when a session starts, and returns the structured reply', async () => {
+    const { sent, step } = server([
+      Response.json({ text: 'x', session: 's1', structured: { answer: 'Hi' } }),
+      Response.json({ text: 'y', session: 's1' }),
+      Response.json({ error: 'session expired' }, { status: 410 }),
+    ]);
+    const schema = { type: 'object' };
+    expect(await step('k', 'Start', null, 'Rules', schema)).toEqual({ text: 'x', session: 's1', structured: { answer: 'Hi' } });
+    expect(await step('k', 'Next', 's1', 'Rules', schema)).toEqual({ text: 'y', session: 's1' });
+    await expect(step('k', 'Again', 's1', 'Rules', schema)).rejects.toThrow(SessionExpired);
+    expect(sent).toEqual([
+      { prompt: 'Start', session: null, system: 'Rules', json_schema: { type: 'object' } },
+      { prompt: 'Next', session: 's1' },
+      { prompt: 'Again', session: 's1' },
+    ]);
   });
 });
