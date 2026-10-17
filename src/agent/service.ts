@@ -5,7 +5,7 @@ import type { EditorSession } from '@/editor/session';
 import { isLive, isSelfOrDescendant } from '@/model';
 import type { SearchIndex } from '@/search';
 import { planChanges } from './changes';
-import type { ChatTurn } from './prompt';
+import { Refs, type ChatTurn } from './prompt';
 import { runAgent } from './run';
 
 export interface Turn extends ChatTurn {
@@ -65,6 +65,8 @@ export function createAgentService({ engine, session, search, key, step }: Deps)
   const undos = new Map<number, BatchItem[]>();
   /** Bumped by Clear, so an answer to a cleared chat is dropped. */
   let chatNo = 0;
+  /** Row numbers for the whole chat: earlier answers cite rows by them. */
+  let refs = new Refs();
 
   const here = () => {
     const { row, pageRoot } = state.getState();
@@ -94,6 +96,7 @@ export function createAgentService({ engine, session, search, key, step }: Deps)
     clear() {
       chatNo++;
       undos.clear();
+      refs = new Refs();
       state.setState({ turns: [], busy: false, steps: [], error: null });
     },
 
@@ -117,6 +120,7 @@ export function createAgentService({ engine, session, search, key, step }: Deps)
           item: here(),
           history,
           question: q,
+          refs,
           progress: (line) => {
             if (chatNo !== mine) return;
             steps.push(line);

@@ -36,6 +36,19 @@ describe('parseReply', () => {
     expect(parseReply('Just text {not json}')).toEqual({ answer: 'Just text {not json}', changes: [] });
     expect(parseReply('{"read":[]}')).toEqual({ answer: '{"read":[]}', changes: [] });
   });
+
+  it('finds the object among words, code fences and repeats', () => {
+    // A real reply: the object in a fence, second thoughts, then the object again.
+    const obj = '{"answer":"Grouped them [3].","changes":[{"create":{"under":4,"text":"Others","as":"o"}},{"move":{"row":7,"under":"o"}}]}';
+    expect(parseReply(`\`\`\`json\n${obj}\n\`\`\`\n\nWait — that must be a single JSON object only; here it is:\n\n${obj}`)).toEqual({
+      answer: 'Grouped them [3].',
+      changes: [{ create: { under: 4, text: 'Others', as: 'o' } }, { move: { row: 7, under: 'o' } }],
+    });
+    expect(parseReply('{"read":[{"search":"a"}]}\n{"answer":"b"}')).toEqual({ answer: 'b', changes: [] });
+    expect(parseReply('{"answer":"a"} then {"x":1}')).toEqual({ answer: 'a', changes: [] });
+    expect(parseReply('Note { here: {"answer":"Use {braces} and \\"quotes\\" }"}')).toEqual({ answer: 'Use {braces} and "quotes" }', changes: [] });
+    expect(parseReply('{"answer":"cut off')).toEqual({ answer: '{"answer":"cut off', changes: [] });
+  });
 });
 
 describe('prompts', () => {
@@ -244,6 +257,43 @@ describe('AgentService', () => {
     expect(agent.state.getState().turns.map((t) => t.text)).toEqual(['First', 'One', 'Second', 'Two']);
     agent.clear();
     expect(agent.state.getState().turns).toEqual([]);
+  });
+
+  it('keeps row numbers for the whole chat, so earlier answers still name the same rows', async () => {
+    const { f, agent, sent } = setup(['{"answer":"It\'s [7]."}', '{"answer":"Starred [7].","changes":[{"star":{"row":7,"on":true}}]}', '{"answer":"ok"}']);
+    await agent.ask('Which row is the call?');
+    agent.setCurrentRow(f.ids['Call mum']!);
+    await agent.ask('Star it');
+    expect(sent[1]!.prompt).toBe(
+      [
+        'They are on this row:',
+        '[7] Call mum  (inside: Inbox)',
+        'Nothing inside it.',
+        '',
+        'The top of their outline:',
+        '[1] Work  (2 inside)',
+        '  [2] 14 Oct',
+        '  [3] Suppliers',
+        '[4] Inbox  (3 inside)',
+        '  [5] Lavazza',
+        '  [6] Liquidline',
+        '  [7] Call mum',
+        '',
+        'The conversation so far:',
+        'Them: Which row is the call?',
+        "You: It's [7].",
+        '',
+        'Them: Star it',
+      ].join('\n'),
+    );
+    expect(f.engine.tree.get(f.ids['Call mum']!)!.starredAt).toBeTypeOf('number');
+    const turns = agent.state.getState().turns;
+    expect(turns[1]!.rows![6]).toBe(f.ids['Call mum']);
+    expect(turns[3]!.rows![6]).toBe(f.ids['Call mum']);
+    // A new chat numbers from 1 again.
+    agent.clear();
+    await agent.ask('q');
+    expect(sent[2]!.prompt.startsWith('They are on this row:\n[1] Call mum  (inside: Inbox)')).toBe(true);
   });
 
   it('needs sync on, and shows a failed step as an error', async () => {
