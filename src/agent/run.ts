@@ -1,7 +1,7 @@
 import { AiError, SessionExpired, type Step } from '@/ai/client';
 import type { TreeReader } from '@/model';
 import type { SearchIndex } from '@/search';
-import { AGENT_SYSTEM, MAX_STEPS, parseReply, readLabel, readResults, Refs, startPrompt, type ChatTurn } from './prompt';
+import { AGENT_SCHEMA, AGENT_SYSTEM, MAX_STEPS, readLabel, readReply, readResults, Refs, startPrompt, type ChatTurn } from './prompt';
 
 export interface AgentRun {
   answer: string;
@@ -36,28 +36,29 @@ export async function runAgent(o: {
   let session: string | null = null;
   let next = transcript[0]!;
 
-  const ask = async (): Promise<string> => {
+  const ask = async (): Promise<{ text: string; structured?: unknown }> => {
     try {
-      const r = await o.step(o.key, session === null ? transcript.join('\n\n') : next, session, AGENT_SYSTEM);
+      const r = await o.step(o.key, session === null ? transcript.join('\n\n') : next, session, AGENT_SYSTEM, AGENT_SCHEMA);
       session = r.session;
-      return r.text;
+      return r;
     } catch (e) {
       if (!(e instanceof SessionExpired) || session === null) throw e;
       session = null;
-      const r = await o.step(o.key, transcript.join('\n\n'), null, AGENT_SYSTEM);
+      const r = await o.step(o.key, transcript.join('\n\n'), null, AGENT_SYSTEM, AGENT_SCHEMA);
       session = r.session;
-      return r.text;
+      return r;
     }
   };
 
   for (let stepNo = 1; stepNo <= MAX_STEPS; stepNo++) {
-    const text = await ask();
-    const reply = parseReply(text);
+    const r = await ask();
+    const reply = readReply(r.text, r.structured);
     if ('answer' in reply) return { answer: reply.answer, changes: reply.changes, refs };
     if (stepNo === MAX_STEPS) break;
     o.progress(reply.reads.map((r) => readLabel(o.tree, refs, r)).join(', '));
     next = readResults(o.tree, o.search, refs, reply.reads, stepNo === MAX_STEPS - 1);
-    transcript.push(`You: ${text.trim()}`, next);
+    // A restart replays AI's own steps; the structured object is what it actually asked for.
+    transcript.push(`You: ${r.structured !== undefined ? JSON.stringify(r.structured) : r.text.trim()}`, next);
   }
   throw new AiError(`AI kept reading and didn't answer in ${MAX_STEPS} steps. Try a narrower question.`);
 }

@@ -4,7 +4,7 @@ import type { EditorSession } from '@/editor/session';
 import { SearchIndex } from '@/search';
 import { fixture, outline } from '@/test/helpers';
 import { planChanges } from './changes';
-import { AGENT_SYSTEM, linkCitations, parseReply, readResults, Refs, startPrompt } from './prompt';
+import { AGENT_SCHEMA, AGENT_SYSTEM, linkCitations, parseReply, readReply, readResults, Refs, startPrompt } from './prompt';
 import { runAgent } from './run';
 import { createAgentService } from './service';
 
@@ -48,6 +48,16 @@ describe('parseReply', () => {
     expect(parseReply('{"answer":"a"} then {"x":1}')).toEqual({ answer: 'a', changes: [] });
     expect(parseReply('Note { here: {"answer":"Use {braces} and \\"quotes\\" }"}')).toEqual({ answer: 'Use {braces} and "quotes" }', changes: [] });
     expect(parseReply('{"answer":"cut off')).toEqual({ answer: '{"answer":"cut off', changes: [] });
+  });
+});
+
+describe('readReply', () => {
+  it('takes the structured reply when it has a known shape, else reads the text', () => {
+    expect(readReply('ignored', { answer: ' Done ', changes: [{ star: { row: 1, on: true } }] })).toEqual({ answer: 'Done', changes: [{ star: { row: 1, on: true } }] });
+    expect(readReply('ignored', { read: [{ open: 2 }] })).toEqual({ reads: [{ open: 2 }] });
+    expect(readReply('{"answer":"From text"}', {})).toEqual({ answer: 'From text', changes: [] });
+    expect(readReply('{"answer":"From text"}', null)).toEqual({ answer: 'From text', changes: [] });
+    expect(readReply('{"answer":"From text"}')).toEqual({ answer: 'From text', changes: [] });
   });
 });
 
@@ -201,6 +211,37 @@ describe('runAgent', () => {
     // After the session ended, the whole conversation goes again.
     expect(sent[3]!.prompt.startsWith(sent[0]!.prompt)).toBe(true);
     expect(sent[3]!.prompt).toContain('Results:\nopen [2]:');
+  });
+
+  it('sends the reply schema with each new session and uses the structured reply', async () => {
+    const f = spec();
+    const sent: { session: string | null; schema: object }[] = [];
+    const replies = [
+      { text: 'Looking.', structured: { read: [{ search: 'call' }] } },
+      { text: 'Done.', structured: { answer: 'Starred it [7].', changes: [{ star: { row: 7, on: true } }] } },
+    ];
+    const step: Step = async (_k, _p, s, _system, schema) => {
+      sent.push({ session: s, schema });
+      return { ...replies.shift()!, session: null };
+    };
+    const run = await runAgent({ tree: f.engine.tree, search: new SearchIndex(f.engine), step, key: 'k', item: null, history: [], question: 'q', progress: () => {} });
+    expect({ answer: run.answer, changes: run.changes }).toEqual({ answer: 'Starred it [7].', changes: [{ star: { row: 7, on: true } }] });
+    expect(sent).toEqual([
+      { session: null, schema: AGENT_SCHEMA },
+      { session: null, schema: AGENT_SCHEMA },
+    ]);
+  });
+
+  it('replays the structured step, not its text, when the conversation is sent again', async () => {
+    const f = spec();
+    const prompts: string[] = [];
+    const replies = [{ text: 'Looking.', structured: { read: [{ search: 'call' }] } }, { text: '{"answer":"ok"}' }];
+    const step: Step = async (_k, prompt) => {
+      prompts.push(prompt);
+      return { ...replies.shift()!, session: null };
+    };
+    await runAgent({ tree: f.engine.tree, search: new SearchIndex(f.engine), step, key: 'k', item: null, history: [], question: 'q', progress: () => {} });
+    expect(prompts[1]).toContain('\n\nYou: {"read":[{"search":"call"}]}\n\nResults:\nsearch "call":');
   });
 
   it('gives up when AI keeps reading', async () => {

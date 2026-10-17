@@ -143,6 +143,30 @@ describe('AI proxy', () => {
     expect(r.sent[1]).toEqual({ url: 'https://ai.hamzatekin.dev/v1/complete', auth: 'Bearer relay-secret', body: { prompt: 'Reply in JSON\n\nStart' } });
   });
 
+  it('sends a json_schema only when a session starts, and passes on the structured reply', async () => {
+    const schema = { type: 'object', properties: { answer: { type: 'string' } } };
+    const r = relay(() => Response.json({ text: 'x', session: 's1', structured: { answer: 'Hi' } }));
+    const res = await ask(OWNER, { prompt: 'Start', session: null, system: 'Rules', json_schema: schema }, {}, r.fetchFn);
+    expect(await res.json()).toEqual({ text: 'x', model: null, durationMs: null, session: 's1', structured: { answer: 'Hi' } });
+    await ask(OWNER, { prompt: 'Next', session: 's1', json_schema: schema }, {}, r.fetchFn);
+    expect(r.sent.map((s) => s.body)).toEqual([
+      { session: null, prompt: 'Start', system: 'Rules', json_schema: schema },
+      { session: 's1', prompt: 'Next' },
+    ]);
+    expect((await ask(OWNER, { prompt: 'Start', session: null, json_schema: 'x' }, {}, r.fetchFn)).status).toBe(400);
+    expect((await ask(OWNER, { prompt: 'Start', session: null, json_schema: [] }, {}, r.fetchFn)).status).toBe(400);
+    expect((await ask(OWNER, { prompt: 'Start', session: null, json_schema: null }, {}, r.fetchFn)).status).toBe(400);
+    expect((await ask(OWNER, { prompt: 'Start', session: null, json_schema: { d: 'x'.repeat(20_000) } }, {}, r.fetchFn)).status).toBe(400);
+    expect(r.sent).toHaveLength(2);
+  });
+
+  it('keeps the json_schema when falling back to a plain completion', async () => {
+    const r = relay(() => (r.sent.length === 1 ? new Response('Not found', { status: 404 }) : Response.json({ text: 'Answer', structured: { answer: 'A' } })));
+    const res = await ask(OWNER, { prompt: 'Start', session: null, system: 'Rules', json_schema: { type: 'object' } }, {}, r.fetchFn);
+    expect(r.sent[1]).toEqual({ url: 'https://ai.hamzatekin.dev/v1/complete', auth: 'Bearer relay-secret', body: { prompt: 'Rules\n\nStart', json_schema: { type: 'object' } } });
+    expect(await res.json()).toEqual({ text: 'Answer', model: null, durationMs: null, session: null, structured: { answer: 'A' } });
+  });
+
   it('waits and tries again while every relay session is busy', async () => {
     const busy = () => Response.json({ error: 'too many chat sessions' }, { status: 503 });
     const r = relay(() => (r.sent.length < 3 ? busy() : Response.json({ text: 'ok', session: 's1' })));

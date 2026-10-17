@@ -234,8 +234,11 @@ AI feature.
 
 It's a small agent. The rules (`AGENT_SYSTEM` in `prompt.ts`) go to the relay
 as the session's system prompt, and the first message carries the row you're
-on and the top two levels of the outline, with each row numbered (`[12]`).
-Each reply is one JSON object: either reads (`search` words, `open` a row),
+on and the top two levels of the outline, with each row numbered (`[12]`;
+the numbers stay the same for the whole chat). Each reply is one JSON
+object, held to `AGENT_SCHEMA` by the relay (`json_schema`, read back as
+`structured`), or found in the reply's text when the relay gives no
+structured object: either reads (`search` words, `open` a row),
 which the app runs on the device against the search index and the tree and
 sends back as the next message, or the answer plus a list of changes
 (create, move, edit, star; never delete). `run.ts` stops after 6 steps.

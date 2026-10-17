@@ -4,7 +4,7 @@
  * owner's) may call it.
  *
  *   POST /api/ai/complete   { prompt } -> { text, model, durationMs } or { error }
- *   POST /api/ai/complete   { prompt, session, system? } -> the same plus { session }
+ *   POST /api/ai/complete   { prompt, session, system?, json_schema? } -> the same plus { session, structured? }
  *
  * With `session` (null to start one, with `system` as its system prompt), the
  * prompt goes to the relay's /v1/chat, which keeps one Claude conversation
@@ -13,7 +13,9 @@
  * (system prompt first) and comes back as `session: null`, and the app keeps
  * sending the whole conversation. An unknown or ended session is 410; the app
  * starts a new one with the whole conversation. When all relay sessions are
- * busy (503) the Worker waits and tries again.
+ * busy (503) the Worker waits and tries again. With `json_schema` (a new
+ * session only, like `system`) the relay holds every reply to that shape and
+ * sends it as `structured` beside the text.
  *
  * Needs `Authorization: Bearer <sync key>` and the CLAUDE_RELAY_TOKEN secret.
  */
@@ -35,6 +37,7 @@ const RELAY_TIMEOUT_MS = 90_000;
 const MAX_PROMPT_CHARS = 100_000;
 const MAX_SESSION_CHARS = 200;
 const MAX_SYSTEM_CHARS = 20_000;
+const MAX_SCHEMA_CHARS = 20_000;
 /** Waits before trying again when every relay session is busy. */
 const BUSY_RETRY_MS = [1_500, 3_000];
 
@@ -43,6 +46,8 @@ interface RelayReply {
   model?: string;
   duration_ms?: number;
   session?: string;
+  /** The reply as an object, when the session was started with a json_schema. */
+  structured?: unknown;
   error?: string;
 }
 
@@ -57,26 +62,31 @@ export async function handleAi(
   if (!(await hasSyncSpace(request, env))) return json({ error: 'AI needs sync to be on for this device.' }, 401);
   if (!env.CLAUDE_RELAY_TOKEN) return json({ error: 'AI is not set up on this server (the CLAUDE_RELAY_TOKEN secret is missing).' }, 503);
 
-  let body: { prompt?: unknown; session?: unknown; system?: unknown };
+  let body: { prompt?: unknown; session?: unknown; system?: unknown; json_schema?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
     return json({ error: 'body must be JSON' }, 400);
   }
-  const { prompt, session, system } = body;
+  const { prompt, session, system, json_schema: schema } = body;
   if (typeof prompt !== 'string' || prompt.trim() === '') return json({ error: 'prompt is required' }, 400);
   if (prompt.length > MAX_PROMPT_CHARS) return json({ error: 'That is too much text to send to AI.' }, 413);
   if (session !== undefined && session !== null && (typeof session !== 'string' || session === '' || session.length > MAX_SESSION_CHARS)) {
     return json({ error: 'session must be a string or null' }, 400);
   }
   if (system !== undefined && (typeof system !== 'string' || system.length > MAX_SYSTEM_CHARS)) return json({ error: 'system must be a short string' }, 400);
+  if (schema !== undefined && (typeof schema !== 'object' || schema === null || Array.isArray(schema) || JSON.stringify(schema).length > MAX_SCHEMA_CHARS)) {
+    return json({ error: 'json_schema must be a small object' }, 400);
+  }
 
   const relayUrl = env.CLAUDE_RELAY_URL || DEFAULT_RELAY_URL;
   if (session === undefined) return answer(await callRelay(relayUrl, { prompt }, env.CLAUDE_RELAY_TOKEN, fetchFn), false);
 
   const chatUrl = env.CLAUDE_RELAY_CHAT_URL || relayUrl.replace(/\/complete$/, '/chat');
-  // A system prompt only goes with a new session; the relay refuses it on a later step.
-  const payload = session === null && typeof system === 'string' && system !== '' ? { session, prompt, system } : { session, prompt };
+  // A system prompt and a schema only go with a new session; the relay refuses them on a later step.
+  const starting = session === null;
+  const withSchema = starting && schema !== undefined ? { json_schema: schema } : {};
+  const payload = { session, prompt, ...(starting && typeof system === 'string' && system !== '' ? { system } : {}), ...withSchema };
   let chat = await callRelay(chatUrl, payload, env.CLAUDE_RELAY_TOKEN, fetchFn, SESSION_STATUSES);
   for (const ms of BUSY_RETRY_MS) {
     if (!('status' in chat) || chat.status !== 503) break;
@@ -87,7 +97,7 @@ export async function handleAi(
     // No session endpoint on this relay: an ongoing session can't exist, a new one runs as a plain completion.
     if (session !== null) return json({ error: 'session expired' }, 410);
     const whole = typeof system === 'string' && system !== '' ? `${system}\n\n${prompt}` : prompt;
-    return answer(await callRelay(relayUrl, { prompt: whole }, env.CLAUDE_RELAY_TOKEN, fetchFn), true);
+    return answer(await callRelay(relayUrl, { prompt: whole, ...withSchema }, env.CLAUDE_RELAY_TOKEN, fetchFn), true);
   }
   return answer(chat, true);
 }
@@ -145,5 +155,6 @@ function answer(result: RelayResult, withSession: boolean): Response {
     model: reply.model ?? null,
     durationMs: reply.duration_ms ?? null,
     ...(withSession ? { session: typeof reply.session === 'string' && reply.session !== '' ? reply.session : null } : {}),
+    ...(reply.structured !== undefined && reply.structured !== null ? { structured: reply.structured } : {}),
   });
 }
