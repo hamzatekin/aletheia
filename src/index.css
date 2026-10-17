@@ -480,6 +480,18 @@ html { scroll-padding-top: 4rem; }
 }
 /* The ▾ beside the note lines up with its first line. */
 .note-card > .note-toggle { top: 0.1rem; }
+/* A hidden note opens with a short slide down (height: auto animates in Chromium; elsewhere it only fades). */
+@media (prefers-reduced-motion: no-preference) {
+  .note-reveal { animation: note-fade 160ms ease-out; }
+  @supports (interpolate-size: allow-keywords) {
+    .note-reveal { interpolate-size: allow-keywords; animation-name: note-slide; }
+  }
+}
+@keyframes note-fade { from { opacity: 0; } }
+@keyframes note-slide {
+  from { height: 0; margin-bottom: 0; opacity: 0; overflow: clip; }
+  to { overflow: clip; }
+}
 
 /* Touch screens: fingers need bigger targets than the drawn icons. The
    collapse arrow at the row's right edge reaches a little above and below it. */

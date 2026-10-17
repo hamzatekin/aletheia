@@ -70,10 +70,11 @@ test('a note is hidden in the list, with a mark, and shows only while you are on
   await expect(viewNote).toHaveCount(0);
   await expect(marker).toBeVisible();
   await expect(page.locator('[data-node-id="beta"] [data-testid=note-marker]')).toHaveCount(0);
-  // On the item: the whole note shows, under its text, and the mark goes.
+  // On the item: the whole note slides open under its text, and the mark goes.
   await edit(page, 'Alpha');
   await expect(viewNote.locator('p')).toHaveText(['one', 'two']);
   await expect(marker).toHaveCount(0);
+  expect(await alpha(page).locator('.note-card').evaluate((el) => getComputedStyle(el).animationName)).toBe('note-slide');
   // Editing the note and leaving hides it again: it doesn't stay open.
   await page.keyboard.press('Shift+Enter');
   await expect.poll(() => focused(page)).toBe('Alpha:note');
@@ -84,6 +85,36 @@ test('a note is hidden in the list, with a mark, and shows only while you are on
   await expect(viewNote).toHaveCount(0);
   await expect(marker).toBeVisible();
   expect(await note(page, 'alpha')).toBe('one\n\ntwo!');
+});
+
+test('clicking between an item and its hidden note keeps the note open, with the caret where you clicked', async ({ page }) => {
+  await gotoHome(page, { collapsedNotes: true });
+  await alphaBeta(page);
+  await edit(page, 'Alpha');
+  await expect(alpha(page).locator('.node-note p')).toHaveText(['one', 'two']);
+  // Count every change to the row that leaves it without its note.
+  await alpha(page).evaluate((el) => {
+    (window as any).noteGone = 0;
+    new MutationObserver(() => {
+      if (!el.querySelector('.note-card')) (window as any).noteGone++;
+    }).observe(el, { childList: true, subtree: true });
+  });
+  const noteGone = () => page.evaluate(() => (window as any).noteGone);
+  // To the right of the note's last line: the caret goes to its end.
+  await alpha(page).locator('.node-note p').nth(1).click();
+  await expect.poll(() => focused(page)).toBe('Alpha:note');
+  await page.keyboard.type('!');
+  await expect.poll(() => note(page, 'alpha')).toBe('one\n\ntwo!');
+  // And back up into the item's text.
+  await alpha(page).locator('.node-content').click();
+  await expect.poll(() => focused(page)).toBe('Alpha:content');
+  expect(await noteGone()).toBe(0);
+  // A note that is always shown doesn't slide when you get on its item.
+  await alpha(page).getByTestId('note-toggle').click();
+  await page.evaluate(() => (window as any).__aletheia.engine.flush());
+  await reloadApp(page);
+  await edit(page, 'Alpha');
+  expect(await alpha(page).locator('.note-card').evaluate((el) => getComputedStyle(el).animationName)).toBe('none');
 });
 
 test('an item with no name takes its note\'s first line when the caret leaves it', async ({ page }) => {

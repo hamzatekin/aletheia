@@ -1,4 +1,4 @@
-import { memo, useRef, type MouseEvent, type TouchEvent } from 'react';
+import { memo, useRef, useState, type MouseEvent, type ReactNode, type TouchEvent } from 'react';
 import { renderBlock, renderInline } from '@/editor/render';
 import { NodeEditor } from '@/editor/NodeEditor';
 import { NoteEditor, NoteHeader, useNoteMode } from '@/editor/NoteEditor';
@@ -36,6 +36,8 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
   const menuOpen = useUiStore(ui, (s) => s.menu === id);
   // A collapsed note is hidden, with a mark at the right, and shows while you're on its item.
   const noteFolded = useNotePrefs((s) => isNoteCollapsed(s, id));
+  // Pressing elsewhere on the item you're on leaves it until the press ends; its note stays shown meanwhile.
+  const [noteHeld, setNoteHeld] = useState(false);
   const noteMode = useNoteMode();
   const indicator = useUiStore(ui, (s) => (s.dropIndicator?.targetId === id ? s.dropIndicator : null));
   const coarse = useCoarsePointer();
@@ -46,7 +48,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
   const longPress = useRef<{ timer: number; x: number; y: number; fired: number } | null>(null);
   useRowDnd(id, depth, rowRef, handleRef, gripRef);
   if (!node) return null;
-  const noteCollapsed = node.note !== '' && noteFolded && focusField === null;
+  const noteCollapsed = node.note !== '' && noteFolded && focusField === null && !noteHeld;
   // Inbox items show when they were added: their name is whatever was typed first.
   const added = node.parentId !== null && node.parentId === findInbox(engine.tree) ? addedLabel(node.createdAt, { short: coarse }) : null;
 
@@ -93,19 +95,28 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
       ui.focusNode(id, e.detail >= 2 ? { ...point, word: true } : point, field);
       return;
     }
-    if (ui.getState().focus) {
+    const { focus } = ui.getState();
+    if (focus) {
+      // Without the hold, the item's hidden note would close here and open again on release.
+      if (focus.id === id) setNoteHeld(true);
       session.flush();
       ui.blur();
     }
     ui.setSelection(null);
+    const release = () => setNoteHeld(false);
     window.addEventListener(
       'mouseup',
       (up: globalThis.MouseEvent) => {
-        if (ui.getState().selection || ui.getState().focus) return; // dragged across rows, or already editing
+        if (ui.getState().selection || ui.getState().focus) return release(); // dragged across rows, or already editing
         const sel = document.getSelection();
         const dragged = Math.hypot(up.clientX - point.x, up.clientY - point.y) > 3;
-        if (dragged && sel && !sel.isCollapsed && rowRef.current?.contains(sel.anchorNode)) return; // text was selected: keep it
+        if (dragged && sel && !sel.isCollapsed && rowRef.current?.contains(sel.anchorNode)) {
+          // Text was selected: keep it, and the note it may be in, until the next press.
+          window.addEventListener('mousedown', release, { once: true, capture: true });
+          return;
+        }
         ui.focusNode(id, point, field);
+        release();
       },
       { once: true },
     );
@@ -265,7 +276,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
         )}
         {/* A note shows only while you're on its item, unless it is kept open (Dynalist's "hide notes"). */}
         {(focusField === 'note' || (node.note !== '' && !noteCollapsed)) && (
-          <div className="note-card relative flow-root">
+          <NoteCard reveal={noteFolded && node.note !== ''}>
             {/* The same caret while reading and editing, so nothing appears or moves on click. */}
             {node.note !== '' && (
               <button
@@ -296,7 +307,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
                 />
               </>
             )}
-          </div>
+          </NoteCard>
         )}
       </div>
       {hasChildren && coarse && (
@@ -305,3 +316,10 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
     </div>
   );
 });
+
+/** The note under an item's text. A hidden note slides open when you get on its item. */
+function NoteCard({ reveal, children }: { reveal: boolean; children: ReactNode }) {
+  // Decided once: hiding or showing the note from its ▾ while on it doesn't replay the slide.
+  const [slide] = useState(reveal);
+  return <div className={'note-card relative flow-root' + (slide ? ' note-reveal' : '')}>{children}</div>;
+}
