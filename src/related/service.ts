@@ -1,12 +1,15 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import { AI_NEEDS_SYNC, AiError, type Complete } from '@/ai/client';
-import type { Engine } from '@/commands';
+import { AI_NEEDS_SYNC, AiError, type Complete, type Step } from '@/ai/client';
+import { planChanges } from '@/agent/changes';
+import type { ChatTurn } from '@/agent/prompt';
+import { runAgent } from '@/agent/run';
+import type { BatchItem, Engine } from '@/commands';
 import type { EditorSession } from '@/editor/session';
 import { importCommands } from '@/io';
 import { descendantIds, isSelfOrDescendant, previousSibling, type TreeReader } from '@/model';
 import type { SearchIndex } from '@/search';
 import { excludedIds, textMatches, type RelatedItem } from './find';
-import { answerItems, chatPrompt, parseRelated, relatedPrompt, type ChatTurn } from './prompts';
+import { answerItems, parseRelated, relatedPrompt } from './prompts';
 
 /** AI's search for related rows by meaning, for one item. */
 export interface Found {
@@ -22,11 +25,18 @@ export interface Turn extends ChatTurn {
   rows?: string[];
   /** The items this answer added to the outline, while they can be taken back. */
   added?: string[];
+  /** What AI changed in the outline for this answer, one line each. */
+  did?: string[];
+  /** AI's changes can be taken back (until they are: `undone`). */
+  undoable?: boolean;
+  undone?: boolean;
 }
 
 export interface Chat {
   turns: Turn[];
   busy: boolean;
+  /** While busy: what AI looked at so far ("Searching “coffee”"). */
+  steps?: string[];
   error?: string;
 }
 
@@ -58,8 +68,14 @@ export interface RelatedService {
   hide(): void;
   /** Ask AI for rows related by meaning; cached per item until asked again with `again`. */
   findMore(again?: boolean): Promise<void>;
-  /** Ask AI about the item and its related rows; `label` is shown in place of a one-tap question's wording. */
+  /**
+   * Ask AI about the item (or, with no item, the whole outline). It can search
+   * and open rows, and make the changes asked for; `label` is shown in place of
+   * a one-tap question's wording.
+   */
   ask(question: string, label?: string): Promise<void>;
+  /** Take back the changes AI made for an answer. */
+  undoChanges(turn: number): void;
   /** Add an answer's bullets as items under the item (Undo takes them back). */
   insertAnswer(turn: number): void;
   undoInsert(turn: number): void;
@@ -79,7 +95,11 @@ interface Deps {
   /** This device's sync key, or null when sync is off. */
   key(): string | null;
   complete: Complete;
+  step: Step;
 }
+
+/** The chat about the whole outline (no item). */
+const HOME = '';
 
 /** Wait this long after the last edit before looking for text matches again. */
 const RECOMPUTE_MS = 500;
@@ -127,7 +147,7 @@ function writeSaved(saved: Record<string, Saved>): void {
 const idle = (): Found => ({ status: 'idle', items: [] });
 const emptyChat = (): Chat => ({ turns: [], busy: false });
 
-export function createRelatedService({ engine, session, search, key, complete }: Deps): RelatedService {
+export function createRelatedService({ engine, session, search, key, complete, step }: Deps): RelatedService {
   const state = createStore<RelatedState>(() => ({
     open: false,
     pinned: null,
@@ -140,6 +160,8 @@ export function createRelatedService({ engine, session, search, key, complete }:
   // Answers and chats per item, so coming back to an item shows them again.
   const found = new Map<string, Found>();
   const chats = new Map<string, Chat>();
+  /** How to take back each answer's changes, by chat and turn. */
+  const undos = new Map<string, BatchItem[]>();
   /** AI's picks from earlier visits, kept while the item itself is unchanged. */
   const savedFound = (id: string): Found | undefined => {
     const saved = readSaved()[id];
@@ -174,16 +196,16 @@ export function createRelatedService({ engine, session, search, key, complete }:
       if (f) found.set(id, f);
       else found.delete(id);
     }
-    state.setState({ ai: f ?? idle(), chat: (id && chats.get(id)) || emptyChat(), moved: new Map() });
+    state.setState({ ai: f ?? idle(), chat: chats.get(id ?? HOME) ?? emptyChat(), moved: new Map() });
     recompute();
   };
   const setFound = (id: string, f: Found) => {
     found.set(id, f);
     if (target() === id) state.setState({ ai: f });
   };
-  const setChat = (id: string, c: Chat) => {
-    chats.set(id, c);
-    if (target() === id) state.setState({ chat: c });
+  const setChat = (chatKey: string, c: Chat) => {
+    chats.set(chatKey, c);
+    if ((target() ?? HOME) === chatKey) state.setState({ chat: c });
   };
 
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -279,22 +301,65 @@ export function createRelatedService({ engine, session, search, key, complete }:
       const id = target();
       const k = key();
       const q = question.trim();
-      if (!id || q === '' || !live(id)) return;
-      const chat = chats.get(id) ?? emptyChat();
+      if (q === '' || (id !== null && !live(id))) return;
+      const chatKey = id ?? HOME;
+      const chat = chats.get(chatKey) ?? emptyChat();
       if (chat.busy) return;
-      if (!k) return setChat(id, { ...chat, error: AI_NEEDS_SYNC });
+      if (!k) return setChat(chatKey, { ...chat, error: AI_NEEDS_SYNC });
       session.flush();
-      const rows = list().map((r) => r.id);
+      const related = id ? list().map((r) => r.id) : [];
       const history = chat.turns;
-      setChat(id, { turns: [...history, { role: 'user', text: q, ...(label ? { label } : {}) }], busy: true });
+      const steps: string[] = [];
+      setChat(chatKey, { turns: [...history, { role: 'user', text: q, ...(label ? { label } : {}) }], busy: true, steps });
       try {
-        const answer = (await complete(k, chatPrompt(engine.tree, id, rows, history, q))).trim();
-        const c = chats.get(id)!;
-        setChat(id, { turns: [...c.turns, { role: 'ai', text: answer || 'AI gave an empty answer.', rows }], busy: false });
+        const run = await runAgent({
+          tree: engine.tree,
+          search,
+          step,
+          key: k,
+          item: id,
+          related,
+          history,
+          question: q,
+          progress: (line) => {
+            steps.push(line);
+            setChat(chatKey, { ...chats.get(chatKey)!, steps: [...steps] });
+          },
+        });
+        session.flush();
+        const plan = planChanges(engine.tree, run.refs, run.changes);
+        let did: string[] = [];
+        const c = chats.get(chatKey)!;
+        if (plan.items.length > 0 && engine.batch(plan.items, 'ai').ok) {
+          did = plan.done(engine.tree);
+          undos.set(`${chatKey}:${c.turns.length}`, plan.undo());
+        }
+        const undoable = did.length > 0;
+        if (plan.dropped > 0) did.push(`Skipped ${plan.dropped === 1 ? 'a change' : `${plan.dropped} changes`} naming rows it couldn't find.`);
+        const answer: Turn = {
+          role: 'ai',
+          text: run.answer || 'AI gave an empty answer.',
+          rows: run.refs.list(),
+          ...(did.length > 0 ? { did } : {}),
+          ...(undoable ? { undoable } : {}),
+        };
+        setChat(chatKey, { turns: [...c.turns, answer], busy: false });
       } catch (e) {
-        const c = chats.get(id)!;
-        setChat(id, { turns: c.turns, busy: false, error: e instanceof AiError ? e.message : 'AI failed.' });
+        const c = chats.get(chatKey)!;
+        setChat(chatKey, { turns: c.turns, busy: false, error: e instanceof AiError ? e.message : 'AI failed.' });
       }
+    },
+
+    undoChanges(turn) {
+      const chatKey = target() ?? HOME;
+      const chat = chats.get(chatKey);
+      const items = undos.get(`${chatKey}:${turn}`);
+      const t = chat?.turns[turn];
+      if (!chat || !items || !t || t.undone) return;
+      session.flush();
+      engine.batch(items, 'undo ai');
+      undos.delete(`${chatKey}:${turn}`);
+      setChat(chatKey, { ...chat, turns: chat.turns.map((x, i) => (i === turn ? { ...x, undone: true } : x)) });
     },
 
     insertAnswer(turn) {
