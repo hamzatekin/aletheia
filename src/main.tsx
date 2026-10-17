@@ -9,6 +9,7 @@ import { registerAiSlashCommands } from './ai/slash-commands';
 import { createAiService } from './ai/service';
 import { bootstrap } from './app/bootstrap';
 import { liftCaptureTitles } from './app/capture';
+import { inSandbox, mainSyncKey, sandboxDb } from './app/sandbox';
 import { nameAllFromNotes, watchNameFromNote } from './editor/first-line';
 import { createRelatedService } from './related/service';
 import { EditorSession } from './editor/session';
@@ -23,44 +24,51 @@ import { createClock } from './sync/clock';
 import { connectTabs } from './sync/tabs';
 
 // Loading from IndexedDB takes a few ms; render once, with data, no spinner.
-const repository = new DexieRepository();
+// /sandbox is a second outline in its own database that starts blank and never syncs.
+const repository = new DexieRepository(inSandbox ? sandboxDb() : undefined);
 // Edits are stamped by this clock, which never runs behind a change it has seen.
 const clock = createClock();
-const engine = await bootstrap(repository, clock.now);
+const engine = await bootstrap(repository, clock.now, !inSandbox);
 for (const n of engine.tree.all()) clock.observe(n.updatedAt);
 const ui = createUiStore();
 const session = new EditorSession(engine);
 const search = new SearchIndex(engine);
-const sync = new SyncService(engine, repository, httpSyncApi(), {
-  clock,
-  lock: tabLock(),
-  afterReplace: () => {
-    ui.blur();
-    search.rebuild();
-  },
-  // Save the row being typed in before a pulled change to it lands, so the typing is not lost.
-  beforeApply: (ids) => {
-    if (session.nodeId !== null && ids.includes(session.nodeId)) session.flush();
-  },
-});
-await sync.start();
-sync.setPendingJoin(takeKeyFromLocation());
-watchBrowser(sync);
-connectTabs(engine, sync);
+const sync = inSandbox
+  ? undefined
+  : new SyncService(engine, repository, httpSyncApi(), {
+      clock,
+      lock: tabLock(),
+      afterReplace: () => {
+        ui.blur();
+        search.rebuild();
+      },
+      // Save the row being typed in before a pulled change to it lands, so the typing is not lost.
+      beforeApply: (ids) => {
+        if (session.nodeId !== null && ids.includes(session.nodeId)) session.flush();
+      },
+    });
+if (sync) {
+  await sync.start();
+  sync.setPendingJoin(takeKeyFromLocation());
+  watchBrowser(sync);
+}
+connectTabs(engine, sync ?? null, inSandbox ? { channel: 'aletheia-sandbox-tabs' } : {});
 // An item typed as one block takes its first line as its name when the caret leaves it
 // (or, if the app was closed while in it, on the next start).
 watchNameFromNote(engine, ui, session);
 nameAllFromNotes(engine);
 // Once per device: old quick adds, named with their date, take their note's first line as the name.
 try {
-  if (localStorage.getItem('aletheia.liftedCaptureTitles') === null) {
+  if (!inSandbox && localStorage.getItem('aletheia.liftedCaptureTitles') === null) {
     liftCaptureTitles(engine);
     localStorage.setItem('aletheia.liftedCaptureTitles', '1');
   }
 } catch {
   // Storage blocked: skip it, the old names stay.
 }
-const syncKey = () => sync.state.getState().key;
+// The sandbox borrows the real notes' sync key for AI (read once; reopen it after turning sync on).
+const sandboxKey = inSandbox ? await mainSyncKey() : null;
+const syncKey = () => (sync ? sync.state.getState().key : sandboxKey);
 const complete = httpComplete();
 const ai = createAiService({ engine, session, key: syncKey, complete });
 const related = createRelatedService({ engine, session, search, key: syncKey, complete });

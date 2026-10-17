@@ -14,7 +14,9 @@ import type { SyncService } from '@/sync/service';
 import { useUiStore, type UiStore } from '@/store/ui-store';
 import { SidebarIcon } from '@/tree-view/OutlineSidebar';
 import { useEscToClose } from '@/ui/hooks';
+import { inSandbox } from '@/app/sandbox';
 import { DataSection } from './DataSection';
+import { SandboxSection } from './SandboxSection';
 import { SyncSection } from './SyncSection';
 
 interface Props {
@@ -92,6 +94,7 @@ export function SettingsPanel({ settings, ui, sync }: Props) {
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-2 pb-6">
               {sync && <SyncSection sync={sync} />}
+              {inSandbox && <SandboxSection className="mb-4 border-b border-line pb-4" />}
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="font-semibold">Appearance</h2>
                 <button type="button" onClick={() => s.reset()} className="text-xs text-muted underline-offset-2 hover:underline">
@@ -196,6 +199,7 @@ export function SettingsPanel({ settings, ui, sync }: Props) {
 
               <p className="mt-3 text-xs text-muted">Appearance is saved in this browser only.</p>
               <DataSection />
+              {!inSandbox && <SandboxSection className="mt-4 border-t border-line pt-4" />}
             </div>
           </aside>
         </>

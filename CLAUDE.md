@@ -41,7 +41,8 @@ pnpm dev        dev server on :5173
 
 ```
 src/main.tsx          wires everything: repository, engine, stores, session, search, sync, AI, related
-src/App.tsx           routes: /, /n/:id (zoom), /share, /capture, /p/:id (a page sent from Claude Code)
+src/App.tsx           routes: /, /n/:id (zoom), /share, /capture, /p/:id (a page sent from Claude Code);
+                      all of them again under /sandbox (a blank outline in its own database that never syncs)
 src/model/            Node type, ids, order keys, pure tree helpers, seed tree, tree repair
 src/commands/         typed commands: pure effect functions + the engine (undo/redo, persist)
 src/persistence/      Repository interface; Dexie (IndexedDB) and in-memory implementations
@@ -179,6 +180,10 @@ don't.
 - Changing the Dexie schema (`persistence/db.ts`) needs a new version, and an
   upgrade closes the database in every other open tab. Avoid it unless the
   data model needs it.
+- The sandbox (`src/app/sandbox.ts`) is decided once per page load from the
+  URL (`inSandbox`). Code that touches the database, the sync key or the tabs
+  channel must keep the two apart: the sandbox has no `SyncService`
+  (`sync` is undefined) and borrows the real key only for AI.
 - Deleting nodes is a soft delete (`deletedAt`); the tree store's child
   index skips deleted nodes. Only undoing a creation removes a node physically.
 - Sibling order uses fractional index keys (`model/order.ts`); equal keys sort

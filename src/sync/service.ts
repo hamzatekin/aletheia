@@ -41,7 +41,8 @@ export class SyncServerError extends Error {
   }
 }
 
-const META_KEY = 'syncKey';
+/** Where the sync key is saved in the database's meta table. */
+export const META_KEY = 'syncKey';
 const META_LAST_KEY = 'syncLastKey';
 const META_CURSOR = 'syncCursor';
 const PUSH_BATCH = 200;
