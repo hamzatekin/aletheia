@@ -2,7 +2,8 @@
 
 A keyboard-first outliner in the style of WorkFlowy and Dynalist. Notes live
 in the browser (IndexedDB); an optional sync API runs on the same Cloudflare
-Worker. Live at https://aletheia.hmztkn.workers.dev/. Personal project with
+Worker. Live at https://aletheia.hamzatekin.dev/ (custom domain; the old
+https://aletheia.hmztkn.workers.dev/ still serves the same Worker). Personal project with
 one user, so prefer simple, free-tier designs without accounts.
 
 README.md explains the design in depth (commands, rendering, drag and drop,
