@@ -256,19 +256,34 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
           if (coarse && focusField === null) e.preventDefault();
         }}
       >
-        {(added || noteCollapsed) && (
-          // At the right: a mark for a hidden note, and when an Inbox item was added.
-          <span className="pointer-events-none float-right ml-3 flex items-center gap-1.5 text-xs text-faint select-none" style={{ height: 'var(--row-lh)' }}>
-            {noteCollapsed && (
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-label="Has a note" role="img" data-testid="note-marker">
-                <path d="M2 3.5h12M2 8h12M2 12.5h7" />
-              </svg>
-            )}
-            {added && <span data-testid="added-at">{added}</span>}
+        {added && (
+          // At the right: when an Inbox item was added (if turned on in Settings).
+          <span className="pointer-events-none float-right ml-3 flex items-center text-xs text-faint select-none" style={{ height: 'var(--row-lh)' }} data-testid="added-at">
+            {added}
           </span>
         )}
         {focusField === 'content' ? (
           <NodeEditor id={id} className="node-content wrap-break-word" />
+        ) : noteCollapsed ? (
+          // A hidden note gets a mark right after the text, as in Dynalist.
+          <div className="node-content cursor-text wrap-break-word" onMouseDown={onContentMouseDown}>
+            <span dangerouslySetInnerHTML={{ __html: renderInline(node.content) }} />
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              aria-label="Has a note"
+              role="img"
+              data-testid="note-marker"
+              className="ml-2 inline-block align-[-1px] text-faint select-none"
+            >
+              <path d="M2 3.5h12M2 8h12M2 12.5h7" />
+            </svg>
+          </div>
         ) : (
           <div
             className="node-content cursor-text wrap-break-word"

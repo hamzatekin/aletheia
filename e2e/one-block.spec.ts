@@ -69,6 +69,11 @@ test('a note is hidden in the list, with a mark, and shows only while you are on
   const marker = alpha(page).getByTestId('note-marker');
   await expect(viewNote).toHaveCount(0);
   await expect(marker).toBeVisible();
+  // The mark sits right after the item's text, on its line, as in Dynalist.
+  const text = (await alpha(page).locator('.node-content > span').boundingBox())!;
+  const mark = (await marker.boundingBox())!;
+  expect(Math.round(mark.x - (text.x + text.width))).toBe(8);
+  expect(Math.abs(mark.y + mark.height / 2 - (text.y + text.height / 2))).toBeLessThan(3);
   await expect(page.locator('[data-node-id="beta"] [data-testid=note-marker]')).toHaveCount(0);
   // On the item: the whole note slides open under its text, and the mark goes.
   await edit(page, 'Alpha');
