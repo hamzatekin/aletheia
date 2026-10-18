@@ -107,14 +107,14 @@ test('a finger on a bullet shows it pressed; lifting zooms in, sliding away lets
   await expect(bullet).not.toHaveAttribute('data-pressed');
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await page.waitForTimeout(500);
-  await expect(page.locator('h1')).toHaveCount(0);
+  await expect(page.locator('[data-title] h1')).toHaveCount(0);
   await expect(bullet).not.toHaveAttribute('data-pressed');
 
   // A tap: pressed while down, then it zooms in.
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
   await expect(bullet).toHaveAttribute('data-pressed', '');
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await expect(page.locator('h1')).toHaveText('Projects');
+  await expect(page.locator('[data-title] h1')).toHaveText('Projects');
 });
 
 test('a long press on a bullet opens its menu, with no Collapse', async ({ page }) => {

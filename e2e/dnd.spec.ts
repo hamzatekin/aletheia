@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { dragBullet, gotoHome, outline } from './helpers';
 
+// Tall enough that the whole sample outline, under Home's title, fits on screen with room for a menu below.
+test.use({ viewport: { width: 900, height: 820 } });
+
 test.beforeEach(async ({ page }) => gotoHome(page));
 
 test('dragging a bullet reorders, nests, and is undoable', async ({ page }) => {

@@ -49,6 +49,29 @@ test('the back arrow goes up one level, and the crumbs line up with the title', 
   await expect(back).toHaveCount(0);
 });
 
+test('Home and zoomed pages put the title and list in the same place, with ‹, ★ and bullets in one column', async ({ page }) => {
+  const box = (selector: string) => page.locator(selector).first().evaluate((el) => el.getBoundingClientRect().toJSON() as DOMRect);
+  const centerX = (r: DOMRect) => Math.round(r.x + r.width / 2);
+
+  await expect(page.getByTestId('home-title')).toHaveText('Home');
+  const homeTitle = await box('[data-testid=home-title] h1');
+  const homeList = await box('[data-testid=outline]');
+  const homeBullet = await box('[data-testid=outline] .bullet-dot');
+
+  await row(page, 'Projects').getByRole('link', { name: 'Zoom in' }).click();
+  await expect(title(page)).toHaveText('Projects');
+  await page.getByTestId('page-star').click();
+  const zoomTitle = await box('header[data-title] h1');
+  expect(Math.round(zoomTitle.top)).toBe(Math.round(homeTitle.top));
+  expect(Math.round(zoomTitle.x)).toBe(Math.round(homeTitle.x));
+  expect(Math.round((await box('[data-testid=outline]')).top)).toBe(Math.round(homeList.top));
+
+  const bullet = centerX(await box('[data-testid=outline] .bullet-dot'));
+  expect(bullet).toBe(centerX(homeBullet));
+  expect(Math.abs(centerX(await box('[data-testid=zoom-out]')) - bullet)).toBeLessThanOrEqual(1);
+  expect(Math.abs(centerX(await box('[data-testid=page-star] svg')) - bullet)).toBeLessThanOrEqual(1);
+});
+
 test('zooming in starts the new page at its top', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 400 });
   await page.evaluate(() => {

@@ -554,12 +554,13 @@ html { scroll-padding-top: 4rem; }
 
 /* Stars: marker gold, like WorkFlowy's. */
 .star-on { color: light-dark(#d4a017, #f2c94c); }
-.page-star { left: -2.4rem; top: calc(0.96em - 0.875rem); }
+/* The back arrow, the page's star and the rows' bullets share one column in the
+   gutter, centered 16px left of the text (14px on phones), so ‹, ★ and • line up. */
+.page-star { left: -1.875rem; top: calc(0.96em - 0.875rem); }
 @media (max-width: 639px) and (pointer: coarse) {
   .page-star { left: -1.75rem; }
 }
-/* The back arrow sits in the same gutter column as the star, beside the crumbs. */
-.crumbs-back { left: -2.4rem; top: 50%; width: 1.75rem; height: 1.75rem; margin-top: -0.875rem; }
+.crumbs-back { left: -1.875rem; top: 50%; width: 1.75rem; height: 1.75rem; margin-top: -0.875rem; }
 @media (max-width: 639px) and (pointer: coarse) {
   .crumbs-back { left: -1.75rem; height: 2.5rem; margin-top: -1.25rem; border-radius: 0.5rem; }
 }
