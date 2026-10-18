@@ -103,7 +103,8 @@ the tree while a row may be mid-edit; the existing actions show the pattern.
   test it in `commands.test.ts` with the `fixture` helper from `src/test/helpers.ts`.
 - **New page action or shortcut**: add it to the right file in
   `tree-view/actions/`, expose it through `OutlineActions` in `index.ts` if
-  components need it, and list the shortcut in `help/TutorialDialog.tsx`.
+  components need it, and list the shortcut in `help/TutorialDialog.tsx`. Ask AI
+  learns the app from that tutorial, so it knows the shortcut once it's listed.
 - **New slash command**: add an entry in `editor/default-slash-commands.ts`.
   The "/" menu only inserts into the text being edited (formats, note blocks,
   AI). Node actions go in `tree-view/NodeMenu.tsx`; app-wide ones (import,
