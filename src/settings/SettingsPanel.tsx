@@ -196,6 +196,7 @@ export function SettingsPanel({ settings, ui, sync }: Props) {
                 checked={notesCollapsed}
                 onChange={(v) => notePrefs.getState().setCollapsedByDefault(v)}
               />
+              <Toggle label="Inbox dates" hint="Show when each Inbox item was added" checked={s.inboxDates} onChange={(v) => update({ inboxDates: v })} />
 
               <p className="mt-3 text-xs text-muted">Appearance is saved in this browser only.</p>
               <DataSection />

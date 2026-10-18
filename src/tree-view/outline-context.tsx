@@ -3,6 +3,7 @@ import type { AiService } from '@/ai/service';
 import type { Engine } from '@/commands';
 import type { EditorSession } from '@/editor/session';
 import type { SearchIndex } from '@/search';
+import type { SettingsStore } from '@/store/settings-store';
 import type { UiStore } from '@/store/ui-store';
 import type { OutlineActions } from './actions';
 
@@ -13,6 +14,7 @@ export interface OutlineContextValue {
   search: SearchIndex;
   actions: OutlineActions;
   rootId: string | null;
+  settings: SettingsStore;
   /** AI actions; missing in tests that render the page without them. */
   ai?: AiService | undefined;
 }

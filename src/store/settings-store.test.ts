@@ -31,6 +31,12 @@ describe('settings store', () => {
     expect(reloaded.fontSize).toBe(20);
   });
 
+  it('hides Inbox dates unless turned on', () => {
+    expect(DEFAULT_SETTINGS.inboxDates).toBe(false);
+    expect(sanitize({ inboxDates: true }).inboxDates).toBe(true);
+    expect(sanitize({ inboxDates: 'yes' }).inboxDates).toBe(false);
+  });
+
   it('reset keeps the sidebar where it is', () => {
     const storage = memoryStorage();
     const store = createSettingsStore(DEFAULT_SETTINGS, storage);

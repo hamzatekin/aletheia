@@ -3,6 +3,7 @@ import { renderBlock, renderInline } from '@/editor/render';
 import { NodeEditor } from '@/editor/NodeEditor';
 import { NoteEditor, NoteHeader, useNoteMode } from '@/editor/NoteEditor';
 import { useUiStore } from '@/store/ui-store';
+import { useSettings } from '@/store/settings-store';
 import { isNoteCollapsed, notePrefs, useNotePrefs } from '@/store/note-prefs';
 import { addedLabel, findInbox } from '@/app/capture';
 import { noteAfterTick, taskCheckboxAt } from '@/editor/task-list';
@@ -27,7 +28,7 @@ interface Props {
 
 /** One outline row: gutter (toggle + bullet), content, optional note. */
 export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
-  const { engine, ui, actions, session } = useOutline();
+  const { engine, ui, actions, session, settings } = useOutline();
   const node = useNode(id);
   const hasChildren = useHasChildren(id);
   const focusField = useUiStore(ui, (s) => (s.focus?.id === id ? s.focus.field : null));
@@ -41,6 +42,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
   const noteMode = useNoteMode();
   const indicator = useUiStore(ui, (s) => (s.dropIndicator?.targetId === id ? s.dropIndicator : null));
   const coarse = useCoarsePointer();
+  const inboxDates = useSettings(settings, (s) => s.inboxDates);
   const indent = coarse ? TOUCH_INDENT_PX : INDENT_PX;
   const rowRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLAnchorElement>(null);
@@ -49,8 +51,8 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
   useRowDnd(id, depth, rowRef, handleRef, gripRef);
   if (!node) return null;
   const noteCollapsed = node.note !== '' && noteFolded && focusField === null && !noteHeld;
-  // Inbox items show when they were added: their name is whatever was typed first.
-  const added = node.parentId !== null && node.parentId === findInbox(engine.tree) ? addedLabel(node.createdAt, { short: coarse }) : null;
+  // Inbox items can show when they were added (off by default): their name is whatever was typed first.
+  const added = inboxDates && node.parentId !== null && node.parentId === findInbox(engine.tree) ? addedLabel(node.createdAt, { short: coarse }) : null;
 
   // While searching, the search decides what is open; toggling changes only the search, not the outline.
   const collapsed = filterOpen === undefined ? node.collapsed : !filterOpen;

@@ -62,8 +62,8 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, agent }: 
     [engine, ui, session, search, rootId, navigate],
   );
   const context = useMemo(
-    () => ({ engine, ui, session, search, actions, rootId, ai }),
-    [engine, ui, session, search, actions, rootId, ai],
+    () => ({ engine, ui, session, search, actions, rootId, settings, ai }),
+    [engine, ui, session, search, actions, rootId, settings, ai],
   );
 
   usePageEvents(actions, session, ui, settings);
