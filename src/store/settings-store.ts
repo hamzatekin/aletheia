@@ -33,6 +33,8 @@ export interface Settings {
   sidebarOpen: boolean;
   /** How many levels the outline sidebar shows expanded by default. */
   outlineDepth: number;
+  /** Show when each Inbox item was added, at the right of its row. */
+  inboxDates: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -50,6 +52,7 @@ export const DEFAULT_SETTINGS: Settings = {
   bookPage: true,
   sidebarOpen: true,
   outlineDepth: 2,
+  inboxDates: false,
 };
 
 export const LIMITS = {
@@ -110,7 +113,7 @@ export function sanitize(input: unknown): Settings {
     if (typeof v === 'number' && Number.isFinite(v)) out[k] = Math.min(LIMITS[k].max, Math.max(LIMITS[k].min, v));
   }
   if (src.pageShape === 'portrait' || src.pageShape === 'landscape') out.pageShape = src.pageShape;
-  for (const k of ['bookPage', 'sidebarOpen'] as const) {
+  for (const k of ['bookPage', 'sidebarOpen', 'inboxDates'] as const) {
     if (typeof src[k] === 'boolean') out[k] = src[k];
   }
   return out;

@@ -54,8 +54,11 @@ test('the Add to Inbox shortcut zooms into a new Inbox item, to type it and then
   // Done editing: the line to click for the first item under it comes back,
   // without the "start writing" words, since the page has a title and a note.
   await expect(page.getByTestId('empty-outline')).toHaveText('');
-  // The Inbox shows when it was added, at the right.
+  // The Inbox can show when each item was added, at the right; it's off until turned on in Settings.
   await page.goto('/');
+  await expect(row(page, 'Ask about the crown').getByTestId('added-at')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByLabel('Inbox dates').check();
   await expect(row(page, 'Ask about the crown').getByTestId('added-at')).toHaveText('Oct 12, 1:54 PM');
   await expect(row(page, 'Projects').getByTestId('added-at')).toHaveCount(0);
 });
