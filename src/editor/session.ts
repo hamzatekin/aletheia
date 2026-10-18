@@ -2,6 +2,7 @@ import { CLIP_TYPE } from '@/io/clipboard';
 import { Editor, Node } from '@tiptap/core';
 import type { Fragment, Node as PMNode } from '@tiptap/pm/model';
 import StarterKit from '@tiptap/starter-kit';
+import type { MarkdownIt } from 'markdown-it';
 import { Markdown, type MarkdownStorage } from 'tiptap-markdown';
 import type { Engine } from '@/commands';
 import type { Caret } from '@/store/ui-store';
@@ -14,6 +15,7 @@ const SingleLineDocument = Node.create({ name: 'doc', topNode: true, content: 'p
 
 interface MarkdownInternals extends MarkdownStorage {
   serializer: { serialize(content: PMNode | Fragment): string };
+  parser: { md: MarkdownIt };
 }
 
 interface SessionStorage {
@@ -24,8 +26,16 @@ interface SessionStorage {
 /** Typing is saved this long after the last keystroke (and on flush). */
 export const SAVE_DELAY_MS = 400;
 
-/** The serializer ends a document with newlines; stored content does not. */
-const trimEnd = (md: string): string => md.replace(/\n+$/, '');
+/**
+ * The serializer ends a document with newlines; stored content does not.
+ * It also escapes a line start that would begin a block in a note ("1\. ",
+ * "\- ", "\# "); an item's text is never a block, so keep it as typed.
+ */
+const trimEnd = (md: string): string =>
+  md.replace(/\n+$/, '').replace(/^\\([-+] |#{1,6}(?: |$))/, '$1').replace(/^(\d+)\\\. /, '$1. ');
+
+/** markdown-it's block rules other than the paragraph: an item's text is one line of inline Markdown. */
+const BLOCK_RULES = ['table', 'code', 'fence', 'blockquote', 'hr', 'list', 'reference', 'html_block', 'heading', 'lheading'];
 
 /** Editor props that keep the caret clear of the solid bar at the top of the window. */
 export const CLEAR_OF_TOP_BAR = {
@@ -107,6 +117,9 @@ export class EditorSession {
         this.schedule();
       },
     });
+    // "1. Can it…" is text, not a numbered list the line can't hold (which
+    // dropped the "1."), matching how the row shows it when not editing.
+    this.ext.markdown.parser.md.disable(BLOCK_RULES);
   }
 
   private get ext(): SessionStorage {
