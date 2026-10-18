@@ -206,7 +206,7 @@ const TABS: Tab[] = [
             [<Code>`code`</Code>, <Code>code</Code>],
             [<Code>~~strike~~</Code>, <s>strike</s>],
             [<Code>[text](https://…)</Code>, 'A link. Pasting a URL onto selected text also makes a link.'],
-            [<Keys k="Mod+B" />, 'Bold. ' + MOD + '+I is italic, ' + MOD + '+E is code.'],
+            [<Keys k="Mod+B" />, 'Bold. ' + MOD + '+I is italic, ' + MOD + '+E is code, ' + MOD + '+Shift+S strikes through.'],
           ]}
         />
         <P>
