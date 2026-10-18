@@ -22,7 +22,7 @@ import { useSettings, type SettingsStore } from '@/store/settings-store';
 import { useUiStore, type UiStore } from '@/store/ui-store';
 import { createOutlineActions } from './actions';
 import { AddToInboxButton, AddToInboxTopButton } from './AddToInboxButton';
-import { Breadcrumbs } from './Breadcrumbs';
+import { Breadcrumbs, CrumbsSpacer } from './Breadcrumbs';
 import { Outline } from './Outline';
 import { TopBar } from './TopBar';
 import { MobileToolbar, SelectionBar } from './MobileToolbar';
@@ -136,8 +136,8 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, agent }: 
           <main className="book-page" onMouseDown={onBackgroundMouseDown}>
             <PageResizeHandles settings={settings} />
             <FilterBar />
-            {rootId !== null && <Breadcrumbs rootId={rootId} />}
-            {inSandbox && rootId === null && <SandboxHeader />}
+            {rootId !== null ? <Breadcrumbs rootId={rootId} /> : <CrumbsSpacer />}
+            {rootId === null && <HomeTitle />}
             {missing ? (
               <div className="text-muted">
                 This node does not exist.{' '}
@@ -162,17 +162,19 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, agent }: 
   );
 }
 
-/** Top of the sandbox, so it never passes for the real notes. Zoomed in, the breadcrumbs say "Sandbox". */
-function SandboxHeader() {
+/** Home's title, where a zoomed page has its own. The sandbox says it never syncs, so it never passes for the real notes. */
+function HomeTitle() {
   return (
-    <header className="mb-4" data-testid="sandbox-header">
+    <header className="mb-4" data-testid={inSandbox ? 'sandbox-header' : 'home-title'}>
       <h1 className="page-title font-normal tracking-tight">{HOME_LABEL}</h1>
-      <p className="mt-1 text-sm text-muted">
-        Only in this browser. It never syncs, so nothing here touches your notes.{' '}
-        <a href="/" className="underline underline-offset-2 hover:text-ink">
-          Back to my notes
-        </a>
-      </p>
+      {inSandbox && (
+        <p className="mt-1 text-sm text-muted">
+          Only in this browser. It never syncs, so nothing here touches your notes.{' '}
+          <a href="/" className="underline underline-offset-2 hover:text-ink">
+            Back to my notes
+          </a>
+        </p>
+      )}
     </header>
   );
 }

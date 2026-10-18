@@ -93,6 +93,7 @@ export async function syncOn(page: Page): Promise<string> {
 /** Click into a node's content to start editing it (caret at the click point, near the end). */
 export async function edit(page: Page, text: string): Promise<void> {
   const content = row(page, text).locator('.node-content').first();
+  await content.scrollIntoViewIfNeeded();
   const box = (await content.boundingBox())!;
   await page.mouse.click(box.x + box.width - 2, box.y + Math.min(12, box.height / 2));
   await expect(page.locator('.ProseMirror')).toBeFocused();

@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { gotoHome, openNodeMenu, outline, row } from './helpers';
 
+// Tall enough that the whole sample outline, under Home's title, fits on screen with room for a menu below.
+test.use({ viewport: { width: 900, height: 820 } });
+
 test.beforeEach(async ({ page }) => gotoHome(page));
 
 test('the grip opens a menu whose actions apply to that node', async ({ page }) => {

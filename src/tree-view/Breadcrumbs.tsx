@@ -50,9 +50,7 @@ export function Breadcrumbs({ rootId }: Props) {
 
   const parent = ancestors.at(-1);
   const parentName = parent ? plainText(parent.content) || 'Untitled' : HOME_LABEL;
-  // The nav's negative margin equals the crumbs' padding, so the first crumb's text lines up with the title.
-  const crumb =
-    'truncate rounded hover:bg-hover hover:text-ink ' + (coarse ? 'max-w-40 shrink-0 px-1.5 py-1.5' : 'max-w-48 px-1 py-0.5');
+  const crumb = crumbClass(coarse);
   return (
     <div ref={wrapRef} className="crumbs relative mb-3">
       {coarse && scrolledPast && (
@@ -98,6 +96,23 @@ export function Breadcrumbs({ rootId }: Props) {
           </span>
         ))}
       </nav>
+    </div>
+  );
+}
+
+// The nav's negative margin equals the crumbs' padding, so the first crumb's text lines up with the title.
+const crumbClass = (coarse: boolean) =>
+  'truncate rounded hover:bg-hover hover:text-ink ' + (coarse ? 'max-w-40 shrink-0 px-1.5 py-1.5' : 'max-w-48 px-1 py-0.5');
+
+/**
+ * Home has nothing above it, but keeps the breadcrumbs' line empty so its
+ * title and list sit where every zoomed page has them.
+ */
+export function CrumbsSpacer() {
+  const coarse = useCoarsePointer();
+  return (
+    <div className="crumbs invisible mb-3 flex text-sm" aria-hidden="true" data-testid="crumbs-spacer">
+      <span className={crumbClass(coarse)}>&nbsp;</span>
     </div>
   );
 }
