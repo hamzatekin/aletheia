@@ -252,7 +252,10 @@ AI talks to Avvos as a calm, warm personal assistant with its own thoughts
 change adds a line under a top-level row called "AI memory" (`memory.ts`),
 made at the end of Home the first time. Every chat starts with those lines,
 and since they are ordinary rows they sync and can be read, edited or
-deleted like any other.
+deleted like any other. It also gets the whole tutorial as plain text
+(`tutorialText()` in `help/TutorialDialog.tsx`, with this device's keys), so
+it can answer questions about the app itself; a shortcut listed in the
+tutorial is known to AI too.
 
 The Worker sends each step to the relay's `/v1/chat`, which keeps one Claude
 conversation per question, so later steps send only what's new. When the

@@ -95,6 +95,12 @@ describe('prompts', () => {
     // The rules go as the system prompt, never next to note text.
     expect(AGENT_SYSTEM).toContain('Reply with exactly one JSON object and nothing else.');
     expect(AGENT_SYSTEM.startsWith("You are Avvos's personal assistant inside Aletheia")).toBe(true);
+    // It knows the app from the tutorial, so it can answer how-to questions.
+    expect(AGENT_SYSTEM).toContain("The Aletheia guide (the app's own help, with this device's keys):\n# Basics\nEverything is an outline.");
+    expect(AGENT_SYSTEM).toContain('\n## Writing\n- Enter: New node below. In the middle of a line, splits it in two.\n- Tab: Indent: make the node a child of the one above.\n');
+    expect(AGENT_SYSTEM).toContain('\n- `~~strike~~`: strike\n');
+    // The Worker refuses a longer system prompt.
+    expect(AGENT_SYSTEM.length).toBeLessThanOrEqual(20_000);
     expect(startPrompt({ tree: f.engine.tree, refs: new Refs(), item: null, history: [], question: 'q' }).startsWith('They are on the home page (the whole outline).\n\nThe top of their outline:\n[1] Work')).toBe(true);
   });
 

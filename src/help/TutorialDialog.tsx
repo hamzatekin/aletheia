@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { isValidElement, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useUiStore, type UiStore } from '@/store/ui-store';
 import { isMac } from '@/ui/media';
 
@@ -9,9 +9,12 @@ interface Props {
 const MOD = isMac ? '⌘' : 'Ctrl';
 const ALT = isMac ? '⌥' : 'Alt';
 
+/** "Mod+Shift+Enter" as this device's keys. */
+const keyParts = (k: string) => k.split('+').map((p) => (p === 'Mod' ? MOD : p === 'Alt' ? ALT : p));
+
 /** A key combo like "Mod+Shift+Enter", drawn as keycaps. */
 function Keys({ k }: { k: string }) {
-  const parts = k.split('+').map((p) => (p === 'Mod' ? MOD : p === 'Alt' ? ALT : p));
+  const parts = keyParts(k);
   return (
     <span className="inline-flex flex-wrap items-center gap-1 whitespace-nowrap">
       {parts.map((p, i) => (
@@ -310,6 +313,25 @@ const TABS: Tab[] = [
     ),
   },
 ];
+
+/** Plain text of one tab's body: headings, paragraphs and "- key: what it does" lines. */
+function plain(n: ReactNode): string {
+  if (typeof n === 'string' || typeof n === 'number') return String(n);
+  if (Array.isArray(n)) return n.map(plain).join('');
+  if (!isValidElement(n)) return '';
+  const props = n.props as { children?: ReactNode; k?: string; rows?: [ReactNode, ReactNode][] };
+  if (n.type === Keys) return keyParts(props.k ?? '').join('+');
+  if (n.type === Code) return `\`${plain(props.children)}\``;
+  if (n.type === H) return `\n## ${plain(props.children)}\n`;
+  if (n.type === P) return `${plain(props.children).trim()}\n`;
+  if (n.type === Table) return (props.rows ?? []).map(([a, b]) => `- ${plain(a)}: ${plain(b)}\n`).join('');
+  return plain(props.children);
+}
+
+/** The whole tutorial as plain text, so Ask AI can answer questions about the app from it. */
+export function tutorialText(): string {
+  return TABS.map((t) => `# ${t.title}\n${plain(t.body).trim()}`).join('\n\n');
+}
 
 /** A tabbed guide to every shortcut and hidden feature. */
 export function TutorialDialog({ ui }: Props) {
