@@ -22,7 +22,7 @@ import { useSettings, type SettingsStore } from '@/store/settings-store';
 import { useUiStore, type UiStore } from '@/store/ui-store';
 import { createOutlineActions } from './actions';
 import { AddToInboxButton, AddToInboxTopButton } from './AddToInboxButton';
-import { Breadcrumbs, CrumbsSpacer } from './Breadcrumbs';
+import { Breadcrumbs, HomeCrumbs } from './Breadcrumbs';
 import { Outline } from './Outline';
 import { TopBar } from './TopBar';
 import { MobileToolbar, SelectionBar } from './MobileToolbar';
@@ -136,7 +136,7 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, agent }: 
           <main className="book-page" onMouseDown={onBackgroundMouseDown}>
             <PageResizeHandles settings={settings} />
             <FilterBar />
-            {rootId !== null ? <Breadcrumbs rootId={rootId} /> : <CrumbsSpacer />}
+            {rootId !== null ? <Breadcrumbs rootId={rootId} /> : <HomeCrumbs />}
             {rootId === null && <HomeTitle />}
             {missing ? (
               <div className="text-muted">

@@ -105,14 +105,20 @@ const crumbClass = (coarse: boolean) =>
   'truncate rounded hover:bg-hover hover:text-ink ' + (coarse ? 'max-w-40 shrink-0 px-1.5 py-1.5' : 'max-w-48 px-1 py-0.5');
 
 /**
- * Home has nothing above it, but keeps the breadcrumbs' line empty so its
- * title and list sit where every zoomed page has them.
+ * Home has no parents, so its breadcrumbs' line holds just a house, as
+ * WorkFlowy's does: the line is never blank, so the first thing on every page
+ * sits the same distance from the top, and the title and list stay put too.
  */
-export function CrumbsSpacer() {
+export function HomeCrumbs() {
   const coarse = useCoarsePointer();
   return (
-    <div className="crumbs invisible mb-3 flex text-sm" aria-hidden="true" data-testid="crumbs-spacer">
-      <span className={crumbClass(coarse)}>&nbsp;</span>
+    <div className={'crumbs mb-3 flex text-sm text-muted ' + (coarse ? '-mx-1.5' : '-mx-1')} data-testid="home-crumbs">
+      <span className={coarse ? 'px-1.5 py-1.5' : 'px-1 py-0.5'} role="img" aria-label={`You are on ${HOME_LABEL}`} title={HOME_LABEL}>
+        <svg className="inline-block align-[-2px]" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M3 10.5L12 3l9 7.5" />
+          <path d="M5 9v11h14V9" />
+        </svg>
+      </span>
     </div>
   );
 }
