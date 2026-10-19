@@ -25,14 +25,3 @@ export function orderFor(
   if (i < 0) return null;
   return orderBetween(keyOf(sibs[i - 1]), keyOf(sibs[i]));
 }
-
-/** Parent ids that are real nodes (top level has no parent node). */
-export function parentNodeIds(...ids: (string | null | undefined)[]): string[] {
-  const out: string[] = [];
-  for (const id of ids) if (id !== null && id !== undefined && !out.includes(id)) out.push(id);
-  return out;
-}
-
-export function unique(ids: Iterable<string>): string[] {
-  return [...new Set(ids)];
-}

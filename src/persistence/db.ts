@@ -4,6 +4,7 @@ import type { Node, Operation } from '@/model';
 
 export class AletheiaDB extends Dexie {
   nodes!: EntityTable<Node, 'id'>;
+  /** No longer written (an edit log nothing read); emptied at startup. */
   operations!: EntityTable<Operation, 'id'>;
   /** Sync: node changes not yet uploaded. */
   outbox!: EntityTable<OutboxEntry, 'nodeId'>;

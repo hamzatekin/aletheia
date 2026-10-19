@@ -1,6 +1,5 @@
 import { descendantIds, isLive, orderBetween, type Node } from '@/model';
 import { ChangeSet } from './changes';
-import { parentNodeIds, unique } from './position';
 import { Rejection, type CommandContext, type CommandOf, type Effect } from './types';
 
 /** Soft-delete `id` and every live descendant with the same timestamp. */
@@ -12,11 +11,7 @@ export function deleteSubtree(ctx: CommandContext, cmd: CommandOf<'deleteSubtree
   const ids = [cmd.id, ...descendantIds(tree, cmd.id)];
   for (const id of ids) cs.update(id, { deletedAt: ctx.now });
   const focus = focusAfterDelete(ctx, node);
-  return {
-    changes: cs.list(),
-    affectedNodeIds: unique([...ids, ...parentNodeIds(node.parentId)]),
-    ...(focus ? { focus } : {}),
-  };
+  return { changes: cs.list(), ...(focus ? { focus } : {}) };
 }
 
 /**
@@ -28,7 +23,6 @@ export function deleteNode(ctx: CommandContext, cmd: CommandOf<'deleteNode'>): E
   const node = tree.get(cmd.id);
   if (!isLive(node)) return new Rejection('node is missing or deleted');
   const cs = new ChangeSet(tree, ctx.now);
-  const affected = [node.id, ...parentNodeIds(node.parentId)];
 
   const sibs = tree.children(node.parentId);
   const i = sibs.indexOf(node.id);
@@ -37,12 +31,11 @@ export function deleteNode(ctx: CommandContext, cmd: CommandOf<'deleteNode'>): E
   for (const kid of tree.children(node.id)) {
     lower = orderBetween(lower, upper);
     cs.update(kid, { parentId: node.parentId, order: lower });
-    affected.push(kid, ...descendantIds(tree, kid));
   }
   cs.update(node.id, { deletedAt: ctx.now });
 
   const focus = focusAfterDelete(ctx, node);
-  return { changes: cs.list(), affectedNodeIds: unique(affected), ...(focus ? { focus } : {}) };
+  return { changes: cs.list(), ...(focus ? { focus } : {}) };
 }
 
 /** Previous sibling, else the parent, with the caret at the end. */

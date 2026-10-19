@@ -37,11 +37,6 @@ export interface FocusHint {
 
 export interface Effect {
   changes: NodeChange[];
-  /**
-   * Nodes whose derived data may be stale. Move-like commands include all
-   * descendants; child add/remove/reorder includes the parent.
-   */
-  affectedNodeIds: string[];
   focus?: FocusHint;
 }
 

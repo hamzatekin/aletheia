@@ -21,8 +21,7 @@ export type BatchItem = Command | ((tree: TreeReader) => Command | null);
 
 /**
  * Runs commands: applies to the store synchronously (instant UI), persists in
- * order through a write queue, appends to the operation log, and keeps
- * in-memory undo/redo stacks.
+ * order through a write queue, and keeps in-memory undo/redo stacks.
  */
 export interface Engine {
   readonly store: TreeStore;
@@ -109,7 +108,7 @@ export function createEngine(opts: EngineOptions): Engine {
     }
     if (changes.length === 0) return null;
     store.getState().applyChanges(changes);
-    const op: Operation = { id: newId(), type: PEER_OP, input: null, changes, affectedNodeIds: changes.map((c) => c.id), timestamp: now() };
+    const op: Operation = { id: newId(), type: PEER_OP, input: null, changes, timestamp: now() };
     for (const l of listeners) l(op);
     return op;
   }
@@ -146,7 +145,6 @@ export function createEngine(opts: EngineOptions): Engine {
         type: cmd.type,
         input: cmd,
         changes: effect.changes,
-        affectedNodeIds: effect.affectedNodeIds,
         timestamp: at,
       };
       commit(op);
@@ -158,7 +156,6 @@ export function createEngine(opts: EngineOptions): Engine {
     batch(items, type = 'batch') {
       const at = now();
       const merged = new Map<string, NodeChange>();
-      const affected = new Set<string>();
       let focus: FocusHint | undefined;
       const inputs: Command[] = [];
       for (const item of items) {
@@ -171,13 +168,12 @@ export function createEngine(opts: EngineOptions): Engine {
           const prev = merged.get(c.id);
           merged.set(c.id, { id: c.id, before: prev ? prev.before : c.before, after: c.after });
         }
-        for (const id of effect.affectedNodeIds) affected.add(id);
         if (effect.focus) focus = effect.focus;
         inputs.push(cmd);
       }
       const changes = [...merged.values()].filter((c) => c.before !== null || c.after !== null);
       if (changes.length === 0) return { ok: false, reason: 'nothing to do' };
-      const op: Operation = { id: newId(), type, input: inputs, changes, affectedNodeIds: [...affected], timestamp: at };
+      const op: Operation = { id: newId(), type, input: inputs, changes, timestamp: at };
       persist(op);
       undoStack.push(op);
       redoStack.length = 0;
@@ -193,9 +189,7 @@ export function createEngine(opts: EngineOptions): Engine {
         type: 'undo',
         input: null,
         changes: invert(target.changes, at),
-        affectedNodeIds: target.affectedNodeIds,
         timestamp: at,
-        targetOpId: target.id,
       };
       commit(op);
       redoStack.push(target);
@@ -211,9 +205,7 @@ export function createEngine(opts: EngineOptions): Engine {
         type: 'redo',
         input: null,
         changes: reapply(target.changes, at),
-        affectedNodeIds: target.affectedNodeIds,
         timestamp: at,
-        targetOpId: target.id,
       };
       commit(op);
       undoStack.push(target);
@@ -246,8 +238,7 @@ export function createEngine(opts: EngineOptions): Engine {
         changes.push({ id: after.id, before, after });
       }
       if (changes.length === 0) return null;
-      const ids = changes.map((c) => c.id);
-      const op: Operation = { id: newId(), type, input: null, changes, affectedNodeIds: ids, timestamp: now() };
+      const op: Operation = { id: newId(), type, input: null, changes, timestamp: now() };
       commit(op);
       return op;
     },
@@ -299,7 +290,7 @@ function sameNode(a: Node, b: Node): boolean {
 }
 
 function noop(cmd: Command, at: number): Operation {
-  return { id: newId(), type: cmd.type, input: cmd, changes: [], affectedNodeIds: [], timestamp: at };
+  return { id: newId(), type: cmd.type, input: cmd, changes: [], timestamp: at };
 }
 
 /** After undo, focus the first node that still exists (prefer the command's subject). */

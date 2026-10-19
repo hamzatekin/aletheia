@@ -104,7 +104,7 @@ describe('engine: operation log, persistence', () => {
     for (const n of f.engine.tree.all()) expect(persisted.get(n.id)).toEqual(n);
   });
 
-  it('undo and redo append operations referencing the reverted op', async () => {
+  it('undo and redo append operations that revert and reapply the changes', async () => {
     const f = fixture(['A']);
     const r = f.engine.execute({ type: 'updateContent', id: f.ids.A!, content: 'X' });
     ok(r);
@@ -114,7 +114,6 @@ describe('engine: operation log, persistence', () => {
     const ops = await f.repo.listOperations();
     const tail = ops.slice(-2);
     expect(tail.map((o) => o.type)).toEqual(['undo', 'redo']);
-    expect(tail.every((o) => o.targetOpId === r.op.id)).toBe(true);
     expect(tail[0]!.changes[0]!.after?.content).toBe('A');
     expect(tail[1]!.changes[0]!.after?.content).toBe('X');
   });
@@ -233,7 +232,7 @@ describe('engine: details', () => {
     const before = (await f.repo.listOperations()).length;
     const r = f.engine.execute({ type: 'toggleCollapse', id: f.ids.A!, collapsed: false });
     ok(r);
-    expect(r.op).toMatchObject({ type: 'toggleCollapse', input: { type: 'toggleCollapse', id: f.ids.A!, collapsed: false }, changes: [], affectedNodeIds: [] });
+    expect(r.op).toMatchObject({ type: 'toggleCollapse', input: { type: 'toggleCollapse', id: f.ids.A!, collapsed: false }, changes: [] });
     expect(r).not.toHaveProperty('focus');
     await f.engine.flush();
     expect(await f.repo.listOperations()).toHaveLength(before);
@@ -245,7 +244,7 @@ describe('engine: details', () => {
     expect(f.engine.canUndo()).toBe(true); // only the fixture's creations
   });
 
-  it('a batch records its inputs, its affected ids and the last focus, and skips null items', () => {
+  it('a batch records its inputs and the last focus, and skips null items', () => {
     const f = fixture(['A', 'B']);
     const r = f.engine.batch([
       () => null,
@@ -260,7 +259,6 @@ describe('engine: details', () => {
       { type: 'updateContent', id: f.ids.A!, content: 'A!' },
       { type: 'indent', id: f.ids.B! },
     ]);
-    expect(new Set(r.op.affectedNodeIds)).toEqual(new Set([f.ids.A, f.ids.B]));
     expect(r.op.changes.map((c) => c.id).sort()).toEqual([f.ids.A, f.ids.B].sort());
     expect(r.focus).toEqual({ id: f.ids.B, offset: 0 });
   });
@@ -288,7 +286,7 @@ describe('engine: details', () => {
     const seen: string[] = [];
     f.engine.onOperation((o) => seen.push(o.type));
     const op = f.engine.applyExternal([a, { ...f.node('B'), content: 'B2' }, fresh], 'pull');
-    expect(op).toMatchObject({ type: 'pull', input: null, affectedNodeIds: [f.ids.B, fresh.id] });
+    expect(op).toMatchObject({ type: 'pull', input: null });
     expect(op!.changes).toEqual([
       { id: f.ids.B, before: expect.objectContaining({ content: 'B' }), after: expect.objectContaining({ content: 'B2' }) },
       { id: fresh.id, before: null, after: fresh },
@@ -319,7 +317,8 @@ describe('engine: details', () => {
     f.engine.onOperation((o) => seen.push(o));
     expect(f.engine.applyPeer([{ id: 'nobody', after: null }, { id: a.id, after: a }])).toBeNull();
     const op = f.engine.applyPeer([{ id: a.id, after: { ...a, updatedAt: a.updatedAt + 1 } }]);
-    expect(op).toMatchObject({ type: PEER_OP, input: null, affectedNodeIds: [a.id] });
+    expect(op).toMatchObject({ type: PEER_OP, input: null });
+    expect(op!.changes.map((c) => c.id)).toEqual([a.id]);
     expect(seen).toEqual([op]);
     const gone = f.engine.applyPeer([{ id: a.id, after: null }]);
     expect(gone!.changes).toEqual([{ id: a.id, before: { ...a, updatedAt: a.updatedAt + 1 }, after: null }]);
@@ -332,7 +331,7 @@ describe('engine: details', () => {
     const f = fixture(['A', 'B']);
     await f.engine.flush();
     // Another tab removed B from disk outright (as undoing its creation would).
-    await f.repo.commit({ upserts: [], removals: [f.ids.B!], operation: { id: newId(), type: 'x', input: null, changes: [], affectedNodeIds: [], timestamp: 1 } });
+    await f.repo.commit({ upserts: [], removals: [f.ids.B!], operation: { id: newId(), type: 'x', input: null, changes: [], timestamp: 1 } });
     const reloading = f.engine.reload();
     const mine = newId();
     f.engine.execute({ type: 'createNode', id: mine, parentId: null, content: 'mine' });

@@ -44,17 +44,16 @@ e2e               Playwright specs
 
 1. `computeEffect(tree, command)` is pure. It returns either a `Rejection`
    (e.g. indenting a first child, moving a node into its own descendant) or an
-   `Effect`: a list of `NodeChange { id, before, after }`, the
-   `affectedNodeIds`, and an optional caret hint for the view.
+   `Effect`: a list of `NodeChange { id, before, after }` and an optional
+   caret hint for the view.
 2. The engine applies the changes to the store synchronously, so the UI never
    waits on IndexedDB.
-3. The same batch (node upserts/removals and the `Operation` record) is
+3. The node upserts/removals (and, with sync on, their outbox entries) are
    written through an ordered write queue into the repository in one
-   transaction.
+   transaction. Operations are not stored; they live only on the undo stack.
 4. The operation goes on the undo stack. Undo swaps `before`/`after` for every
-   change and commits that as its own `undo` operation (redo likewise), so the
-   operation log is a complete history and undo of a `createNode` physically
-   removes the node again.
+   change and commits that as its own `undo` operation (redo likewise), so
+   undo of a `createNode` physically removes the node again.
 
 Soft delete: `deleteSubtree` stamps the root and every live descendant with the
 same `deletedAt`; undo brings the subtree back.

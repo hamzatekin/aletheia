@@ -1,4 +1,4 @@
-import type { Node, Operation } from '@/model';
+import type { Node } from '@/model';
 import { entriesForChanges, entriesForReplace, mergeEntry, sameTimes, type OutboxEntry } from '@/sync/outbox';
 import { AletheiaDB } from './db';
 import { REMOTE_OP, type CommitBatch, type SyncRepository } from './repository';
@@ -15,16 +15,11 @@ export class DexieRepository implements SyncRepository {
   commit(batch: CommitBatch): Promise<void> {
     const { db } = this;
     const track = this.tracking && batch.operation.type !== REMOTE_OP;
-    return db.transaction('rw', [db.nodes, db.operations, db.outbox], async () => {
+    return db.transaction('rw', [db.nodes, db.outbox], async () => {
       if (batch.upserts.length > 0) await db.nodes.bulkPut(batch.upserts);
       if (batch.removals.length > 0) await db.nodes.bulkDelete(batch.removals);
-      await db.operations.put(batch.operation);
       if (track) await this.mergeIntoOutbox(entriesForChanges(batch.operation.changes, batch.operation.timestamp));
     });
-  }
-
-  listOperations(): Promise<Operation[]> {
-    return this.db.operations.orderBy('timestamp').toArray();
   }
 
   replaceAllNodes(nodes: Node[], at = Date.now()): Promise<void> {

@@ -30,6 +30,8 @@ const repository = new DexieRepository(inSandbox ? sandboxDb() : undefined);
 // Edits are stamped by this clock, which never runs behind a change it has seen.
 const clock = createClock();
 const engine = await bootstrap(repository, clock.now, !inSandbox);
+// Every edit used to be logged too, and nothing read the log: free the space it took.
+void repository.db.operations.clear().catch(() => {});
 for (const n of engine.tree.all()) clock.observe(n.updatedAt);
 const ui = createUiStore();
 const session = new EditorSession(engine);

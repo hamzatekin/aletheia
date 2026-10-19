@@ -18,9 +18,5 @@ export interface Operation {
   /** The command input as submitted (JSON-serialisable). */
   input: unknown;
   changes: NodeChange[];
-  /** Nodes the operation touched, including parents whose child list changed. */
-  affectedNodeIds: string[];
   timestamp: number;
-  /** For undo/redo: the id of the operation being reverted / reapplied. */
-  targetOpId?: string;
 }
