@@ -3,10 +3,12 @@ interface Props {
   onToggle: () => void;
   /** Touch screens put it at the row's right edge, always shown, like WorkFlowy's phone app. */
   side?: 'left' | 'right';
+  /** Keep the left arrow shown without hovering (on the focused row, beside its grip). */
+  shown?: boolean;
 }
 
 /** Chevron for nodes with children: left of the bullet on hover with a mouse, at the right edge on touch screens. */
-export function CollapseToggle({ collapsed, onToggle, side = 'left' }: Props) {
+export function CollapseToggle({ collapsed, onToggle, side = 'left', shown = false }: Props) {
   const right = side === 'right';
   return (
     <button
@@ -19,7 +21,8 @@ export function CollapseToggle({ collapsed, onToggle, side = 'left' }: Props) {
       className={
         (right
           ? 'collapse-toggle-right relative -mr-3 flex h-(--row-lh) w-11 shrink-0 items-center justify-center rounded active:bg-active '
-          : 'relative flex h-(--row-lh) w-5 shrink-0 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100 hover:text-ink focus-visible:opacity-100 ') +
+          : 'row-toggle relative flex h-(--row-lh) w-5 shrink-0 items-center justify-center rounded transition-opacity group-hover:opacity-100 hover:text-ink focus-visible:opacity-100 ' +
+            (shown ? 'opacity-100 ' : 'opacity-0 ')) +
         (collapsed ? 'text-muted' : 'text-faint')
       }
     >
