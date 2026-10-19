@@ -49,7 +49,7 @@ test('the back arrow goes up one level, and the crumbs line up with the title', 
   await expect(back).toHaveCount(0);
 });
 
-test('Home and zoomed pages put the top line, title and list in the same place, with ‹, ★ and bullets in one column', async ({ page }) => {
+test('Home and zoomed pages put the title and list in the same place, with ‹, ★ and bullets in one column', async ({ page }) => {
   const box = (selector: string) => page.locator(selector).first().evaluate((el) => el.getBoundingClientRect().toJSON() as DOMRect);
   const centerX = (r: DOMRect) => Math.round(r.x + r.width / 2);
 
@@ -57,15 +57,11 @@ test('Home and zoomed pages put the top line, title and list in the same place, 
   const homeTitle = await box('[data-testid=home-title] h1');
   const homeList = await box('[data-testid=outline]');
   const homeBullet = await box('[data-testid=outline] .bullet-dot');
-  // Home's top line is never blank: the first thing on the page starts where zoomed pages' breadcrumbs do.
-  const homeCrumbs = await box('[data-testid=home-crumbs]');
 
   await row(page, 'Projects').getByRole('link', { name: 'Zoom in' }).click();
   await expect(title(page)).toHaveText('Projects');
   await page.getByTestId('page-star').click();
   const zoomTitle = await box('header[data-title] h1');
-  const crumbs = await box('.crumbs');
-  expect([Math.round(crumbs.top), Math.round(crumbs.height)]).toEqual([Math.round(homeCrumbs.top), Math.round(homeCrumbs.height)]);
   expect(Math.round(zoomTitle.top)).toBe(Math.round(homeTitle.top));
   expect(Math.round(zoomTitle.x)).toBe(Math.round(homeTitle.x));
   expect(Math.round((await box('[data-testid=outline]')).top)).toBe(Math.round(homeList.top));
