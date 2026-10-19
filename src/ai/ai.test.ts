@@ -85,7 +85,7 @@ describe('httpStep', () => {
       sent.push(JSON.parse(init.body as string));
       return replies.shift()!;
     }) as typeof fetch;
-    return { sent, step: httpStep('', fetchFn) };
+    return { sent, step: httpStep(fetchFn) };
   };
 
   it('sends the system prompt and schema only when a session starts, and returns the structured reply', async () => {

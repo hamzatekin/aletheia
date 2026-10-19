@@ -5,14 +5,14 @@ import { AI_NEEDS_SYNC, AiError, type Complete } from './client';
 import { cleanTitle, titlePrompt } from './suggest-title';
 
 /** What the AI notice at the top of the page shows. */
-export interface AiNotice {
+interface AiNotice {
   kind: 'busy' | 'done' | 'error';
   text: string;
   /** A button next to the text (Undo, or Use when the row changed meanwhile). */
   action?: { label: string; run(): void };
 }
 
-export interface AiState {
+interface AiState {
   notice: AiNotice | null;
   /** Nodes waiting for an answer. */
   busy: ReadonlySet<string>;

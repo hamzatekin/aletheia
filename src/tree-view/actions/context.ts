@@ -1,7 +1,6 @@
 import type { Command, Engine, Outcome } from '@/commands';
 import type { EditorSession } from '@/editor/session';
 import type { TreeReader } from '@/model';
-import type { SearchIndex } from '@/search';
 import { pageRows, type FilteredRow } from '@/search/filter';
 import type { Caret, UiStore } from '@/store/ui-store';
 import type { NavigateFunction } from 'react-router';
@@ -10,7 +9,6 @@ export interface ActionDeps {
   engine: Engine;
   ui: UiStore;
   session: EditorSession;
-  search: SearchIndex;
   /** The zoomed-in node (null: the top level). */
   rootId: string | null;
   navigate: NavigateFunction;

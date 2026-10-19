@@ -19,8 +19,7 @@ export type Command =
   | { type: 'toggleStar'; id: string; starred?: boolean }
   | { type: 'deleteSubtree'; id: string }
   /** Delete `id` but keep its children: they take its place under its parent. */
-  | { type: 'deleteNode'; id: string }
-  | { type: 'restore'; id: string };
+  | { type: 'deleteNode'; id: string };
 
 /** The command of one type, e.g. `CommandOf<'indent'>`. */
 export type CommandOf<T extends Command['type']> = Extract<Command, { type: T }>;
@@ -47,7 +46,6 @@ export interface Effect {
 }
 
 export class Rejection {
-  readonly rejected = true as const;
   constructor(readonly reason: string) {}
 }
 

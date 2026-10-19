@@ -2,10 +2,10 @@ import type { Editor } from '@tiptap/core';
 import type { Engine } from '@/commands';
 
 /** Where "/" was typed: a node's text or its (rendered) note. */
-export type SlashField = 'content' | 'note';
+type SlashField = 'content' | 'note';
 
 /** Everything a slash command may act on. */
-export interface SlashContext {
+interface SlashContext {
   engine: Engine;
   /** The editor the menu was opened from (the node's line or its note). */
   editor: Editor;

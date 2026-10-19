@@ -123,7 +123,7 @@ export function MobileToolbar() {
       role="toolbar"
       aria-label="Editing tools"
       data-testid="mobile-toolbar"
-      className="mobile-toolbar fixed inset-x-0 z-40 flex items-stretch justify-around border-t border-line bg-surface"
+      className="fixed inset-x-0 z-40 flex items-stretch justify-around border-t border-line bg-surface"
       style={{ bottom: inset, paddingBottom: inset === 0 ? 'env(safe-area-inset-bottom)' : 0 }}
       // Keep the editor (and the keyboard) while a button is tapped.
       onMouseDown={(e) => e.preventDefault()}
@@ -192,7 +192,7 @@ export function SelectionBar() {
       role="toolbar"
       aria-label={`${count} selected`}
       data-testid="selection-bar"
-      className="mobile-toolbar fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)]"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)]"
       onMouseDown={(e) => e.preventDefault()}
     >
       <div className="px-3 pt-1.5 text-xs text-muted" data-testid="selection-count">

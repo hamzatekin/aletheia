@@ -1,7 +1,7 @@
 import { memo, useRef, useState, type MouseEvent, type ReactNode, type TouchEvent } from 'react';
 import { renderBlock, renderInline } from '@/editor/render';
 import { NodeEditor } from '@/editor/NodeEditor';
-import { NoteEditor, NoteHeader, useNoteMode } from '@/editor/NoteEditor';
+import { NoteEditor, NoteHeader } from '@/editor/NoteEditor';
 import { useUiStore } from '@/store/ui-store';
 import { useSettings } from '@/store/settings-store';
 import { isNoteCollapsed, notePrefs, useNotePrefs } from '@/store/note-prefs';
@@ -39,7 +39,6 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
   const noteFolded = useNotePrefs((s) => isNoteCollapsed(s, id));
   // Pressing elsewhere on the item you're on leaves it until the press ends; it stays highlighted, with its note shown, meanwhile.
   const [noteHeld, setNoteHeld] = useState(false);
-  const noteMode = useNoteMode();
   const indicator = useUiStore(ui, (s) => (s.dropIndicator?.targetId === id ? s.dropIndicator : null));
   const coarse = useCoarsePointer();
   const inboxDates = useSettings(settings, (s) => s.inboxDates);
@@ -84,7 +83,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
    * Pressing on a row's text. With a mouse the browser selects text right
    * away, as on any page (and as in WorkFlowy and Dynalist); editing starts on
    * release if nothing got selected. A drag into another row selects whole
-   * nodes instead (OutlinePage). Touch screens start editing at once.
+   * nodes instead (use-page-events.ts). Touch screens start editing at once.
    */
   const pressText = (e: MouseEvent<HTMLDivElement>, field: 'content' | 'note') => {
     if (e.button !== 0) return;
@@ -316,7 +315,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
               <NoteEditor id={id} />
             ) : (
               <>
-                <NoteHeader id={id} raw={noteMode.raw} quiet />
+                <NoteHeader id={id} quiet />
                 <div
                   className="node-note prose-note row-note cursor-text pb-0.5 text-note"
                   onMouseDown={onNoteMouseDown}

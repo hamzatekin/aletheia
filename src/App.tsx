@@ -20,8 +20,8 @@ interface Props {
   search: SearchIndex;
   settings: SettingsStore;
   sync?: SyncService | undefined;
-  ai?: AiService;
-  agent?: AgentService;
+  ai: AiService;
+  agent: AgentService;
 }
 
 export function App({ engine, ui, session, search, settings, sync, ai, agent }: Props) {

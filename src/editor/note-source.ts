@@ -17,7 +17,7 @@ import { taskLists } from './task-list';
 const blockParser = markdownIt(markdownOptions).use(taskLists);
 
 /** A top-level block of a note: its source lines [from, to). */
-export interface SourceBlock {
+interface SourceBlock {
   from: number;
   to: number;
 }

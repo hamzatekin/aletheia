@@ -21,12 +21,10 @@ export interface OutlineActions {
   handleKey(key: OutlineKey): boolean;
   /** Keys pressed while nothing is being edited (tree-level selection). Returns true if handled. */
   handleGlobalKey(e: KeyboardEvent): boolean;
-  focusPrev(id: string, caret: Caret): void;
   focusNext(id: string, caret: Caret): void;
   createFirst(): void;
   undo(): void;
   redo(): void;
-  zoomOut(): void;
   /** Collapse or expand every parent under `underId` (null: the whole page), with `underId` itself if asked. */
   setAllCollapsed(underId: string | null, collapsed: boolean, includeSelf?: boolean): void;
   /** Collapse everything on the page if anything is open, else expand everything. */
@@ -76,12 +74,10 @@ export function createOutlineActions(deps: ActionDeps): OutlineActions {
   return {
     handleKey: editorKeyHandler(ctx, { ...navigation, ...filter, ...slash }),
     handleGlobalKey: pageKeyHandler(ctx, { ...navigation, ...filter, ...selection }),
-    focusPrev: navigation.focusPrev,
     focusNext: navigation.focusNext,
     createFirst: navigation.createFirst,
     setAllCollapsed: navigation.setAllCollapsed,
     toggleAll: navigation.toggleAll,
-    zoomOut: navigation.zoomOut,
     revealNode: navigation.revealNode,
     quickAdd: navigation.quickAdd,
     undo: () => navigation.undoRedo('undo'),

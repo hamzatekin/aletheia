@@ -5,7 +5,7 @@ import type { DropIndicator } from '@/store/ui-store';
 
 export const DRAG_TYPE = 'aletheia/node';
 
-export interface DragData extends Record<string | symbol, unknown> {
+interface DragData extends Record<string | symbol, unknown> {
   type: typeof DRAG_TYPE;
   id: string;
 }

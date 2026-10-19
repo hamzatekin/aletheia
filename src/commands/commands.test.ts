@@ -281,7 +281,7 @@ describe('deleteNode', () => {
   });
 });
 
-describe('deleteSubtree / restore', () => {
+describe('deleteSubtree', () => {
   it('soft-deletes the whole subtree with one timestamp and hides it', () => {
     const f = fixture([['A', ['A1', ['A2', ['A2a']]]], 'B']);
     const r = f.engine.execute({ type: 'deleteSubtree', id: f.ids.A! });
@@ -303,30 +303,8 @@ describe('deleteSubtree / restore', () => {
     expect(r2.focus).toEqual({ id: f.ids.A, offset: 1 });
   });
 
-  it('restore brings back the subtree but not descendants deleted earlier', () => {
-    const f = fixture([['A', ['A1', ['A2', ['A2a']]]], 'B']);
-    ok(f.engine.execute({ type: 'deleteSubtree', id: f.ids.A1! }));
-    ok(f.engine.execute({ type: 'deleteSubtree', id: f.ids.A! }));
-    expect(outline(f)).toEqual(['B']);
-    ok(f.engine.execute({ type: 'restore', id: f.ids.A! }));
-    expect(outline(f)).toEqual([['A', [['A2', ['A2a']]]], 'B']);
-    expect(f.node('A1').deletedAt).not.toBeNull();
-    ok(f.engine.execute({ type: 'restore', id: f.ids.A1! }));
-    expect(outline(f)).toEqual([['A', ['A1', ['A2', ['A2a']]]], 'B']);
-  });
-
-  it('restore re-attaches at the top level when the parent is gone', () => {
-    const f = fixture([['A', ['A1']], 'B']);
-    ok(f.engine.execute({ type: 'deleteSubtree', id: f.ids.A1! }));
-    ok(f.engine.execute({ type: 'deleteSubtree', id: f.ids.A! }));
-    ok(f.engine.execute({ type: 'restore', id: f.ids.A1! }));
-    expect(outline(f)).toEqual(['B', 'A1']);
-  });
-
-  it('restore rejects live or unknown nodes; delete rejects deleted nodes', () => {
+  it('delete rejects deleted nodes', () => {
     const f = fixture(['A']);
-    expect(f.engine.execute({ type: 'restore', id: f.ids.A! }).ok).toBe(false);
-    expect(f.engine.execute({ type: 'restore', id: 'ghost' }).ok).toBe(false);
     f.engine.execute({ type: 'deleteSubtree', id: f.ids.A! });
     expect(f.engine.execute({ type: 'deleteSubtree', id: f.ids.A! }).ok).toBe(false);
   });
@@ -374,8 +352,6 @@ describe('rejections', () => {
     expect(reason({ type: 'moveNode', id: f.ids.A!, parentId: null, at: { after: 'missing' } })).toBe('anchor sibling not found');
     expect(reason({ type: 'indent', id: f.ids.A! })).toBe('cannot indent the first child');
     expect(reason({ type: 'outdent', id: f.ids.A! })).toBe('cannot outdent a top-level node');
-    expect(reason({ type: 'restore', id: 'missing' })).toBe('node not found');
-    expect(reason({ type: 'restore', id: f.ids.A! })).toBe('node is not deleted');
   });
 
   it('a merge into a descendant gives its own reason', () => {
@@ -542,35 +518,6 @@ describe('command effects', () => {
     const f = fixture(['A']);
     expect(effect(f, { type: 'deleteNode', id: f.ids.A! })).not.toHaveProperty('focus');
     expect(effect(f, { type: 'deleteSubtree', id: f.ids.A! })).not.toHaveProperty('focus');
-  });
-
-  it('restore reports every restored node and the parent, focused on the node', () => {
-    const f = fixture([['P', [['X', ['X1', 'X2']]]]]);
-    f.engine.execute({ type: 'deleteSubtree', id: f.ids.X! });
-    const e = effect(f, { type: 'restore', id: f.ids.X! });
-    expect(new Set(e.affectedNodeIds)).toEqual(new Set([f.ids.X, f.ids.X1, f.ids.X2, f.ids.P]));
-    expect(e.changes).toHaveLength(3);
-    expect(e.focus).toEqual({ id: f.ids.X, offset: 0 });
-  });
-
-  it('restore keeps the old order when free and moves to the end when another node took it', () => {
-    const f = fixture(['A', 'B', 'C']);
-    const order = f.node('B').order;
-    f.engine.execute({ type: 'deleteSubtree', id: f.ids.B! });
-    expect(effect(f, { type: 'restore', id: f.ids.B! }).changes[0]!.after!.order).toBe(order);
-    const taker = newId();
-    f.engine.applyExternal([{ ...f.node('A'), id: taker, content: 'taker', order }], 'test');
-    ok(f.engine.execute({ type: 'restore', id: f.ids.B! }));
-    expect(f.kids(null)).toEqual(['A', 'taker', 'C', 'B']);
-  });
-
-  it('restore leaves alone other deleted nodes with the same time that are not its descendants', () => {
-    const f = fixture(['A', 'B']);
-    // Both deleted in one batch: one timestamp, separate subtrees.
-    ok(f.engine.batch([{ type: 'deleteSubtree', id: f.ids.A! }, { type: 'deleteSubtree', id: f.ids.B! }]));
-    expect(f.node('A').deletedAt).toBe(f.node('B').deletedAt);
-    ok(f.engine.execute({ type: 'restore', id: f.ids.A! }));
-    expect(f.kids(null)).toEqual(['A']);
   });
 });
 

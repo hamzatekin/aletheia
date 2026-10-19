@@ -57,8 +57,7 @@ e2e               Playwright specs
    removes the node again.
 
 Soft delete: `deleteSubtree` stamps the root and every live descendant with the
-same `deletedAt`. `restore` brings back exactly that set, leaving descendants
-deleted earlier in place.
+same `deletedAt`; undo brings the subtree back.
 
 ## Rendering
 

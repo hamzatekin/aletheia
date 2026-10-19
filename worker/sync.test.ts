@@ -110,15 +110,6 @@ describe('sync server', () => {
     const again = (await (await call('GET', 'pull?since=0', KEY_A)).json()) as PullResponse;
     expect(again.nodes[0]!.content).toBe('later');
   });
-
-  it('pulls back times stored from a fast clock before times were capped', async () => {
-    await call('POST', 'space', KEY_A);
-    await call('POST', 'push', KEY_A, { nodes: [wire('n', { t: { ...NO_TIMES, content: 1 } })] });
-    await db.prepare('UPDATE nodes SET content_t = ?1').bind(Date.now() + 10 * 3_600_000).run();
-    resetSchemaCache(); // a new Worker instance
-    const pulled = (await (await call('GET', 'pull?since=0', KEY_A)).json()) as PullResponse;
-    expect(pulled.nodes[0]!.t.content).toBeLessThanOrEqual(Date.now() + MAX_FUTURE_MS);
-  });
 });
 
 // --- two devices ---

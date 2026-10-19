@@ -27,7 +27,7 @@ export interface FeedEnv extends SyncEnv {
 /** Piles never served, whatever FEED_PILES says (compared like `pileKey`). */
 const BLOCKED = new Set(['passwords', 'budget']);
 
-export interface FeedRow {
+interface FeedRow {
   id: string;
   parent_id: string | null;
   ord: string;
@@ -41,7 +41,7 @@ export interface FeedRow {
   deleted_t: number;
 }
 
-export interface FeedNode {
+interface FeedNode {
   id: string;
   /** null for a pile itself, even one nested in a pile that isn't served. */
   parentId: string | null;
@@ -79,7 +79,7 @@ export async function handleFeed(request: Request, env: FeedEnv, now = Date.now(
 }
 
 /** The feed for `rows`: the live subtrees of the allowed piles, and with `since`, only what changed after it. */
-export function buildFeed(rows: FeedRow[], piles: Set<string>, since: number | null, now: number): FeedResponse {
+function buildFeed(rows: FeedRow[], piles: Set<string>, since: number | null, now: number): FeedResponse {
   const byId = new Map(rows.map((r) => [r.id, r]));
   const kids = new Map<string | null, FeedRow[]>();
   for (const r of rows) {
@@ -145,7 +145,7 @@ function updatedAt(row: FeedRow): number {
  * ignored), with any dash read as "-" and no spaces around "/", so
  * "Personal/Girişimcilik / Yatırım" matches Personal › "Girişimcilik / Yatırım".
  */
-export function pileKey(text: string): string {
+function pileKey(text: string): string {
   return label(text).replace(/[‐-―−]/g, '-').replace(/\s*\/\s*/g, '/');
 }
 

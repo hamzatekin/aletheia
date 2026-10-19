@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createTreeStore, readerOf } from '@/store/tree-store';
-import { ancestorIds, descendantIds, isSelfOrDescendant, nextSibling, nextVisible, outlineLines, previousSibling, previousVisible, visibleRows } from './tree';
+import { ancestorIds, descendantIds, isSelfOrDescendant, nextSibling, outlineLines, previousSibling, visibleRows } from './tree';
 import type { Node } from './node';
 import { fixture } from '@/test/helpers';
 
@@ -36,10 +36,6 @@ describe('tree helpers', () => {
     engine.execute({ type: 'toggleCollapse', id: ids.A2! });
     expect(visibleRows(engine.tree, null).map((r) => labelOf(r.id))).toEqual(['A', 'A1', 'A2', 'B']);
     expect(visibleRows(engine.tree, ids.A!).map((r) => labelOf(r.id))).toEqual(['A1', 'A2']);
-    expect(previousVisible(engine.tree, null, ids.B!)).toBe(ids.A2);
-    expect(nextVisible(engine.tree, null, ids.A2!)).toBe(ids.B);
-    expect(previousVisible(engine.tree, null, ids.A!)).toBeNull();
-    expect(nextVisible(engine.tree, null, ids.B!)).toBeNull();
     engine.undo();
   });
 
@@ -62,13 +58,6 @@ describe('sibling and outline helpers', () => {
     expect(previousSibling(tree, ids.B!)).toBe(ids.A);
     expect(previousSibling(tree, 'missing')).toBeNull();
     expect(nextSibling(tree, 'missing')).toBeNull();
-  });
-
-  it('visible-row helpers return null for a row that is not shown', () => {
-    expect(previousVisible(tree, null, 'missing')).toBeNull();
-    expect(nextVisible(tree, null, 'missing')).toBeNull();
-    expect(nextVisible(tree, null, ids.A!)).toBe(ids.A1);
-    expect(previousVisible(tree, null, ids.A1!)).toBe(ids.A);
   });
 
   it('outlineLines indents by depth, skips empty text but keeps its children, and stops at max', () => {

@@ -2,5 +2,5 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": ["pwa/sw.js"],
   "ignoreDependencies": ["wrangler"],
-  "ignoreExportsUsedInFile": true
+  "ignoreExportsUsedInFile": false
 }

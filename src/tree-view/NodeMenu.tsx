@@ -84,7 +84,7 @@ export function NodeMenu({ id, hasChildren, sheet = false }: { id: string; hasCh
           { id: 'collapse-all', label: 'Collapse all inside', run: () => actions.setAllCollapsed(id, true, true) },
         ]
       : []),
-    ...(ai?.available() ? [{ id: 'ai-title', label: 'Suggest title (AI)', run: () => void ai.suggestTitle(id) }] : []),
+    ...(ai.available() ? [{ id: 'ai-title', label: 'Suggest title (AI)', run: () => void ai.suggestTitle(id) }] : []),
     {
       id: 'star',
       label: node.starredAt != null ? 'Unstar' : 'Star',

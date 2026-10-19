@@ -13,16 +13,16 @@ export type Caret =
   /** A mouse click at viewport coordinates. */
   | { kind: 'point'; x: number; y: number; word?: boolean };
 
-export type Field = 'content' | 'note';
+type Field = 'content' | 'note';
 
-export interface Focus {
+interface Focus {
   id: string;
   field: Field;
   caret: Caret;
 }
 
 /** Tree-level selection after Esc: a contiguous range of visible rows. */
-export interface Selection {
+interface Selection {
   anchor: string;
   head: string;
   ids: ReadonlySet<string>;
@@ -38,13 +38,13 @@ export interface DropIndicator {
 }
 
 /** The slash menu, open since a "/" was typed at document position `from`. */
-export interface SlashState {
+interface SlashState {
   from: number;
   query: string;
   index: number;
 }
 
-export interface UiState {
+interface UiState {
   focus: Focus | null;
   selection: Selection | null;
   slash: SlashState | null;

@@ -107,8 +107,6 @@ const UPSERT = `
     ${pick('deleted_at', 'deleted_t')}, deleted_t = max(nodes.deleted_t, excluded.deleted_t),
     ${pick('starred_at', 'starred_t')}, starred_t = max(nodes.starred_t, excluded.starred_t)`;
 
-const GROUP_COLUMNS = ['content_t', 'note_t', 'pos_t', 'collapsed_t', 'starred_t', 'deleted_t'];
-
 let schemaReady: Promise<unknown> | null = null;
 export function ensureSchema(db: SqlDatabase): Promise<unknown> {
   schemaReady ??= db
@@ -118,11 +116,6 @@ export function ensureSchema(db: SqlDatabase): Promise<unknown> {
       const have = new Set(results.map((c) => c.name));
       const missing = ADDED_COLUMNS.filter((c) => !have.has(c.name));
       if (missing.length > 0) await db.batch(missing.map((c) => db.prepare(c.sql)));
-      // Times written by a device whose clock ran ahead, before times were capped.
-      const limit = Date.now() + MAX_FUTURE_MS;
-      const cols = GROUP_COLUMNS.map((c) => `${c} = min(${c}, ?1)`).join(', ');
-      const where = GROUP_COLUMNS.map((c) => `${c} > ?1`).join(' OR ');
-      await db.prepare(`UPDATE nodes SET ${cols} WHERE ${where}`).bind(limit).run();
     })
     .catch((e: unknown) => {
     schemaReady = null;

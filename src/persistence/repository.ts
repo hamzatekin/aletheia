@@ -30,7 +30,7 @@ export interface Repository {
  * transaction, except operations of type `REMOTE_OP` (changes that came from
  * the server).
  */
-export interface SyncStorage {
+interface SyncStorage {
   setTracking(on: boolean): void;
   listOutbox(limit: number): Promise<OutboxEntry[]>;
   getOutbox(nodeIds: readonly string[]): Promise<Map<string, OutboxEntry>>;

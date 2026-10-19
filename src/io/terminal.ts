@@ -5,7 +5,7 @@
  * back into Markdown that renders (and wraps) like any other note.
  */
 
-import { decodeEntities } from './workflowy';
+import { decodeEntities, dedent } from './workflowy';
 
 const VERTICAL = /[│┃║]/;
 const BOX = /[─-╿]/;
@@ -85,14 +85,6 @@ export function boxTablesToMarkdown(text: string): string {
     i = j;
   }
   return out.join('\n');
-}
-
-/** Drop the indentation every non-blank line shares (terminal output is often indented). */
-export function dedent(text: string): string {
-  const lines = text.split('\n');
-  const indents = lines.filter((l) => l.trim() !== '').map((l) => /^[ \t]*/.exec(l)![0].length);
-  const cut = indents.length > 0 ? Math.min(...indents) : 0;
-  return cut === 0 ? text : lines.map((l) => l.slice(Math.min(cut, /^[ \t]*/.exec(l)![0].length))).join('\n');
 }
 
 /**

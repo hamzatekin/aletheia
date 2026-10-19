@@ -41,12 +41,11 @@ interface Props {
   search: SearchIndex;
   settings: SettingsStore;
   sync?: SyncService | undefined;
-  ai?: AiService | undefined;
-  agent?: AgentService | undefined;
+  ai: AiService;
+  agent: AgentService;
 }
 
-/** Stand in for the AI panel's and sync's state when there are none (tests). */
-const closedPanel = createStore(() => ({ open: false }));
+/** Stands in for sync's state in the sandbox, which has no sync. */
 const noSync = createStore(() => ({ key: null as string | null }));
 
 /** `/` shows the top level; `/n/:id` zooms into a node. */
@@ -60,8 +59,8 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, agent }: 
   const missing = rootId !== null && (!root || root.deletedAt !== null);
 
   const actions = useMemo(
-    () => createOutlineActions({ engine, ui, session, search, rootId, navigate }),
-    [engine, ui, session, search, rootId, navigate],
+    () => createOutlineActions({ engine, ui, session, rootId, navigate }),
+    [engine, ui, session, rootId, navigate],
   );
   const context = useMemo(
     () => ({ engine, ui, session, search, actions, rootId, settings, ai, navigate }),
@@ -74,11 +73,10 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, agent }: 
   useEffect(() => () => ui.setFilter(null), [ui, rootId]);
 
   // AI questions start from the zoomed item...
-  useEffect(() => agent?.setPageRoot(rootId), [agent, rootId]);
+  useEffect(() => agent.setPageRoot(rootId), [agent, rootId]);
 
   // AI and Settings share the right side: opening one closes the other.
   useEffect(() => {
-    if (!agent) return;
     const offAgent = agent.state.subscribe((s, prev) => {
       if (s.open && !prev.open) ui.setSettingsOpen(false);
     });
@@ -100,7 +98,7 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, agent }: 
 
   const sidebarOpen = useSettings(settings, (s) => s.sidebarOpen);
   const settingsOpen = useUiStore(ui, (s) => s.settingsOpen);
-  const aiOpen = useStore(agent?.state ?? closedPanel, (s) => s.open);
+  const aiOpen = useStore(agent.state, (s) => s.open);
   const syncOn = useStore(sync?.state ?? noSync, (s) => s.key !== null);
 
   const onBackgroundMouseDown = (e: MouseEvent<HTMLElement>) => {
@@ -131,9 +129,9 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, agent }: 
         <AddToInboxTopButton syncOn={syncOn} />
         <SettingsPanel settings={settings} ui={ui} sync={sync} />
         <TutorialDialog ui={ui} />
-        {agent && <AgentButton agent={agent} />}
-        {agent && <AgentPanel agent={agent} />}
-        {ai && <AiNotice ai={ai} />}
+        <AgentButton agent={agent} />
+        <AgentPanel agent={agent} />
+        <AiNotice ai={ai} />
         <div className="desk min-h-screen" onMouseDown={onBackgroundMouseDown}>
           <main className="book-page" onMouseDown={onBackgroundMouseDown}>
             <PageResizeHandles settings={settings} />

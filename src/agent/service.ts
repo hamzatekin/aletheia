@@ -20,7 +20,7 @@ export interface Turn extends ChatTurn {
   undone?: boolean;
 }
 
-export interface AgentState {
+interface AgentState {
   open: boolean;
   /** The row you're on (last clicked into or selected); null means the zoomed page. */
   row: string | null;

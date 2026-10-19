@@ -86,19 +86,6 @@ export function visibleRows(tree: TreeReader, rootId: string | null): VisibleRow
   return out;
 }
 
-/** Previous row in the visible flattening, or null at the top. */
-export function previousVisible(tree: TreeReader, rootId: string | null, id: string): string | null {
-  const rows = visibleRows(tree, rootId);
-  const i = rows.findIndex((r) => r.id === id);
-  return i > 0 ? rows[i - 1]!.id : null;
-}
-
-export function nextVisible(tree: TreeReader, rootId: string | null, id: string): string | null {
-  const rows = visibleRows(tree, rootId);
-  const i = rows.findIndex((r) => r.id === id);
-  return i >= 0 && i < rows.length - 1 ? rows[i + 1]!.id : null;
-}
-
 /**
  * The descendants of `id` as an indented Markdown-style list ("  - text"), in
  * document order, cut after `max` lines. Rows whose `text` is empty are left

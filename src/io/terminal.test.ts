@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { blockToHtml } from '@/editor/markdown';
-import { boxTablesToMarkdown, dedent, formatTerminalContent, formatTerminalNote, hasBoxTable, isTerminalPaste, looksLikeTerminalProse, terminalHtmlToText, terminalPasteMarkdown, terminalToMarkdown } from './terminal';
+import { boxTablesToMarkdown, formatTerminalContent, formatTerminalNote, hasBoxTable, isTerminalPaste, looksLikeTerminalProse, terminalHtmlToText, terminalPasteMarkdown, terminalToMarkdown } from './terminal';
+import { dedent } from './workflowy';
 
 const ruled = [
   '┌──────────┬────────────────┐',

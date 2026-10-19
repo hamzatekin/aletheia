@@ -198,16 +198,6 @@ describe('push', () => {
   });
 });
 
-describe('schema upgrade', () => {
-  it('leaves stored times within the future minute alone when it caps old ones', async () => {
-    await call('POST', 'space', KEY);
-    const soon = Date.now() + MAX_FUTURE_MS / 2;
-    await push([wire('n', { t: { ...NO_TIMES, content: soon, note: 5 } })]);
-    resetSchemaCache(); // a new Worker instance runs the upgrade again
-    expect((await pull()).nodes[0]!.t).toMatchObject({ content: soon, note: 5 });
-  });
-});
-
 describe('pull', () => {
   beforeEach(async () => {
     await call('POST', 'space', KEY);
