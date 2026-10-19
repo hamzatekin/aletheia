@@ -33,6 +33,7 @@ import { PageTitle } from './PageTitle';
 import { PageToolbar } from './PageToolbar';
 import { useNode } from './use-outline';
 import { usePageEvents } from './use-page-events';
+import { zoomingNavigate } from './zoom-transition';
 
 interface Props {
   ui: UiStore;
@@ -54,7 +55,8 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, agent }: 
   const { id } = useParams<{ id: string }>();
   const rootId = id ?? null;
   const root = useNode(rootId);
-  const navigate = useNavigate();
+  const routerNavigate = useNavigate();
+  const navigate = useMemo(() => zoomingNavigate(routerNavigate, engine.tree, rootId), [routerNavigate, engine, rootId]);
   const missing = rootId !== null && (!root || root.deletedAt !== null);
 
   const actions = useMemo(
@@ -62,8 +64,8 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, agent }: 
     [engine, ui, session, search, rootId, navigate],
   );
   const context = useMemo(
-    () => ({ engine, ui, session, search, actions, rootId, settings, ai }),
-    [engine, ui, session, search, actions, rootId, settings, ai],
+    () => ({ engine, ui, session, search, actions, rootId, settings, ai, navigate }),
+    [engine, ui, session, search, actions, rootId, settings, ai, navigate],
   );
 
   usePageEvents(actions, session, ui, settings);

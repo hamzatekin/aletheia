@@ -23,3 +23,7 @@ function subscribeCoarse(onChange: () => void): () => void {
 export function useCoarsePointer(): boolean {
   return useSyncExternalStore(subscribeCoarse, isCoarsePointer, () => false);
 }
+
+/** A plain left click, not one meant to open the link in a new tab or window. */
+export const plainClick = (e: { button: number; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean }): boolean =>
+  e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;

@@ -1,6 +1,8 @@
 import { useRef, useState, type MouseEvent, type RefObject, type TouchEvent } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link } from 'react-router';
+import { plainClick } from '@/ui/media';
 import { LONG_PRESS_MS, LONG_PRESS_SLOP_PX } from './layout';
+import { useOutline } from './outline-context';
 
 /**
  * After a tap, the pressed halo stays this long before zooming in. The finger
@@ -23,7 +25,7 @@ interface Props {
 export function Bullet({ id, collapsedWithChildren, handleRef, menu }: Props) {
   const press = useRef<{ timer: number; x: number; y: number; fired: boolean } | null>(null);
   const [pressed, setPressed] = useState(false);
-  const navigate = useNavigate();
+  const { navigate } = useOutline();
   const cancel = () => {
     if (press.current) clearTimeout(press.current.timer);
   };
@@ -87,7 +89,14 @@ export function Bullet({ id, collapsedWithChildren, handleRef, menu }: Props) {
       to={`/n/${id}`}
       aria-label="Zoom in"
       {...(menu ? { 'aria-haspopup': 'menu' as const, 'aria-expanded': menu.open } : {})}
-      {...touch}
+      {...(touch ?? {
+        // Through the page's navigate, so zooming in animates.
+        onClick: (e: MouseEvent<HTMLAnchorElement>) => {
+          if (!plainClick(e)) return;
+          e.preventDefault();
+          void navigate(`/n/${id}`);
+        },
+      })}
       {...(pressed ? { 'data-pressed': '' } : {})}
       className="group/bullet flex h-(--row-lh) w-5 shrink-0 cursor-grab items-center justify-center rounded-full active:cursor-grabbing"
     >

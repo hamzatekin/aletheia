@@ -29,7 +29,8 @@ export function App({ engine, ui, session, search, settings, sync, ai, agent }: 
   return (
     <EngineProvider value={engine}>
       {/* In the sandbox every route sits under /sandbox, so links and navigate('/n/…') stay inside it. */}
-      <BrowserRouter basename={inSandbox ? SANDBOX_PATH : '/'}>
+      {/* Page changes render at once (no React transition), so zooming can animate them as a view transition (zoom-transition.ts). */}
+      <BrowserRouter basename={inSandbox ? SANDBOX_PATH : '/'} useTransitions={false}>
         <Routes>
           <Route path="/" element={page} />
           <Route path="/n/:id" element={page} />
