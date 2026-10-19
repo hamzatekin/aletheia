@@ -1,6 +1,6 @@
-import { descendantIds, isLive, isSelfOrDescendant, orderBetween } from '@/model';
+import { isLive, isSelfOrDescendant, orderBetween } from '@/model';
 import { ChangeSet } from './changes';
-import { orderFor, parentNodeIds, unique } from './position';
+import { orderFor } from './position';
 import { Rejection, type CommandContext, type CommandOf, type Effect } from './types';
 
 export function createNode(ctx: CommandContext, cmd: CommandOf<'createNode'>): Effect | Rejection {
@@ -19,29 +19,25 @@ export function createNode(ctx: CommandContext, cmd: CommandOf<'createNode'>): E
     note: cmd.note ?? '',
     collapsed: false,
   });
-  return {
-    changes: cs.list(),
-    affectedNodeIds: [cmd.id, ...parentNodeIds(cmd.parentId)],
-    focus: { id: cmd.id, offset: 0 },
-  };
+  return { changes: cs.list(), focus: { id: cmd.id, offset: 0 } };
 }
 
 export function updateContent(ctx: CommandContext, cmd: CommandOf<'updateContent'>): Effect | Rejection {
   const node = ctx.tree.get(cmd.id);
   if (!isLive(node)) return new Rejection('node is missing or deleted');
-  if (node.content === cmd.content) return { changes: [], affectedNodeIds: [] };
+  if (node.content === cmd.content) return { changes: [] };
   const cs = new ChangeSet(ctx.tree, ctx.now);
   cs.update(cmd.id, { content: cmd.content });
-  return { changes: cs.list(), affectedNodeIds: [cmd.id] };
+  return { changes: cs.list() };
 }
 
 export function updateNote(ctx: CommandContext, cmd: CommandOf<'updateNote'>): Effect | Rejection {
   const node = ctx.tree.get(cmd.id);
   if (!isLive(node)) return new Rejection('node is missing or deleted');
-  if (node.note === cmd.note) return { changes: [], affectedNodeIds: [] };
+  if (node.note === cmd.note) return { changes: [] };
   const cs = new ChangeSet(ctx.tree, ctx.now);
   cs.update(cmd.id, { note: cmd.note });
-  return { changes: cs.list(), affectedNodeIds: [cmd.id] };
+  return { changes: cs.list() };
 }
 
 /**
@@ -87,11 +83,7 @@ export function splitNode(ctx: CommandContext, cmd: CommandOf<'splitNode'>): Eff
   if (!insertAbove && node.content !== cmd.left) cs.update(node.id, { content: cmd.left });
   cs.create({ id: cmd.newId, parentId, order, content, note: '', collapsed: false });
 
-  return {
-    changes: cs.list(),
-    affectedNodeIds: unique([node.id, cmd.newId, ...parentNodeIds(parentId)]),
-    focus,
-  };
+  return { changes: cs.list(), focus };
 }
 
 const JOIN_DELIMITERS = ['***', '**', '*', '___', '__', '_', '~~', '`'];
@@ -127,7 +119,6 @@ export function mergeNodes(ctx: CommandContext, cmd: CommandOf<'mergeNodes'>): E
   cs.update(target.id, { content: joinMarkdown(target.content, source.content) });
 
   const kids = tree.children(source.id);
-  const affected = new Set<string>([source.id, target.id, ...parentNodeIds(source.parentId)]);
 
   if (kids.length > 0) {
     let lower: string | null;
@@ -145,11 +136,9 @@ export function mergeNodes(ctx: CommandContext, cmd: CommandOf<'mergeNodes'>): E
     for (const kid of kids) {
       lower = orderBetween(lower, upper);
       cs.update(kid, { parentId: target.id, order: lower });
-      affected.add(kid);
-      for (const d of descendantIds(tree, kid)) affected.add(d);
     }
   }
   cs.update(source.id, { deletedAt: ctx.now });
 
-  return { changes: cs.list(), affectedNodeIds: [...affected], focus: { id: target.id, offset: caret } };
+  return { changes: cs.list(), focus: { id: target.id, offset: caret } };
 }

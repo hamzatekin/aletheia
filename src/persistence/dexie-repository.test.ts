@@ -20,7 +20,7 @@ describe('DexieRepository', () => {
     );
   });
 
-  it('commits nodes and operations atomically and reloads them', async () => {
+  it('commits nodes and reloads them', async () => {
     const repo = freshRepo();
     const engine = createEngine({ store: createTreeStore(), repository: repo, now: makeClock() });
     const a = newId();
@@ -33,8 +33,7 @@ describe('DexieRepository', () => {
 
     const nodes = await repo.loadAllNodes();
     expect(nodes.map((n) => n.content).sort()).toEqual(['A', 'B']);
-    const ops = await repo.listOperations();
-    expect(ops.map((o) => o.type)).toEqual(['createNode', 'createNode', 'updateContent', 'undo']);
+    expect(await repo.db.operations.count()).toBe(0); // no edit log kept
 
     const store2 = createTreeStore();
     const engine2 = createEngine({ store: store2, repository: repo, now: makeClock() });

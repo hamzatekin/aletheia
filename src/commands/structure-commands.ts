@@ -1,6 +1,6 @@
-import { descendantIds, isLive, isSelfOrDescendant, nextSibling, previousSibling } from '@/model';
+import { isLive, isSelfOrDescendant, nextSibling, previousSibling } from '@/model';
 import { ChangeSet } from './changes';
-import { orderFor, parentNodeIds, unique } from './position';
+import { orderFor } from './position';
 import { Rejection, type Command, type CommandContext, type CommandOf, type Effect, type Position } from './types';
 
 function moveTo(
@@ -24,11 +24,7 @@ function moveTo(
   cs.update(id, { parentId, order });
   extra?.(cs);
 
-  return {
-    changes: cs.list(),
-    affectedNodeIds: unique([id, ...descendantIds(tree, id), ...parentNodeIds(node.parentId, parentId)]),
-    focus: { id, offset: 0 },
-  };
+  return { changes: cs.list(), focus: { id, offset: 0 } };
 }
 
 export function moveNode(ctx: CommandContext, cmd: CommandOf<'moveNode'>): Effect | Rejection {
@@ -59,20 +55,20 @@ export function toggleCollapse(ctx: CommandContext, cmd: CommandOf<'toggleCollap
   const node = ctx.tree.get(cmd.id);
   if (!isLive(node)) return new Rejection('node is missing or deleted');
   const collapsed = cmd.collapsed ?? !node.collapsed;
-  if (collapsed === node.collapsed) return { changes: [], affectedNodeIds: [] };
+  if (collapsed === node.collapsed) return { changes: [] };
   const cs = new ChangeSet(ctx.tree, ctx.now);
   cs.update(cmd.id, { collapsed });
-  return { changes: cs.list(), affectedNodeIds: [cmd.id] };
+  return { changes: cs.list() };
 }
 
 export function toggleStar(ctx: CommandContext, cmd: CommandOf<'toggleStar'>): Effect | Rejection {
   const node = ctx.tree.get(cmd.id);
   if (!isLive(node)) return new Rejection('node is missing or deleted');
   const starred = cmd.starred ?? node.starredAt == null;
-  if (starred === (node.starredAt != null)) return { changes: [], affectedNodeIds: [] };
+  if (starred === (node.starredAt != null)) return { changes: [] };
   const cs = new ChangeSet(ctx.tree, ctx.now);
   cs.update(cmd.id, { starredAt: starred ? ctx.now : null });
-  return { changes: cs.list(), affectedNodeIds: [cmd.id] };
+  return { changes: cs.list() };
 }
 
 /** Sibling-order helpers used by Alt+Shift+Up/Down. */

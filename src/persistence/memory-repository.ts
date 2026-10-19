@@ -23,6 +23,7 @@ export class MemoryRepository implements SyncRepository {
     }
   }
 
+  /** Every committed operation, in order (tests check what the engine saves). */
   async listOperations(): Promise<Operation[]> {
     return [...this.operations];
   }

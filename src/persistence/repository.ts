@@ -18,7 +18,6 @@ export interface CommitBatch {
 export interface Repository {
   loadAllNodes(): Promise<Node[]>;
   commit(batch: CommitBatch): Promise<void>;
-  listOperations(): Promise<Operation[]>;
   /** Replace all nodes (import / restore from backup). `at` stamps the sync outbox. */
   replaceAllNodes(nodes: Node[], at?: number): Promise<void>;
 }
