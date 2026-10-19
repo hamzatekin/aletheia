@@ -145,12 +145,12 @@ body {
   max-width: var(--page-width);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 3rem 1.5rem 6rem 4rem;
+  padding: 4.25rem 1.5rem 6rem 4rem;
   background: var(--page);
   overflow-x: clip;
 }
 @media (min-width: 640px) {
-  .book-page { padding: 3rem 2.5rem 6rem 5rem; }
+  .book-page { padding: 4.25rem 2.5rem 6rem 5rem; }
 }
 /* The top margin clears the row of buttons at the top right (12px down, 34px
    tall), so their hover background never touches the sheet. */
@@ -181,7 +181,7 @@ body {
    collapse arrow sits at the right end of the line), so the margins can be thin. */
 @media (max-width: 639px) and (pointer: coarse) {
   .book-page,
-  :root[data-book='true'] .book-page { padding: 3.25rem 0.75rem 6rem 1.75rem; }
+  :root[data-book='true'] .book-page { padding: 4.25rem 0.75rem 6rem 1.75rem; }
 }
 /* A phone turned sideways is wide but short: drop the desk margin above and
    below the sheet and the tall book padding, so the outline starts near the top. */
@@ -189,7 +189,7 @@ body {
   :root[data-book='true'] .book-page { margin: 0 auto; border-radius: 0; min-height: 100vh; }
   .book-page,
   :root[data-book='true'] .book-page,
-  :root[data-shape='landscape'][data-book='true'] .book-page { padding: 3.25rem 2rem 6rem 3rem; }
+  :root[data-shape='landscape'][data-book='true'] .book-page { padding: 4.25rem 2rem 6rem 3rem; }
 }
 
 /* Leave room for the outline sidebar on wide screens. */
@@ -554,13 +554,18 @@ html { scroll-padding-top: 4rem; }
 
 /* Stars: marker gold, like WorkFlowy's. */
 .star-on { color: light-dark(#d4a017, #f2c94c); }
-/* The back arrow, the page's star and the rows' bullets share one column in the
-   gutter, centered 16px left of the text (14px on phones), so ‹, ★ and • line up. */
+/* The page's star sits in the bullets' column, 16px left of the text (14px on phones). */
 .page-star { left: -1.875rem; top: calc(0.96em - 0.875rem); }
 @media (max-width: 639px) and (pointer: coarse) {
   .page-star { left: -1.75rem; }
 }
-.crumbs-back { left: -1.875rem; top: 50%; width: 1.75rem; height: 1.75rem; margin-top: -0.875rem; }
-@media (max-width: 639px) and (pointer: coarse) {
-  .crumbs-back { left: -1.75rem; height: 2.5rem; margin-top: -1.25rem; border-radius: 0.5rem; }
+/* Breadcrumbs in the top bar: after the outline button, or right of the open
+   sidebar, and clear of the buttons at the right. */
+.crumbs-bar { left: 3.25rem; max-width: calc(100vw - 3.25rem - 18rem); }
+@media (min-width: 1024px) {
+  .app-shell[data-sidebar='open'] .crumbs-bar { left: calc(var(--sidebar-width) + 0.75rem); max-width: calc(100vw - var(--sidebar-width) - 19rem); }
 }
+@media (max-width: 639px) and (pointer: coarse) {
+  .crumbs-bar { max-width: calc(100vw - 3.25rem - 13rem); }
+}
+
