@@ -27,7 +27,7 @@ test('bullet zooms in, breadcrumbs and back zoom out, title is editable', async 
   await expect(page).toHaveURL('/');
 });
 
-test('the back arrow goes up one level, and the crumbs line up with the title', async ({ page }) => {
+test('the back arrow goes up one level, and the crumbs sit in the top bar', async ({ page }) => {
   await row(page, 'Write the outliner').getByRole('link', { name: 'Zoom in' }).click();
   await expect(title(page)).toHaveText('Write the outliner');
   const textX = (selector: string) =>
@@ -36,7 +36,11 @@ test('the back arrow goes up one level, and the crumbs line up with the title', 
       r.selectNodeContents(el);
       return r.getBoundingClientRect().x;
     });
-  expect(Math.abs((await textX('nav[aria-label=Breadcrumbs] a')) - (await textX('header[data-title] h1')))).toBeLessThan(1);
+  // The crumbs sit up in the top bar, like WorkFlowy's, so nothing is above the title on the page.
+  const bar = (await page.getByTestId('top-bar').boundingBox())!;
+  const crumbs = (await page.locator('nav[aria-label=Breadcrumbs]').boundingBox())!;
+  expect(crumbs.y + crumbs.height).toBeLessThanOrEqual(bar.y + bar.height);
+  expect(await textX('nav[aria-label=Breadcrumbs] a')).toBeLessThan(await textX('header[data-title] h1'));
 
   const back = page.getByTestId('zoom-out');
   await expect(back).toBeVisible();
@@ -49,7 +53,7 @@ test('the back arrow goes up one level, and the crumbs line up with the title', 
   await expect(back).toHaveCount(0);
 });
 
-test('Home and zoomed pages put the title and list in the same place, with ‹, ★ and bullets in one column', async ({ page }) => {
+test('Home and zoomed pages put the title and list in the same place, with the star in the bullets\' column', async ({ page }) => {
   const box = (selector: string) => page.locator(selector).first().evaluate((el) => el.getBoundingClientRect().toJSON() as DOMRect);
   const centerX = (r: DOMRect) => Math.round(r.x + r.width / 2);
 
@@ -68,7 +72,6 @@ test('Home and zoomed pages put the title and list in the same place, with ‹, 
 
   const bullet = centerX(await box('[data-testid=outline] .bullet-dot'));
   expect(bullet).toBe(centerX(homeBullet));
-  expect(Math.abs(centerX(await box('[data-testid=zoom-out]')) - bullet)).toBeLessThanOrEqual(1);
   expect(Math.abs(centerX(await box('[data-testid=page-star] svg')) - bullet)).toBeLessThanOrEqual(1);
 });
 
