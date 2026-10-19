@@ -569,3 +569,14 @@ html { scroll-padding-top: 4rem; }
   .crumbs-bar { max-width: calc(100vw - 3.25rem - 13rem); }
 }
 
+
+/* Zooming in and out (zoom-transition.ts): the page cross-fades quickly while
+   the item's text glides into the title's place, growing from row size to
+   title size (or back), anchored at its left edge like WorkFlowy's. */
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: 180ms; }
+::view-transition-group(zoom-title) { animation-duration: 260ms; animation-timing-function: cubic-bezier(0.2, 0, 0, 1); }
+::view-transition-old(zoom-title),
+::view-transition-new(zoom-title) { inline-size: auto; block-size: 100%; animation-duration: 260ms; }
+/* Clicks during the animation reach the new page underneath. */
+::view-transition { pointer-events: none; }

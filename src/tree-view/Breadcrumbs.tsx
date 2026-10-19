@@ -1,8 +1,9 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import { Link } from 'react-router';
 import { HOME_LABEL } from '@/app/sandbox';
 import { plainText } from '@/editor/markdown';
-import { isMac, useCoarsePointer } from '@/ui/media';
+import { isMac, plainClick, useCoarsePointer } from '@/ui/media';
+import { useOutline } from './outline-context';
 import { useAncestors } from './use-outline';
 
 interface Props {
@@ -18,6 +19,13 @@ interface Props {
  */
 export function Breadcrumbs({ rootId }: Props) {
   const ancestors = useAncestors(rootId);
+  const { navigate } = useOutline();
+  // Through the page's navigate, so zooming out animates.
+  const zoomOut = (to: string, from: string) => (e: MouseEvent<HTMLAnchorElement>) => {
+    if (!plainClick(e)) return;
+    e.preventDefault();
+    void navigate(to, { state: { from } });
+  };
   const coarse = useCoarsePointer();
   const navRef = useRef<HTMLElement>(null);
   const [overflowLeft, setOverflowLeft] = useState(false);
@@ -37,6 +45,7 @@ export function Breadcrumbs({ rootId }: Props) {
       <Link
         to={parent ? `/n/${parent.id}` : '/'}
         state={{ from: rootId }}
+        onClick={zoomOut(parent ? `/n/${parent.id}` : '/', rootId)}
         className="flex size-[34px] shrink-0 items-center justify-center rounded-md hover:bg-hover hover:text-ink pointer-coarse:size-10"
         aria-label={`Back to ${parentName}`}
         title={`Back to ${parentName} (${isMac ? '⌘' : 'Ctrl+'},)`}
@@ -51,7 +60,7 @@ export function Breadcrumbs({ rootId }: Props) {
         data-overflow-left={overflowLeft || undefined}
         onScroll={(e) => setOverflowLeft(e.currentTarget.scrollLeft > 0)}
       >
-        <Link to="/" state={{ from: ancestors[0]?.id ?? rootId }} className={crumb}>
+        <Link to="/" state={{ from: ancestors[0]?.id ?? rootId }} onClick={zoomOut('/', ancestors[0]?.id ?? rootId)} className={crumb}>
           {HOME_LABEL}
         </Link>
         {ancestors.map((a, i) => (
@@ -59,7 +68,7 @@ export function Breadcrumbs({ rootId }: Props) {
             <span className="mx-0.5 select-none text-faint" aria-hidden="true">
               ›
             </span>
-            <Link to={`/n/${a.id}`} state={{ from: ancestors[i + 1]?.id ?? rootId }} className={crumb}>
+            <Link to={`/n/${a.id}`} state={{ from: ancestors[i + 1]?.id ?? rootId }} onClick={zoomOut(`/n/${a.id}`, ancestors[i + 1]?.id ?? rootId)} className={crumb}>
               {plainText(a.content) || 'Untitled'}
             </Link>
           </span>

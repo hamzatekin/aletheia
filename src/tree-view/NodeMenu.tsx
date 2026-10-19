@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router';
 import { moveDownCommand, moveUpCommand, type Command } from '@/commands';
 import { importItems } from '@/io';
 import { subtreeItems } from '@/io/clipboard';
@@ -38,8 +37,7 @@ function terminalFixes(tree: TreeReader, id: string): Command[] {
  * screens a sheet from the bottom of the screen, where a thumb reaches it.
  */
 export function NodeMenu({ id, hasChildren, sheet = false }: { id: string; hasChildren: boolean; sheet?: boolean }) {
-  const { engine, ui, session, rootId, actions, ai } = useOutline();
-  const navigate = useNavigate();
+  const { engine, ui, session, rootId, actions, ai, navigate } = useOutline();
   const ref = useRef<HTMLDivElement>(null);
   const close = () => ui.setMenu(null);
   const noteCollapsed = useNotePrefs((s) => isNoteCollapsed(s, id));

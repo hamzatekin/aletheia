@@ -5,6 +5,7 @@ import type { EditorSession } from '@/editor/session';
 import type { SearchIndex } from '@/search';
 import type { SettingsStore } from '@/store/settings-store';
 import type { UiStore } from '@/store/ui-store';
+import type { NavigateFunction } from 'react-router';
 import type { OutlineActions } from './actions';
 
 export interface OutlineContextValue {
@@ -15,6 +16,8 @@ export interface OutlineContextValue {
   actions: OutlineActions;
   rootId: string | null;
   settings: SettingsStore;
+  /** Goes to another page; zooming in or out animates (zoom-transition.ts). */
+  navigate: NavigateFunction;
   /** AI actions; missing in tests that render the page without them. */
   ai?: AiService | undefined;
 }

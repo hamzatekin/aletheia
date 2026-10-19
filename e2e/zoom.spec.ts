@@ -64,6 +64,8 @@ test('Home and zoomed pages put the title and list in the same place, with the s
 
   await row(page, 'Projects').getByRole('link', { name: 'Zoom in' }).click();
   await expect(title(page)).toHaveText('Projects');
+  // Clicks wait for the zoom animation to end (it covers the page while it runs).
+  await expect(page.locator('html')).not.toHaveAttribute('data-zoom');
   await page.getByTestId('page-star').click();
   const zoomTitle = await box('header[data-title] h1');
   expect(Math.round(zoomTitle.top)).toBe(Math.round(homeTitle.top));
@@ -158,4 +160,27 @@ test('the node menu collapses and expands everything inside one node', async ({ 
 
 test("clicking into a zoomed page's note moves nothing", async ({ page }) => {
   await expectPageNoteStill(page, (li) => li.click());
+});
+
+test('zooming in and out animates, and not when the system asks for reduced motion', async ({ page }) => {
+  // Each zoom marks the page with its direction while the view transition runs.
+  const directions = () => page.evaluate(() => (window as any).__zooms as string[]);
+  await page.evaluate(() => {
+    (window as any).__zooms = [];
+    new MutationObserver(() => {
+      const z = document.documentElement.dataset.zoom;
+      if (z) (window as any).__zooms.push(z);
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-zoom'] });
+  });
+  await row(page, 'Projects').getByRole('link', { name: 'Zoom in' }).click();
+  await expect(title(page)).toHaveText('Projects');
+  await expect(page.locator('html')).not.toHaveAttribute('data-zoom');
+  await page.getByTestId('zoom-out').click();
+  await expect(page).toHaveURL('/');
+  await expect.poll(directions).toEqual(['in', 'out']);
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await row(page, 'Projects').getByRole('link', { name: 'Zoom in' }).click();
+  await expect(title(page)).toHaveText('Projects');
+  expect(await directions()).toEqual(['in', 'out']);
 });
