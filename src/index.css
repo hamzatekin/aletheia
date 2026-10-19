@@ -136,6 +136,13 @@ body {
   .group\/bullet:hover .bullet-dot.bullet-collapsed {
     box-shadow: 0 0 0 calc(var(--font-size) * 0.26) var(--halo-hover);
   }
+  /* The focused row keeps its grip and arrow, but only until the mouse is on
+     another row: then that row alone shows them, so they can't be mistaken
+     for its grip. An open menu keeps its grip. */
+  [data-testid='outline']:has([data-depth]:hover) [data-depth]:not(:hover) > .grip:not([aria-expanded='true']),
+  [data-testid='outline']:has([data-depth]:hover) [data-depth]:not(:hover) .row-toggle {
+    opacity: 0;
+  }
 }
 
 /* The text column. In book mode it is a sheet of paper resting on the desk. */

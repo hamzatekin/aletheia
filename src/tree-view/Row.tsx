@@ -171,8 +171,9 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
     engine.execute({ type: 'updateNote', id, note: noteAfterTick(node.note, box) });
   };
 
-  // The grip and its menu sit left of the bullet (desktop only, so the desktop indent).
-  const gripLeft = depth * INDENT_PX - 68;
+  // The grip and its menu sit just left of the bullet, or of the arrow on a parent, as in Dynalist (desktop only, so the desktop indent).
+  const gripLeft = depth * INDENT_PX - (hasChildren ? 68 : 48);
+  const gripShown = focusField !== null || noteHeld || menuOpen;
 
   return (
     <div
@@ -218,7 +219,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
         tabIndex={-1}
         className={
           'grip absolute flex h-6 w-6 pointer-coarse:hidden cursor-pointer items-center justify-center rounded-full text-faint transition-[opacity,background-color] ' +
-          (focusField || noteHeld || menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
+          (gripShown ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
         }
         style={{ left: gripLeft, top: 'calc((var(--row-lh) - 1.5rem) / 2 + 1px)' }}
         data-testid="drag-grip"
@@ -239,7 +240,7 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
       {/* On phones the arrow sits at the right end, so the gutter holds just the bullet. */}
       <div className={coarse ? '-ml-6 flex w-6 shrink-0 items-start pr-1' : '-ml-11.5 flex w-11.5 shrink-0 items-start pr-1.5'}>
         {coarse ? null : hasChildren ? (
-          <CollapseToggle collapsed={collapsed} onToggle={toggle} />
+          <CollapseToggle collapsed={collapsed} onToggle={toggle} shown={gripShown} />
         ) : (
           <span className="w-5 shrink-0" />
         )}
