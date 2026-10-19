@@ -60,8 +60,8 @@ describe('SearchIndex details', () => {
   it('searchAny matches any term, by prefix only from 5 letters and fuzzily only from 6', () => {
     const f = fixture(['garden tools', 'kitchen', 'gardening club', 'the cat', 'catalog', 'planets']);
     const index = new SearchIndex(f.engine);
-    const ids = (terms: string[], boost?: (t: string) => number, limit?: number) =>
-      index.searchAny(terms, boost, limit).map((h) => f.engine.tree.get(h.id)!.content);
+    const ids = (terms: string[], limit?: number) =>
+      index.searchAny(terms, limit).map((h) => f.engine.tree.get(h.id)!.content);
     expect(ids([])).toEqual([]);
     expect(new Set(ids(['kitchen', 'tools']))).toEqual(new Set(['kitchen', 'garden tools']));
     expect(new Set(ids(['garde']))).toEqual(new Set(['garden tools', 'gardening club']));
@@ -70,8 +70,6 @@ describe('SearchIndex details', () => {
     expect(ids(['plnets'])).toEqual(['planets']);
     expect(ids(['kitchn'])).toEqual(['kitchen']);
     expect(ids(['tols'])).toEqual([]);
-    expect(ids(['kitchen', 'tools'], (t) => (t === 'tools' ? 10 : 1))[0]).toBe('garden tools');
-    expect(ids(['kitchen', 'tools'], (t) => (t === 'kitchen' ? 10 : 1))[0]).toBe('kitchen');
-    expect(ids(['kitchen', 'tools'], undefined, 1)).toHaveLength(1);
+    expect(ids(['kitchen', 'tools'], 1)).toHaveLength(1);
   });
 });

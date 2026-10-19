@@ -11,17 +11,12 @@ interface Props {
   id: string;
 }
 
-/** Which way notes are edited on this device: rendered (default) or raw Markdown. */
-export function useNoteMode(): { raw: boolean } {
-  return { raw: useNotePrefs((s) => s.raw) };
-}
-
 /** Edits a note, rendered (default) or as raw Markdown, under the note header. */
 export function NoteEditor({ id }: Props) {
-  const { raw } = useNoteMode();
+  const raw = useNotePrefs((s) => s.raw);
   return (
     <div className="note-box relative flow-root">
-      <NoteHeader id={id} raw={raw} overlay={raw} />
+      <NoteHeader id={id} />
       {raw ? <RawNoteEditor id={id} /> : <RichNoteEditor id={id} />}
     </div>
   );
@@ -44,10 +39,12 @@ const MarkdownIcon = () => (
  * in or out. It floats, so the note's first line wraps around it and the note
  * starts right under its node instead of under a header row. It shows the
  * current mode (lines for rendered, <> for Markdown); clicking it switches.
- * `quiet` hides it until the row is hovered. `overlay` pins it over the raw
- * textarea instead, which reserves room for it on the right.
+ * `quiet` hides it until the row is hovered. While editing as Markdown it is
+ * pinned over the raw textarea instead, which reserves room for it on the right.
  */
-export function NoteHeader({ id, raw, quiet = false, overlay = false }: { id: string; raw: boolean; quiet?: boolean; overlay?: boolean }) {
+export function NoteHeader({ id, quiet = false }: { id: string; quiet?: boolean }) {
+  const raw = useNotePrefs((s) => s.raw);
+  const overlay = raw && !quiet;
   const tip = raw ? 'Markdown. Click to edit rendered' : 'Rendered. Click to edit as Markdown';
   // Hidden until the row is hovered, except on touch screens, which have no hover.
   const reveal = quiet ? 'opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100' : '';

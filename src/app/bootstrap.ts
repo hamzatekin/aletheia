@@ -1,12 +1,12 @@
 import { createEngine, type Engine } from '@/commands';
 import { seedNodes } from '@/model';
-import { DexieRepository, type Repository } from '@/persistence';
+import type { Repository } from '@/persistence';
 import { createTreeStore } from '@/store/tree-store';
 
 /** Create the engine over the given repository, seeding the sample tree on first run (unless `seed` is false). */
-export async function bootstrap(repository: Repository = new DexieRepository(), now?: () => number, seed = true): Promise<Engine> {
+export async function bootstrap(repository: Repository, now: () => number, seed: boolean): Promise<Engine> {
   const store = createTreeStore();
-  const engine = createEngine(now ? { store, repository, now } : { store, repository });
+  const engine = createEngine({ store, repository, now });
   await engine.load();
   if (seed && store.getState().nodes.size === 0) {
     await repository.replaceAllNodes(seedNodes());

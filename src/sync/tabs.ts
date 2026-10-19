@@ -12,8 +12,6 @@ type Message =
   | { type: 'sync-key' };
 
 export interface TabsOptions {
-  /** Another tab replaced every node. Default: reload this tab. */
-  onReplaced?: () => void;
   /** Tabs on the same channel share one database. Default: the real notes'. */
   channel?: string;
 }
@@ -31,7 +29,6 @@ export function connectTabs(engine: Engine, sync: SyncService | null, opts: Tabs
   if (typeof BroadcastChannel === 'undefined') return () => {};
   const channel = new BroadcastChannel(opts.channel ?? 'aletheia-tabs');
   const send = (m: Message) => channel.postMessage(m);
-  const onReplaced = opts.onReplaced ?? (() => window.location.reload());
 
   const offOp = engine.onOperation((op) => {
     if (op.type === PEER_OP || op.changes.length === 0) return;
@@ -55,7 +52,8 @@ export function connectTabs(engine: Engine, sync: SyncService | null, opts: Tabs
       // Backup in case that tab closes before its own upload runs.
       if (m.local) sync?.schedule();
     } else if (m.type === 'replaced') {
-      onReplaced();
+      // Another tab replaced every node: start over from the disk.
+      window.location.reload();
     } else if (m.type === 'sync-key' && sync) {
       following = true;
       void sync.reloadKey().finally(() => {

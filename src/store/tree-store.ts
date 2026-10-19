@@ -11,7 +11,7 @@ import { parentKey, type Node, type NodeChange, type TreeReader } from '@/model'
  * `s.nodes.get(id)` therefore return stable references and components
  * re-render only when the node they read actually changed.
  */
-export interface TreeState {
+interface TreeState {
   /** Every node, including soft-deleted ones (needed for restore/undo). */
   readonly nodes: ReadonlyMap<string, Node>;
   /** Live children per parent key (`ROOT` for top level), in sibling order. */

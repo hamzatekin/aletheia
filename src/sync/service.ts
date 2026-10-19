@@ -6,7 +6,7 @@ import { createClock, type Clock } from './clock';
 import { entriesForAll, entriesForChanges, mergeEntry, type OutboxEntry } from './outbox';
 import { fromWire, GROUPS, overlayPending, tombstone, toWire, type PullResponse, type PushResponse, type ServerNode, type WireNode } from './wire';
 
-export type SyncStatus = 'off' | 'idle' | 'syncing' | 'offline' | 'error';
+type SyncStatus = 'off' | 'idle' | 'syncing' | 'offline' | 'error';
 
 export interface SyncState {
   status: SyncStatus;
@@ -51,8 +51,6 @@ const PUSH_MAX_BYTES = 800_000;
 const PULL_PAGE = 500;
 
 export interface SyncServiceOptions {
-  /** Wall clock (tests). Ignored when `clock` is given. */
-  now?: () => number;
   /** The clock the engine stamps edits with; pulled times are fed to it. */
   clock?: Clock;
   /** Wait this long after the last edit before uploading. */
@@ -95,7 +93,7 @@ export class SyncService {
     private readonly api: SyncApi,
     opts: SyncServiceOptions = {},
   ) {
-    this.clock = opts.clock ?? createClock(opts.now);
+    this.clock = opts.clock ?? createClock();
     this.debounceMs = opts.debounceMs ?? 2000;
     this.afterReplace = opts.afterReplace ?? (() => {});
     this.beforeApply = opts.beforeApply ?? (() => {});

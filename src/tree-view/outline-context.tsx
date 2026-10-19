@@ -8,7 +8,7 @@ import type { UiStore } from '@/store/ui-store';
 import type { NavigateFunction } from 'react-router';
 import type { OutlineActions } from './actions';
 
-export interface OutlineContextValue {
+interface OutlineContextValue {
   engine: Engine;
   ui: UiStore;
   session: EditorSession;
@@ -18,8 +18,7 @@ export interface OutlineContextValue {
   settings: SettingsStore;
   /** Goes to another page; zooming in or out animates (zoom-transition.ts). */
   navigate: NavigateFunction;
-  /** AI actions; missing in tests that render the page without them. */
-  ai?: AiService | undefined;
+  ai: AiService;
 }
 
 const OutlineContext = createContext<OutlineContextValue | null>(null);

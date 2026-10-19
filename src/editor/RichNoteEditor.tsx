@@ -248,7 +248,7 @@ export function RichNoteEditor({ id }: { id: string }) {
 
   return (
     <>
-      <div ref={host} className="rich-note" />
+      <div ref={host} />
       {slash && (
         <SlashList
           items={slashItems}

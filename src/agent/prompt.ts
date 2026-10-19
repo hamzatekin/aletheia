@@ -213,7 +213,7 @@ export function readResults(tree: TreeReader, search: SearchIndex, refs: Refs, r
       out.push(`search "${r.search}":`);
       let hits = search.search(r.search, SEARCH_HITS);
       // Every word must match for search(); fall back to any word.
-      if (hits.length === 0) hits = search.searchAny(r.search.split(/\s+/).filter((w) => w.length >= 2), () => 1, SEARCH_HITS);
+      if (hits.length === 0) hits = search.searchAny(r.search.split(/\s+/).filter((w) => w.length >= 2), SEARCH_HITS);
       const live = hits.map((h) => h.id).filter((id) => isLive(tree.get(id)));
       out.push(...(live.length > 0 ? live.map((id) => rowLine(tree, refs, id, true)) : ['No rows match.']));
     } else {

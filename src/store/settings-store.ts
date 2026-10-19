@@ -7,7 +7,7 @@ import { useStore } from 'zustand';
  */
 
 export type ThemeId = 'system' | 'paper' | 'sepia' | 'night' | 'custom';
-export type PageShape = 'portrait' | 'landscape';
+type PageShape = 'portrait' | 'landscape';
 export type FontId = 'inter' | 'system' | 'literata' | 'georgia' | 'mono';
 
 export interface Settings {
@@ -119,7 +119,7 @@ export function sanitize(input: unknown): Settings {
   return out;
 }
 
-export interface SettingsState extends Settings {
+interface SettingsState extends Settings {
   update(patch: Partial<Settings>): void;
   reset(): void;
 }

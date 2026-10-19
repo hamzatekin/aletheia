@@ -12,7 +12,7 @@ function pageOf(path: string): string | null | undefined {
 }
 
 /** Zooming in goes to something inside the page, out to something around it; anything else is a jump. */
-export function zoomDirection(tree: TreeReader, from: string | null, to: string | null): Direction | null {
+function zoomDirection(tree: TreeReader, from: string | null, to: string | null): Direction | null {
   if (from === to) return null;
   if (to !== null && (from === null || isSelfOrDescendant(tree, from, to))) return 'in';
   if (from !== null && (to === null || isSelfOrDescendant(tree, to, from))) return 'out';

@@ -31,7 +31,7 @@ export function AddToInboxButton() {
         actions.quickAdd();
       }}
       onMouseDown={(e) => e.preventDefault()}
-      className="add-to-inbox fixed right-4 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex size-14 items-center justify-center rounded-full bg-accent text-page shadow-lg active:scale-95"
+      className="fixed right-4 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex size-14 items-center justify-center rounded-full bg-accent text-page shadow-lg active:scale-95"
       aria-label="Add to Inbox"
       title="Add to Inbox"
       data-testid="add-to-inbox"

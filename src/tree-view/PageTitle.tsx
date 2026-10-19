@@ -2,7 +2,7 @@ import type { MouseEvent } from 'react';
 import { renderBlock, renderInline } from '@/editor/render';
 import { noteAfterTick, taskCheckboxAt } from '@/editor/task-list';
 import { NodeEditor } from '@/editor/NodeEditor';
-import { NoteEditor, NoteHeader, useNoteMode } from '@/editor/NoteEditor';
+import { NoteEditor, NoteHeader } from '@/editor/NoteEditor';
 import type { Node } from '@/model';
 import { useUiStore } from '@/store/ui-store';
 import { useOutline } from './outline-context';
@@ -13,7 +13,6 @@ export function PageTitle({ rootId, root }: { rootId: string; root: Node }) {
   const { engine, ui } = useOutline();
   const titleFocus = useUiStore(ui, (s) => (s.focus?.id === rootId ? s.focus.field : null));
   const starred = root.starredAt != null;
-  const noteMode = useNoteMode();
 
   const onTitleMouseDown = (e: MouseEvent<HTMLElement>) => {
     if ((e.target as HTMLElement).closest('a') || e.button !== 0) return;
@@ -57,7 +56,7 @@ export function PageTitle({ rootId, root }: { rootId: string; root: Node }) {
           // Laid out exactly like the editor that replaces it (NoteEditor): the same
           // icons at the upper right and the same text size, so clicking in moves nothing.
           <div className="note-box relative mt-1 flow-root">
-            <NoteHeader id={rootId} raw={noteMode.raw} quiet />
+            <NoteHeader id={rootId} quiet />
             <div
               className="prose-note row-note cursor-text pb-0.5 text-note"
               onMouseDown={(e) => {

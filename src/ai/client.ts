@@ -10,28 +10,40 @@ export class AiError extends Error {}
 /** Longer than the Worker's relay timeout, so its clearer error arrives first. */
 const CLIENT_TIMEOUT_MS = 100_000;
 
-export function httpComplete(base = '', fetchFn: typeof fetch = (...args) => fetch(...args)): Complete {
+type Fetch = typeof fetch;
+const realFetch: Fetch = (...args) => fetch(...args);
+
+/** POST to the AI proxy; network failures become an AiError fit to show. */
+async function post<T>(fetchFn: Fetch, key: string, payload: object): Promise<{ res: Response; body: Partial<T> & { error?: unknown } }> {
+  let res: Response;
+  try {
+    res = await fetchFn('/api/ai/complete', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(CLIENT_TIMEOUT_MS),
+    });
+  } catch {
+    throw new AiError(navigator.onLine === false ? 'You are offline.' : 'Could not reach the server.');
+  }
+  let body: Partial<T> & { error?: unknown } = {};
+  try {
+    body = (await res.json()) as typeof body;
+  } catch {
+    // not JSON; keep the generic message below
+  }
+  return { res, body };
+}
+
+/** The proxy's error, or a generic one with the status. */
+function failed(res: Response, body: { error?: unknown }): AiError {
+  return new AiError(typeof body.error === 'string' ? body.error : `AI is unavailable right now (${res.status}).`);
+}
+
+export function httpComplete(): Complete {
   return async (key, prompt) => {
-    let res: Response;
-    try {
-      res = await fetchFn(`${base}/api/ai/complete`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
-        signal: AbortSignal.timeout(CLIENT_TIMEOUT_MS),
-      });
-    } catch {
-      throw new AiError(navigator.onLine === false ? 'You are offline.' : 'Could not reach the server.');
-    }
-    let body: { text?: unknown; error?: unknown } = {};
-    try {
-      body = (await res.json()) as typeof body;
-    } catch {
-      // not JSON; keep the generic message below
-    }
-    if (!res.ok || typeof body.text !== 'string') {
-      throw new AiError(typeof body.error === 'string' ? body.error : `AI is unavailable right now (${res.status}).`);
-    }
+    const { res, body } = await post<{ text: unknown }>(realFetch, key, { prompt });
+    if (!res.ok || typeof body.text !== 'string') throw failed(res, body);
     return body.text;
   };
 }
@@ -54,29 +66,12 @@ export type Step = (
 /** The relay forgot the session (it idled out or restarted): start again with the whole conversation. */
 export class SessionExpired extends AiError {}
 
-export function httpStep(base = '', fetchFn: typeof fetch = (...args) => fetch(...args)): Step {
+export function httpStep(fetchFn: Fetch = realFetch): Step {
   return async (key, prompt, session, system, schema) => {
-    let res: Response;
-    try {
-      res = await fetchFn(`${base}/api/ai/complete`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(session === null ? { prompt, session, system, json_schema: schema } : { prompt, session }),
-        signal: AbortSignal.timeout(CLIENT_TIMEOUT_MS),
-      });
-    } catch {
-      throw new AiError(navigator.onLine === false ? 'You are offline.' : 'Could not reach the server.');
-    }
-    let body: { text?: unknown; session?: unknown; structured?: unknown; error?: unknown } = {};
-    try {
-      body = (await res.json()) as typeof body;
-    } catch {
-      // not JSON; keep the generic message below
-    }
+    const payload = session === null ? { prompt, session, system, json_schema: schema } : { prompt, session };
+    const { res, body } = await post<{ text: unknown; session: unknown; structured: unknown }>(fetchFn, key, payload);
     if (res.status === 410) throw new SessionExpired('The AI session ended.');
-    if (!res.ok || typeof body.text !== 'string') {
-      throw new AiError(typeof body.error === 'string' ? body.error : `AI is unavailable right now (${res.status}).`);
-    }
+    if (!res.ok || typeof body.text !== 'string') throw failed(res, body);
     return { text: body.text, session: typeof body.session === 'string' ? body.session : null, ...(body.structured !== undefined ? { structured: body.structured } : {}) };
   };
 }

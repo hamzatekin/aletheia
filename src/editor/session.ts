@@ -63,14 +63,13 @@ export class EditorSession {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private loading = false;
   private mounted = false;
-  private readonly unsubscribe: () => void;
   /** Multi-line paste and copied nodes go to the outline (one node per line). */
   pasteHandler: ((text: string, json: string | null) => boolean) | null = null;
 
   constructor(private readonly engine: Engine) {
     // Undo/redo (or any command) may change the loaded node's content
     // behind the editor's back; reload it so the view matches the store.
-    this.unsubscribe = engine.onOperation((op) => {
+    engine.onOperation((op) => {
       if (this.nodeId === null || !this.mounted) return;
       const change = op.changes.find((c) => c.id === this.nodeId);
       if (!change) return;
@@ -269,12 +268,6 @@ export class EditorSession {
       editor.commands.setTextSelection({ from: pos - ($pos.parentOffset - from), to: pos + (to - $pos.parentOffset) });
     } else editor.commands.setTextSelection(pos);
     if (caret.kind !== 'line' && caret.kind !== 'point') editor.commands.scrollIntoView();
-  }
-
-  destroy(): void {
-    this.cancel();
-    this.unsubscribe();
-    this.editor.destroy();
   }
 
   private schedule(): void {

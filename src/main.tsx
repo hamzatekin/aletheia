@@ -22,6 +22,7 @@ import { httpSyncApi, SyncService } from './sync/service';
 import { tabLock, takeKeyFromLocation, watchBrowser } from './sync/browser';
 import { createClock } from './sync/clock';
 import { connectTabs } from './sync/tabs';
+import { isWide } from './ui/media';
 
 // Loading from IndexedDB takes a few ms; render once, with data, no spinner.
 // /sandbox is a second outline in its own database that starts blank and never syncs.
@@ -75,7 +76,7 @@ const agent = createAgentService({ engine, session, search, key: syncKey, step: 
 registerAiSlashCommands(ai);
 // On narrow screens the sidebar would cover the page, so start with it hidden (without saving that).
 const saved = loadSettings();
-const settings = createSettingsStore({ ...saved, sidebarOpen: saved.sidebarOpen && window.innerWidth >= 1024 });
+const settings = createSettingsStore({ ...saved, sidebarOpen: saved.sidebarOpen && isWide() });
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
 const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
 const apply = () => {

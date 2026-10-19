@@ -6,7 +6,7 @@ import { useStore } from 'zustand';
  * whether notes are edited as raw Markdown, whether notes start collapsed,
  * and each note you folded or unfolded yourself.
  */
-export interface NotePrefs {
+interface NotePrefs {
   raw: boolean;
   /** Notes show only their first line until opened. */
   collapsedByDefault: boolean;
