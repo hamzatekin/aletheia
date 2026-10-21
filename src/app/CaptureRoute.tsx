@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useEngine } from '@/app/engine-context';
 import type { UiStore } from '@/store/ui-store';
@@ -20,7 +20,7 @@ export function CaptureRoute({ ui, mode }: { ui: UiStore; mode: 'share' | 'captu
   const location = useLocation();
   const navigate = useNavigate();
 
-  useEffect(() => {
+  const capture = () => {
     if (handled.has(location.key)) return;
     handled.add(location.key);
     const params = new URLSearchParams(location.search);
@@ -36,7 +36,18 @@ export function CaptureRoute({ ui, mode }: { ui: UiStore; mode: 'share' | 'captu
     // A shared item is done; a new one is for typing.
     void navigate(`/n/${mode === 'share' ? inbox : id}`, { replace: true });
     if (mode === 'capture') ui.focusNode(id, { kind: 'end' });
-  }, [engine, location, mode, navigate, ui]);
+  };
+  // Opened from inside the app (the + buttons): in a layout effect, so a tap's new
+  // editor has the focus before the tap ends and the phone opens its keyboard (see quickAdd).
+  // Opened from outside (share sheet, app icon): the app's first page, where the router
+  // only listens once its own layout effects have run, so wait for a plain effect.
+  const firstPage = location.key === 'default';
+  useLayoutEffect(() => {
+    if (!firstPage) capture();
+  });
+  useEffect(() => {
+    if (firstPage) capture();
+  });
 
   return null;
 }
