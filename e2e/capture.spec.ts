@@ -95,20 +95,21 @@ test.describe('on a phone', () => {
     await page.clock.setFixedTime(AT);
     await gotoHome(page);
     const plus = page.getByTestId('add-to-inbox');
-    // Record what takes the focus: the tap must focus a field itself, or the phone keeps its keyboard closed.
+    // Record what takes the focus, and what has it as the tap ends: the tap must focus the
+    // new item's editor itself, or the phone keeps its keyboard closed.
     await page.evaluate(() => {
+      const label = (el: Element | null) =>
+        el instanceof HTMLElement ? (el.closest('.page-title') || el.classList.contains('page-title') ? 'title editor' : (el.dataset.testid ?? el.tagName)) : 'none';
       (window as any).focusLog = [];
-      document.addEventListener('focusin', (e) => {
-        const el = e.target as HTMLElement;
-        (window as any).focusLog.push(el.dataset.testid ?? (el.closest('.page-title') || el.classList.contains('page-title') ? 'title editor' : el.tagName));
-      });
+      document.addEventListener('focusin', (e) => (window as any).focusLog.push(label(e.target as Element)));
+      document.addEventListener('click', () => ((window as any).focusAtTapEnd = label(document.activeElement)), { once: true });
     });
     await plus.tap();
     await expect(page).toHaveURL(/\/n\//);
     await inNewItem(page);
     // (The dev server's strict mode mounts the title editor twice; a production build focuses it once.)
-    expect([...new Set(await page.evaluate(() => (window as any).focusLog))]).toEqual(['keyboard-holder', 'title editor']);
-    await expect(page.getByTestId('keyboard-holder')).toHaveCount(0);
+    expect([...new Set(await page.evaluate(() => (window as any).focusLog))]).toEqual(['title editor']);
+    expect(await page.evaluate(() => (window as any).focusAtTapEnd)).toBe('title editor');
     // The editing bar takes the bottom of the screen while typing; the top + is for computers.
     await expect(plus).toHaveCount(0);
     await expect(page.getByTestId('add-to-inbox-top')).toHaveCount(0);

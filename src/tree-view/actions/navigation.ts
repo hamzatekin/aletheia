@@ -1,3 +1,4 @@
+import { flushSync } from 'react-dom';
 import { hasOpenParent, setAllCollapsedCommands } from '@/commands';
 import { ancestorIds, newId } from '@/model';
 import type { Caret } from '@/store/ui-store';
@@ -68,10 +69,12 @@ export function navigationActions(ctx: ActionContext) {
 
   // Through /capture, the app icon's Add to Inbox route, which starts the
   // editor only once the new page is up, so no typed letter goes to this one.
+  // Synchronously, so a tap's new editor is focused before the tap ends:
+  // phones open the keyboard only for a field focused during the tap.
   const quickAdd = () => {
     session.flush();
     ui.setSelection(null);
-    navigate('/capture');
+    flushSync(() => void navigate('/capture'));
   };
 
   return { focusPrev, focusNext, createFirst, zoomOut, setAllCollapsed, toggleAll, undoRedo, revealNode, quickAdd };
