@@ -96,16 +96,11 @@ describe('AI proxy', () => {
     ]);
   });
 
-  it('falls back to a plain completion when the relay has no chat endpoint', async () => {
-    const r = relay(() => {
-      const last = r.sent[r.sent.length - 1]!;
-      return last.url.endsWith('/v1/chat') ? new Response('Not found', { status: 404 }) : Response.json({ text: 'Answer' });
-    });
+  it('fails when the relay has no chat endpoint', async () => {
+    const r = relay(() => new Response('Not found', { status: 404 }));
     const res = await ask(OWNER, { prompt: 'Start', session: null }, {}, r.fetchFn);
-    expect(await res.json()).toEqual({ text: 'Answer', model: null, durationMs: null, session: null });
-    expect(r.sent.map((s) => s.url)).toEqual(['https://ai.hamzatekin.dev/v1/chat', 'https://ai.hamzatekin.dev/v1/complete']);
-    const later = await ask(OWNER, { prompt: 'Next', session: 's1' }, {}, r.fetchFn);
-    expect(later.status).toBe(410);
+    expect({ status: res.status, body: await res.json() }).toEqual({ status: 502, body: { error: 'AI is unavailable right now (relay 404).' } });
+    expect(r.sent.map((s) => s.url)).toEqual(['https://ai.hamzatekin.dev/v1/chat']);
   });
 
   it('passes on an expired or busy session', async () => {
@@ -137,12 +132,6 @@ describe('AI proxy', () => {
     expect(r.sent).toHaveLength(2);
   });
 
-  it('puts the system prompt first when falling back to a plain completion', async () => {
-    const r = relay(() => (r.sent.length === 1 ? new Response('Not found', { status: 404 }) : Response.json({ text: 'Answer' })));
-    await ask(OWNER, { prompt: 'Start', session: null, system: 'Reply in JSON' }, {}, r.fetchFn);
-    expect(r.sent[1]).toEqual({ url: 'https://ai.hamzatekin.dev/v1/complete', auth: 'Bearer relay-secret', body: { prompt: 'Reply in JSON\n\nStart' } });
-  });
-
   it('sends a json_schema only when a session starts, and passes on the structured reply', async () => {
     const schema = { type: 'object', properties: { answer: { type: 'string' } } };
     const r = relay(() => Response.json({ text: 'x', session: 's1', structured: { answer: 'Hi' } }));
@@ -158,13 +147,6 @@ describe('AI proxy', () => {
     expect((await ask(OWNER, { prompt: 'Start', session: null, json_schema: null }, {}, r.fetchFn)).status).toBe(400);
     expect((await ask(OWNER, { prompt: 'Start', session: null, json_schema: { d: 'x'.repeat(20_000) } }, {}, r.fetchFn)).status).toBe(400);
     expect(r.sent).toHaveLength(2);
-  });
-
-  it('keeps the json_schema when falling back to a plain completion', async () => {
-    const r = relay(() => (r.sent.length === 1 ? new Response('Not found', { status: 404 }) : Response.json({ text: 'Answer', structured: { answer: 'A' } })));
-    const res = await ask(OWNER, { prompt: 'Start', session: null, system: 'Rules', json_schema: { type: 'object' } }, {}, r.fetchFn);
-    expect(r.sent[1]).toEqual({ url: 'https://ai.hamzatekin.dev/v1/complete', auth: 'Bearer relay-secret', body: { prompt: 'Rules\n\nStart', json_schema: { type: 'object' } } });
-    expect(await res.json()).toEqual({ text: 'Answer', model: null, durationMs: null, session: null, structured: { answer: 'A' } });
   });
 
   it('waits and tries again while every relay session is busy', async () => {

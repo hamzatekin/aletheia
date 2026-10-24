@@ -1,11 +1,9 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { OutboxEntry } from '@/sync/outbox';
-import type { Node, Operation } from '@/model';
+import type { Node } from '@/model';
 
 export class AletheiaDB extends Dexie {
   nodes!: EntityTable<Node, 'id'>;
-  /** No longer written (an edit log nothing read); emptied at startup. */
-  operations!: EntityTable<Operation, 'id'>;
   /** Sync: node changes not yet uploaded. */
   outbox!: EntityTable<OutboxEntry, 'nodeId'>;
   /** Sync: key, cursor. */
@@ -13,9 +11,10 @@ export class AletheiaDB extends Dexie {
 
   constructor(name = 'aletheia') {
     super(name);
-    // dirtyNodes, embeddings, summaries, tags and relations are no longer
-    // used. They stay in the schema because dropping a table needs a version
-    // upgrade, which would close the database in every other open tab.
+    // operations (an edit log nothing read), dirtyNodes, embeddings, summaries,
+    // tags and relations are no longer used. They stay in the schema because
+    // dropping a table needs a version upgrade, which would close the database
+    // in every other open tab.
     this.version(1).stores({
       nodes: 'id, parentId, deletedAt',
       operations: 'id, timestamp',

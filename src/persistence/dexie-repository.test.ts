@@ -33,7 +33,7 @@ describe('DexieRepository', () => {
 
     const nodes = await repo.loadAllNodes();
     expect(nodes.map((n) => n.content).sort()).toEqual(['A', 'B']);
-    expect(await repo.db.operations.count()).toBe(0); // no edit log kept
+    expect(await repo.db.table('operations').count()).toBe(0); // no edit log kept
 
     const store2 = createTreeStore();
     const engine2 = createEngine({ store: store2, repository: repo, now: makeClock() });

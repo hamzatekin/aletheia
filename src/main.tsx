@@ -8,7 +8,6 @@ import { httpComplete, httpStep } from './ai/client';
 import { registerAiSlashCommands } from './ai/slash-commands';
 import { createAiService } from './ai/service';
 import { bootstrap } from './app/bootstrap';
-import { liftCaptureTitles } from './app/capture';
 import { inSandbox, mainSyncKey, sandboxDb } from './app/sandbox';
 import { nameAllFromNotes, watchNameFromNote } from './editor/first-line';
 import { createAgentService } from './agent/service';
@@ -30,8 +29,6 @@ const repository = new DexieRepository(inSandbox ? sandboxDb() : undefined);
 // Edits are stamped by this clock, which never runs behind a change it has seen.
 const clock = createClock();
 const engine = await bootstrap(repository, clock.now, !inSandbox);
-// Every edit used to be logged too, and nothing read the log: free the space it took.
-void repository.db.operations.clear().catch(() => {});
 for (const n of engine.tree.all()) clock.observe(n.updatedAt);
 const ui = createUiStore();
 const session = new EditorSession(engine);
@@ -60,15 +57,6 @@ connectTabs(engine, sync ?? null, inSandbox ? { channel: 'aletheia-sandbox-tabs'
 // (or, if the app was closed while in it, on the next start).
 watchNameFromNote(engine, ui, session);
 nameAllFromNotes(engine);
-// Once per device: old quick adds, named with their date, take their note's first line as the name.
-try {
-  if (!inSandbox && localStorage.getItem('aletheia.liftedCaptureTitles') === null) {
-    liftCaptureTitles(engine);
-    localStorage.setItem('aletheia.liftedCaptureTitles', '1');
-  }
-} catch {
-  // Storage blocked: skip it, the old names stay.
-}
 // The sandbox borrows the real notes' sync key for AI (read once; reopen it after turning sync on).
 const sandboxKey = inSandbox ? await mainSyncKey() : null;
 const syncKey = () => (sync ? sync.state.getState().key : sandboxKey);
