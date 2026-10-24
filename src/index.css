@@ -57,7 +57,6 @@
   --color-accent: var(--accent);
   --color-danger: var(--danger);
   --color-selection: var(--selection);
-  --color-halo: var(--halo);
 }
 
 /* Scrollbars follow the theme too. */

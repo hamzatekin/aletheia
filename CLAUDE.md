@@ -23,10 +23,11 @@ pnpm dev        dev server on :5173
 ```
 
 - Claude Code cloud sessions run `.claude/hooks/session-start.sh`, which
-  installs dependencies and sets `CHROMIUM_PATH` to the container's Chromium
-  (the browser Playwright wants is not installed there). If `CHROMIUM_PATH`
-  is unset, use
-  `CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome pnpm test:e2e`.
+  installs dependencies and, on older containers whose Chromium doesn't match
+  the pinned Playwright, sets `CHROMIUM_PATH` to the Chromium that is there.
+  Newer containers have the matching browser and need nothing. If e2e says the
+  browser executable doesn't exist, run
+  `CHROMIUM_PATH=/opt/pw-browsers/chromium pnpm test:e2e`.
 - `pnpm test:e2e e2e/foo.spec.ts` runs one spec; add `--repeat-each 3` to
   check whether a failure is a flake.
 - Sync API locally: `pnpm build && npx wrangler dev` (serves on :8787; `pnpm dev`
@@ -59,16 +60,16 @@ src/ui/               small shared UI: media queries (isWide, useCoarsePointer, 
 src/search/           Ctrl+K palette (MiniSearch) and Ctrl+F in-place filter
 src/io/               Markdown / OPML / JSON import and export, clipboard, WorkFlowy and terminal paste
 src/sync/             opt-in sync client: wire format, outbox, service, tabs, clock, browser triggers
-src/settings/         Settings panel (appearance, sync, import/export), sync status at the top right
+src/settings/         Settings panel (appearance, sync, Claude Code, import/export, sandbox), sync status at the top right
 src/ai/               AI actions (Suggest title) via the Worker's proxy to the Claude relay
 src/agent/            Ask AI: one chat for the app (sparkle button, right panel). AI searches and opens rows
                       (run on the device), then answers and makes changes (create, move, edit, star; no
                       delete) as one batch with its own Undo; questions start from the row you're on;
                       a personal assistant with a memory: rows under the "AI memory" row (memory.ts)
 src/help/             tutorial dialog (lists every shortcut)
-src/app/              bootstrap, engine context, /share and /capture (share target, Add to Inbox)
-worker/               Cloudflare Worker: only /api/* runs it; sync API on D1 (sync.ts), AI proxy (ai.ts: /v1/complete,
-                      or the relay's /v1/chat session endpoint when the app sends `session`),
+src/app/              bootstrap, engine context, /share and /capture (share target, Add to Inbox), /p/:id pages, sandbox
+worker/               Cloudflare Worker: only /api/* runs it; sync API on D1 (sync.ts), AI proxy (ai.ts: the relay's
+                      /v1/complete, or its /v1/chat session endpoint when the app sends `session`),
                       capture from Claude Code (capture.ts, pages.ts; the skill is public/claude-code/SKILL.md)
                       feed for pergent (feed.ts: read-only, FEED_TOKEN secret, FEED_PILES allow-list)
 pwa/                  service worker and the Vite plugin that builds it
@@ -216,6 +217,7 @@ don't.
   deploys then fail at `pnpm install`.
 - Stryker can't use TypeScript 7's tsconfig API, so `tsconfigFile` is empty
   in `stryker.config.mjs`; there is no TypeScript checker plugin either.
-- The e2e test "a tap outside the menu only closes it" (`e2e/mobile.spec.ts`)
-  sometimes fails when the whole suite runs in parallel and passes on a
-  re-run of that file.
+- The e2e tests "a tap outside the menu only closes it" (`e2e/mobile.spec.ts`)
+  and "the sandbox starts blank and keeps its items apart from the notes"
+  (`e2e/sandbox.spec.ts`) sometimes fail when the whole suite runs in
+  parallel and pass on a re-run of that file.

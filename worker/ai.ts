@@ -8,11 +8,9 @@
  *
  * With `session` (null to start one, with `system` as its system prompt), the
  * prompt goes to the relay's /v1/chat, which keeps one Claude conversation
- * alive per session so an agent's later steps send only what's new. A relay
- * without /v1/chat answers 404; then a new session falls back to /v1/complete
- * (system prompt first) and comes back as `session: null`, and the app keeps
- * sending the whole conversation. An unknown or ended session is 410; the app
- * starts a new one with the whole conversation. When all relay sessions are
+ * alive per session so an agent's later steps send only what's new. An
+ * unknown or ended session is 410; the app starts a new one with the whole
+ * conversation. When all relay sessions are
  * busy (503) the Worker waits and tries again. With `json_schema` (a new
  * session only, like `system`) the relay holds every reply to that shape and
  * sends it as `structured` beside the text.
@@ -85,19 +83,17 @@ export async function handleAi(
   const chatUrl = env.CLAUDE_RELAY_CHAT_URL || relayUrl.replace(/\/complete$/, '/chat');
   // A system prompt and a schema only go with a new session; the relay refuses them on a later step.
   const starting = session === null;
-  const withSchema = starting && schema !== undefined ? { json_schema: schema } : {};
-  const payload = { session, prompt, ...(starting && typeof system === 'string' && system !== '' ? { system } : {}), ...withSchema };
+  const payload = {
+    session,
+    prompt,
+    ...(starting && typeof system === 'string' && system !== '' ? { system } : {}),
+    ...(starting && schema !== undefined ? { json_schema: schema } : {}),
+  };
   let chat = await callRelay(chatUrl, payload, env.CLAUDE_RELAY_TOKEN, fetchFn, SESSION_STATUSES);
   for (const ms of BUSY_RETRY_MS) {
     if (!('status' in chat) || chat.status !== 503) break;
     await wait(ms);
     chat = await callRelay(chatUrl, payload, env.CLAUDE_RELAY_TOKEN, fetchFn, SESSION_STATUSES);
-  }
-  if ('status' in chat && chat.status === 404) {
-    // No session endpoint on this relay: an ongoing session can't exist, a new one runs as a plain completion.
-    if (session !== null) return json({ error: 'session expired' }, 410);
-    const whole = typeof system === 'string' && system !== '' ? `${system}\n\n${prompt}` : prompt;
-    return answer(await callRelay(relayUrl, { prompt: whole, ...withSchema }, env.CLAUDE_RELAY_TOKEN, fetchFn), true);
   }
   return answer(chat, true);
 }
@@ -106,7 +102,7 @@ export async function handleAi(
 type RelayResult = { reply: RelayReply } | { status: number; reply: RelayReply | null } | { failed: Response };
 
 /** Statuses /v1/chat uses to say something about the session, passed on to be handled. */
-const SESSION_STATUSES = [404, 409, 410, 503];
+const SESSION_STATUSES = [409, 410, 503];
 
 /** POST to the relay; a reply the app can't use is turned into an error response here. */
 async function callRelay(url: string, payload: object, token: string, fetchFn: typeof fetch, passOn: readonly number[] = []): Promise<RelayResult> {

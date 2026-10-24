@@ -31,20 +31,15 @@ describe('note prefs', () => {
     expect(isNoteCollapsed(notePrefs.getState(), 'b')).toBe(true);
   });
 
-  it('before version 2, drops the notes that editing opened and starts notes collapsed again', async () => {
-    const { notePrefs } = await prefsWith({ raw: true, collapsedByDefault: false, folded: { opened: false, shut: true, junk: 1 } });
-    const { raw, collapsedByDefault, folded } = notePrefs.getState();
-    expect({ raw, collapsedByDefault, folded }).toEqual({ raw: true, collapsedByDefault: true, folded: { shut: true } });
-  });
-
   it('keeps the setting and notes opened by hand from version 2 on', async () => {
     const { notePrefs } = await prefsWith({ v: 2, raw: false, collapsedByDefault: false, folded: { opened: false, shut: true } });
     const { raw, collapsedByDefault, folded } = notePrefs.getState();
     expect({ raw, collapsedByDefault, folded }).toEqual({ raw: false, collapsedByDefault: false, folded: { opened: false, shut: true } });
   });
 
-  it('reads the older list of collapsed notes', async () => {
-    const { notePrefs } = await prefsWith({ raw: true, collapsed: ['x'] });
-    expect(notePrefs.getState()).toMatchObject({ raw: true, collapsedByDefault: true, folded: { x: true } });
+  it('ignores prefs saved before version 2', async () => {
+    const { notePrefs } = await prefsWith({ raw: true, collapsedByDefault: false, folded: { opened: false, shut: true }, collapsed: ['x'] });
+    const { raw, collapsedByDefault, folded } = notePrefs.getState();
+    expect({ raw, collapsedByDefault, folded }).toEqual({ raw: false, collapsedByDefault: true, folded: {} });
   });
 });

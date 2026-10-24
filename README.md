@@ -18,7 +18,7 @@ src/model         Node type, IDs (UUIDv7), sibling order (fractional indexing),
 src/store         Zustand stores: the tree (Map<id, Node> + childrenByParent index),
                   UI state (focus, selection, menus), appearance settings, note prefs
 src/persistence   Repository interface, Dexie implementation, in-memory implementation
-src/commands      Typed commands, the engine (apply → persist → op log → undo/redo)
+src/commands      Typed commands, the engine (apply → persist → undo/redo)
 src/editor        The single Tiptap editor session, outliner keymap, slash menu, note
                   editors, Markdown dialect (markdown-it) and sanitized static rendering
 src/tree-view     Virtualized outline, rows, bullets, breadcrumbs, zoom page;
@@ -26,7 +26,7 @@ src/tree-view     Virtualized outline, rows, bullets, breadcrumbs, zoom page;
 src/ui            Small shared UI: media queries, hooks, spinner, buttons
 src/app           Bootstrap (load + first-run seed), the engine context, and the
                   /share and /capture routes (Android share target, Add to Inbox)
-src/search        MiniSearch index kept current from operations; Ctrl/⌘+K palette;
+src/search        MiniSearch index kept current from engine operations; Ctrl/⌘+K palette;
                   Ctrl/⌘+F in-place filter
 src/io            Markdown / OPML / JSON export and import, clipboard, WorkFlowy and
                   terminal paste, file helpers
@@ -35,7 +35,8 @@ src/help          Tutorial dialog
 src/sync          Opt-in sync: wire format, outbox, sync service, browser triggers
 src/ai            AI actions (Suggest title) through the Worker's relay proxy
 src/agent         Ask AI: one chat that searches your notes and makes changes
-worker            Cloudflare Worker: the sync API on D1 and the AI proxy (only `/api/*` runs it)
+worker            Cloudflare Worker (only `/api/*` runs it): the sync API on D1, the AI proxy,
+                  capture and pages from Claude Code, the read-only feed for pergent
 pwa               Service worker and the Vite plugin that builds it
 e2e               Playwright specs
 ```
@@ -69,8 +70,8 @@ flattening. The list is virtualized against the window with
 Routes: `/` is the top level, `/n/:id` zooms into a node (its content becomes
 the title, its children the list). `/share` (Android's share sheet) and
 `/capture` (the Add to Inbox shortcut, the + buttons and `Ctrl/⌘+Alt+N`) put a
-new item at the top of the Inbox; `/capture` names it with the date and time,
-zooms into it and opens its note. Breadcrumbs walk `parentId` upward.
+new item at the top of the Inbox; `/capture` zooms into the new, nameless
+item with the caret in its text. Breadcrumbs walk `parentId` upward.
 `Ctrl/⌘+,` zooms out one level.
 
 ## Drag and drop
@@ -258,8 +259,7 @@ tutorial is known to AI too.
 The Worker sends each step to the relay's `/v1/chat`, which keeps one Claude
 conversation per question, so later steps send only what's new. When the
 session has ended (410) the app replays the whole conversation into a new
-one; a relay without `/v1/chat` gets the whole conversation through
-`/v1/complete` each step. The panel docks on the right on wide screens (it
+one. The panel docks on the right on wide screens (it
 and Settings close each other), is a drawer below 1024px, and a sheet from
 the bottom on phones.
 

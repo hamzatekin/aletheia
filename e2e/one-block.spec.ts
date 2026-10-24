@@ -143,32 +143,3 @@ test('an item with no name takes its note\'s first line when the caret leaves it
   await expect(row(page, 'one').locator('.node-content')).toHaveText('one');
 });
 
-test('old Inbox items named with their date take their note\'s first line, once', async ({ page }) => {
-  await gotoHome(page);
-  await page.evaluate(() => {
-    const { engine } = (window as any).__aletheia;
-    engine.execute({ type: 'createNode', id: 'inbox', parentId: null, at: 'first', content: 'Inbox' });
-    engine.execute({ type: 'createNode', id: 'old', parentId: 'inbox', content: 'x', note: "Lavazza\nThey're in house" });
-    const at = new Date(engine.tree.get('old').createdAt);
-    const dated = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(at);
-    engine.execute({ type: 'updateContent', id: 'old', content: dated });
-    localStorage.removeItem('aletheia.liftedCaptureTitles');
-    return engine.flush();
-  });
-  await reloadApp(page);
-  const old = () => page.evaluate(() => {
-    const n = (window as any).__aletheia.engine.tree.get('old');
-    return [n.content, n.note];
-  });
-  await expect.poll(old).toEqual(['Lavazza', "They're in house"]);
-  // Once per device: a later item named like a date stays as it is.
-  const dated = await page.evaluate(() => {
-    const { engine } = (window as any).__aletheia;
-    const at = new Date(engine.tree.get('old').createdAt);
-    const content = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(at);
-    engine.execute({ type: 'updateContent', id: 'old', content });
-    return engine.flush().then(() => content as string);
-  });
-  await reloadApp(page);
-  expect(await old()).toEqual([dated, "They're in house"]);
-});

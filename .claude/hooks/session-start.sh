@@ -10,8 +10,8 @@ fi
 cd "$CLAUDE_PROJECT_DIR"
 pnpm install
 
-# The Playwright version pinned here wants a browser build the container does
-# not have; use the full Chromium that is there.
+# Older containers lack the browser build the pinned Playwright wants; use the
+# full Chromium there instead. Newer ones (chrome-linux64) match and skip this.
 chrome=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux/chrome 2>/dev/null | head -n 1 || true)
 if [ -n "$chrome" ] && [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   echo "export CHROMIUM_PATH=\"$chrome\"" >> "$CLAUDE_ENV_FILE"
