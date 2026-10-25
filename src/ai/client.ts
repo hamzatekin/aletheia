@@ -1,6 +1,9 @@
 /** Ask the Worker's AI proxy (`/api/ai/complete`) for a completion. */
 export type Complete = (key: string, prompt: string) => Promise<string>;
 
+/** Turn a voice memo (base64 WAV) into text with the Worker's `/api/ai/transcribe`. */
+export type Transcribe = (key: string, audio: string) => Promise<string>;
+
 /** Shown when AI is asked for on a device without sync (the proxy only answers sync keys). */
 export const AI_NEEDS_SYNC = 'Turn on sync in Settings to use AI on this device.';
 
@@ -13,14 +16,15 @@ const CLIENT_TIMEOUT_MS = 100_000;
 type Fetch = typeof fetch;
 const realFetch: Fetch = (...args) => fetch(...args);
 
-/** POST to the AI proxy; network failures become an AiError fit to show. */
-async function post<T>(fetchFn: Fetch, key: string, payload: object): Promise<{ res: Response; body: Partial<T> & { error?: unknown } }> {
+/** POST JSON (or plain text) to the AI proxy; network failures become an AiError fit to show. */
+async function post<T>(fetchFn: Fetch, key: string, payload: object | string, path = '/api/ai/complete'): Promise<{ res: Response; body: Partial<T> & { error?: unknown } }> {
+  const text = typeof payload === 'string';
   let res: Response;
   try {
-    res = await fetchFn('/api/ai/complete', {
+    res = await fetchFn(path, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': text ? 'text/plain' : 'application/json' },
+      body: text ? payload : JSON.stringify(payload),
       signal: AbortSignal.timeout(CLIENT_TIMEOUT_MS),
     });
   } catch {
@@ -43,6 +47,14 @@ function failed(res: Response, body: { error?: unknown }): AiError {
 export function httpComplete(): Complete {
   return async (key, prompt) => {
     const { res, body } = await post<{ text: unknown }>(realFetch, key, { prompt });
+    if (!res.ok || typeof body.text !== 'string') throw failed(res, body);
+    return body.text;
+  };
+}
+
+export function httpTranscribe(fetchFn: Fetch = realFetch): Transcribe {
+  return async (key, audio) => {
+    const { res, body } = await post<{ text: unknown }>(fetchFn, key, audio, '/api/ai/transcribe');
     if (!res.ok || typeof body.text !== 'string') throw failed(res, body);
     return body.text;
   };

@@ -4,7 +4,7 @@ import '@fontsource-variable/inter';
 import '@fontsource-variable/literata';
 import './index.css';
 import { App } from './App';
-import { httpComplete, httpStep } from './ai/client';
+import { httpComplete, httpStep, httpTranscribe } from './ai/client';
 import { registerAiSlashCommands } from './ai/slash-commands';
 import { createAiService } from './ai/service';
 import { bootstrap } from './app/bootstrap';
@@ -22,6 +22,8 @@ import { tabLock, takeKeyFromLocation, watchBrowser } from './sync/browser';
 import { createClock } from './sync/clock';
 import { connectTabs } from './sync/tabs';
 import { isWide } from './ui/media';
+import { canRecord, startRecording, toBase64Wav } from './voice/recorder';
+import { createVoiceService } from './voice/service';
 
 // Loading from IndexedDB takes a few ms; render once, with data, no spinner.
 // /sandbox is a second outline in its own database that starts blank and never syncs.
@@ -63,6 +65,7 @@ const syncKey = () => (sync ? sync.state.getState().key : sandboxKey);
 const complete = httpComplete();
 const ai = createAiService({ engine, session, key: syncKey, complete });
 const agent = createAgentService({ engine, session, search, key: syncKey, step: httpStep() });
+const voice = createVoiceService({ engine, key: syncKey, complete, transcribe: httpTranscribe(), record: startRecording, encode: toBase64Wav, canRecord });
 registerAiSlashCommands(ai);
 // On narrow screens the sidebar would cover the page, so start with it hidden (without saving that).
 const saved = loadSettings();
@@ -79,11 +82,11 @@ settings.subscribe(apply);
 darkQuery.addEventListener('change', apply);
 if (import.meta.env.DEV) {
   // Test hook: Playwright drives the engine directly to build large trees.
-  (window as unknown as { __aletheia: unknown }).__aletheia = { engine, ui, session, search, settings, sync, ai, agent };
+  (window as unknown as { __aletheia: unknown }).__aletheia = { engine, ui, session, search, settings, sync, ai, agent, voice };
 }
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App engine={engine} ui={ui} session={session} search={search} settings={settings} sync={sync} ai={ai} agent={agent} />
+    <App engine={engine} ui={ui} session={session} search={search} settings={settings} sync={sync} ai={ai} agent={agent} voice={voice} />
   </StrictMode>,
 );
 // Installed app (PWA): lets it open offline. See pwa/sw.js.

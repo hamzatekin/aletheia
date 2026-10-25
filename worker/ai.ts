@@ -15,7 +15,12 @@
  * session only, like `system`) the relay holds every reply to that shape and
  * sends it as `structured` beside the text.
  *
- * Needs `Authorization: Bearer <sync key>` and the CLAUDE_RELAY_TOKEN secret.
+ *   POST /api/ai/transcribe  base64 WAV as the text body -> { text }
+ *
+ * Transcribe turns a voice memo into text with Whisper on Workers AI (the `ai`
+ * binding), not the relay; the free daily allowance covers a few hours of audio.
+ *
+ * Needs `Authorization: Bearer <sync key>`; complete needs the CLAUDE_RELAY_TOKEN secret.
  */
 import { json } from './http';
 import { hasSyncSpace, type SyncEnv } from './sync';
@@ -27,6 +32,8 @@ export interface AiEnv extends SyncEnv {
   CLAUDE_RELAY_URL?: string;
   /** The relay's session endpoint; defaults to the relay URL with /complete swapped for /chat. */
   CLAUDE_RELAY_CHAT_URL?: string;
+  /** Workers AI, for speech to text (the `ai` binding in wrangler.jsonc). */
+  AI?: { run(model: string, input: object): Promise<unknown> };
 }
 
 const DEFAULT_RELAY_URL = 'https://ai.hamzatekin.dev/v1/complete';
@@ -38,6 +45,9 @@ const MAX_SYSTEM_CHARS = 20_000;
 const MAX_SCHEMA_CHARS = 20_000;
 /** Waits before trying again when every relay session is busy. */
 const BUSY_RETRY_MS = [1_500, 3_000];
+const WHISPER = '@cf/openai/whisper-large-v3-turbo';
+/** A bit over 5 minutes of 16 kHz mono WAV (32 kB a second) as base64; the app stops recording at 5. */
+const MAX_AUDIO_CHARS = 14_000_000;
 
 interface RelayReply {
   text?: string;
@@ -56,8 +66,10 @@ export async function handleAi(
   wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
 ): Promise<Response> {
   const { pathname } = new URL(request.url);
-  if (`${request.method} ${pathname}` !== 'POST /api/ai/complete') return json({ error: 'not found' }, 404);
+  const route = `${request.method} ${pathname}`;
+  if (route !== 'POST /api/ai/complete' && route !== 'POST /api/ai/transcribe') return json({ error: 'not found' }, 404);
   if (!(await hasSyncSpace(request, env))) return json({ error: 'AI needs sync to be on for this device.' }, 401);
+  if (route === 'POST /api/ai/transcribe') return transcribe(request, env);
   if (!env.CLAUDE_RELAY_TOKEN) return json({ error: 'AI is not set up on this server (the CLAUDE_RELAY_TOKEN secret is missing).' }, 503);
 
   let body: { prompt?: unknown; session?: unknown; system?: unknown; json_schema?: unknown };
@@ -153,4 +165,28 @@ function answer(result: RelayResult, withSession: boolean): Response {
     ...(withSession ? { session: typeof reply.session === 'string' && reply.session !== '' ? reply.session : null } : {}),
     ...(reply.structured !== undefined && reply.structured !== null ? { structured: reply.structured } : {}),
   });
+}
+
+/**
+ * A voice memo to text. The app sends base64 (the browser encodes it, so the
+ * Worker only passes a string on and stays within its CPU time).
+ */
+async function transcribe(request: Request, env: AiEnv): Promise<Response> {
+  if (!env.AI) return json({ error: 'Speech to text is not set up on this server (the AI binding is missing).' }, 503);
+  const audio = (await request.text()).trim();
+  if (audio === '') return json({ error: 'The recording is empty.' }, 400);
+  if (audio.length > MAX_AUDIO_CHARS) return json({ error: 'That recording is too long.' }, 413);
+  let result: unknown;
+  try {
+    result = await env.AI.run(WHISPER, { audio });
+  } catch (error) {
+    console.error('whisper failed', error);
+    return json({ error: 'Could not turn the recording into text.' }, 502);
+  }
+  const text = (result as { text?: unknown } | null)?.text;
+  if (typeof text !== 'string') {
+    console.error('whisper gave no text', result);
+    return json({ error: 'Could not turn the recording into text.' }, 502);
+  }
+  return json({ text: text.trim() });
 }

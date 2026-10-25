@@ -166,3 +166,72 @@ describe('AI proxy', () => {
     expect({ status: plain.status, body: await plain.json() }).toEqual({ status: 502, body: { error: 'AI failed: too many chat sessions' } });
   });
 });
+
+describe('speech to text', () => {
+  /** Workers AI that records what it was asked and answers with `reply`. */
+  function whisper(reply: () => unknown) {
+    const runs: { model: string; input: object }[] = [];
+    return {
+      runs,
+      AI: {
+        async run(model: string, input: object) {
+          runs.push({ model, input });
+          return reply();
+        },
+      },
+    };
+  }
+
+  function send(key: string | null, body: string, env: Partial<AiEnv>) {
+    const headers: Record<string, string> = key ? { Authorization: `Bearer ${key}` } : {};
+    const req = new Request('https://aletheia.test/api/ai/transcribe', { method: 'POST', headers, body });
+    return handleAi(req, { DB: db, ...env });
+  }
+
+  it('sends the base64 audio to Whisper and returns its text, trimmed', async () => {
+    const w = whisper(() => ({ text: ' Buy milk and call mum. ', word_count: 6 }));
+    const res = await send(OWNER, 'UklGRg==\n', { AI: w.AI });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ text: 'Buy milk and call mum.' });
+    expect(w.runs).toEqual([{ model: '@cf/openai/whisper-large-v3-turbo', input: { audio: 'UklGRg==' } }]);
+  });
+
+  it('only answers the sync space owner', async () => {
+    const w = whisper(() => ({ text: 'x' }));
+    expect((await send(null, 'UklGRg==', { AI: w.AI })).status).toBe(401);
+    expect((await send(STRANGER, 'UklGRg==', { AI: w.AI })).status).toBe(401);
+    expect(w.runs).toHaveLength(0);
+  });
+
+  it('needs the AI binding, which the relay token does not replace', async () => {
+    const res = await send(OWNER, 'UklGRg==', { CLAUDE_RELAY_TOKEN: 'relay-secret' });
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: 'Speech to text is not set up on this server (the AI binding is missing).' });
+  });
+
+  it('refuses an empty or too long recording without running Whisper', async () => {
+    const w = whisper(() => ({ text: 'x' }));
+    const empty = await send(OWNER, '  ', { AI: w.AI });
+    expect(empty.status).toBe(400);
+    expect(await empty.json()).toEqual({ error: 'The recording is empty.' });
+    expect((await send(OWNER, 'A'.repeat(14_000_000), { AI: w.AI })).status).toBe(200);
+    const long = await send(OWNER, 'A'.repeat(14_000_001), { AI: w.AI });
+    expect(long.status).toBe(413);
+    expect(await long.json()).toEqual({ error: 'That recording is too long.' });
+    expect(w.runs).toHaveLength(1);
+  });
+
+  it('says so when Whisper fails or gives no text', async () => {
+    const thrown = await send(OWNER, 'UklGRg==', { AI: whisper(() => Promise.reject(new Error('3010: invalid audio'))).AI });
+    expect(thrown.status).toBe(502);
+    expect(await thrown.json()).toEqual({ error: 'Could not turn the recording into text.' });
+    const odd = await send(OWNER, 'UklGRg==', { AI: whisper(() => ({ vtt: '' })).AI });
+    expect(odd.status).toBe(502);
+    expect(await odd.json()).toEqual({ error: 'Could not turn the recording into text.' });
+  });
+
+  it('only takes POST', async () => {
+    const req = new Request('https://aletheia.test/api/ai/transcribe', { headers: { Authorization: `Bearer ${OWNER}` } });
+    expect((await handleAi(req, { DB: db, AI: whisper(() => ({ text: 'x' })).AI })).status).toBe(404);
+  });
+});
