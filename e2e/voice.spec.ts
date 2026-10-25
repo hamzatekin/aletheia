@@ -48,13 +48,13 @@ test('a voice memo is sent as WAV, tidied by AI and opened at the top of the Inb
   // Mono WAV at 16 kHz, whatever the phone recorded in.
   expect(audio).toEqual({ auth: `Bearer ${key}`, type: 'text/plain', header: ['RIFF', 'WAVE', 1, 16_000] });
   expect(prompt.endsWith('Memo:\num so remember to buy milk and eggs')).toBe(true);
-  await page.goto('/');
-  await expect.poll(async () => (await outline(page, 'Inbox'))[0]).toBe('Groceries');
   const note = await page.evaluate(() => {
     const { engine } = (window as any).__aletheia;
     return [...engine.tree.all()].find((n: any) => n.content === 'Groceries')?.note;
   });
   expect(note).toBe('Buy milk and eggs.');
+  await gotoHome(page);
+  expect((await outline(page, 'Inbox'))[0]).toBe('Groceries');
 });
 
 test('Cancel adds nothing, and a failed upload can be tried again', async ({ page }) => {

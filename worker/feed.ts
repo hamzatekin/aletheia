@@ -24,8 +24,11 @@ export interface FeedEnv extends SyncEnv {
   FEED_PILES?: string;
 }
 
-/** Piles never served, whatever FEED_PILES says (compared like `pileKey`). */
+/** Piles never served, whatever FEED_PILES says (compared like `pileKey`); the MCP server leaves them out too. */
 const BLOCKED = new Set(['passwords', 'budget']);
+
+/** Whether a node with this text is a pile that is never served (Passwords, Budget), wherever it is. */
+export const isBlockedPile = (text: string): boolean => BLOCKED.has(pileKey(text));
 
 interface FeedRow {
   id: string;

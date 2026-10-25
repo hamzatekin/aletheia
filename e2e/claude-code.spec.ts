@@ -26,6 +26,27 @@ test('with sync on, Settings makes a capture key and shows the command that sets
   expect(auth).toBe(`Bearer ${key}`);
 });
 
+test('Settings makes a read key and shows the command that lets Claude Code read the notes', async ({ page }) => {
+  await gotoHome(page);
+  const key = await syncOn(page);
+  let auth: string | null = null;
+  await page.route('**/api/sync/read-key', async (route) => {
+    auth = await route.request().headerValue('authorization');
+    await route.fulfill({ json: { key: 'alr_test-key' } });
+  });
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const section = page.getByTestId('claude-code-mcp');
+  await section.getByRole('button', { name: 'Connect to your notes' }).click();
+  const origin = new URL(page.url()).origin;
+  await expect(section.getByLabel('Connect command')).toHaveValue(
+    'claude mcp remove --scope user aletheia >/dev/null 2>&1; ' +
+      `claude mcp add --transport http --scope user aletheia ${origin}/api/mcp --header "Authorization: Bearer alr_test-key"`,
+  );
+  expect(auth).toBe(`Bearer ${key}`);
+  // The capture setup is untouched.
+  await expect(page.getByTestId('claude-code').getByRole('button', { name: 'Set up Claude Code' })).toBeVisible();
+});
+
 test('shows why the key could not be made', async ({ page }) => {
   await gotoHome(page);
   await syncOn(page);
