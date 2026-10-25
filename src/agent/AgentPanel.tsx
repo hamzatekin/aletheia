@@ -121,6 +121,17 @@ export function AgentPanel({ agent }: { agent: AgentService }) {
                 : 'Turn on sync in Settings to use AI on this device.'}
             </p>
           )}
+          {turns === 0 && !s.busy && ai && (
+            <button
+              type="button"
+              onClick={() => void agent.myWeek()}
+              className="mb-2 rounded-full border border-line px-3 py-1 text-sm text-ink hover:bg-hover"
+              title="What you added and finished in the last 7 days, and what still waits in your Inbox"
+              data-testid="agent-my-week"
+            >
+              My week
+            </button>
+          )}
           <div className="flex flex-col gap-3" data-testid="agent-chat">
             {s.turns.map((t, i) => (
               <Message

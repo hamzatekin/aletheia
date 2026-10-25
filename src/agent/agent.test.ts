@@ -4,7 +4,7 @@ import type { EditorSession } from '@/editor/session';
 import { SearchIndex } from '@/search';
 import { fixture, outline } from '@/test/helpers';
 import { planChanges } from './changes';
-import { AGENT_SCHEMA, AGENT_SYSTEM, linkCitations, parseReply, readReply, readResults, Refs, startPrompt } from './prompt';
+import { AGENT_SCHEMA, AGENT_SYSTEM, linkCitations, parseReply, readReply, readResults, Refs, startPrompt, weekLines } from './prompt';
 import { runAgent } from './run';
 import { createAgentService } from './service';
 
@@ -402,5 +402,73 @@ describe('AgentService', () => {
     const { agent } = setup([]);
     await agent.ask('hi');
     expect(agent.state.getState()).toMatchObject({ busy: false, error: 'AI failed.', turns: [{ role: 'user', text: 'hi' }] });
+  });
+});
+
+describe('My week', () => {
+  const WEEK = 7 * 24 * 60 * 60_000;
+  // The fixture's clock stamps rows a second apart from 1,001,000: Work, 14 Oct, Suppliers, Inbox, Lavazza, Liquidline, Call mum.
+  const lastWeek = (f: ReturnType<typeof spec>) => {
+    f.engine.execute({ type: 'toggleComplete', id: f.ids.Liquidline!, completed: true }); // at 1,008,000
+    f.engine.execute({ type: 'toggleComplete', id: f.ids.Suppliers!, completed: true }); // at 1,009,000
+    f.engine.execute({ type: 'createNode', id: 'blank', parentId: f.ids.Inbox!, content: '' }); // left out: no text
+    return 1_004_500 + WEEK; // Lavazza and everything after it are this week's
+  };
+
+  it('lists what was added and done in the last 7 days, newest first, and what still waits in the Inbox', () => {
+    const f = spec();
+    const now = lastWeek(f);
+    const day = (t: number) => new Date(t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    const d = day(1_005_000);
+    expect(weekLines(f.engine.tree, new Refs(), now)).toEqual([
+      `Their last 7 days (today is ${day(now)}):`,
+      '',
+      'Added (3):',
+      `- ${d}: [1] Call mum  (inside: Inbox)`,
+      `- ${d}: [2] Liquidline  (inside: Inbox, done)`,
+      `- ${d}: [3] Lavazza  (inside: Inbox)`,
+      '',
+      'Marked done (2):',
+      `- ${d}: [4] Suppliers  (inside: Work, done)`,
+      `- ${d}: [2] Liquidline  (inside: Inbox, done)`,
+      '',
+      'Still in the Inbox (2):',
+      `- ${d}: [3] Lavazza  (inside: Inbox)`,
+      `- ${d}: [1] Call mum  (inside: Inbox)`,
+      '',
+      'Look back on the week with them: a few highlights, what seems stuck or has waited long, and one gentle thought for the week ahead. Keep it short. Change nothing unless they ask.',
+    ]);
+  });
+
+  it('says when nothing happened, and leaves out deleted rows and AI memory', () => {
+    const f = fixture([['AI memory', ['Likes tea']], 'Gone']);
+    f.engine.execute({ type: 'deleteNode', id: f.ids.Gone! });
+    const lines = weekLines(f.engine.tree, new Refs(), 2_000_000);
+    expect(lines.slice(1, -2)).toEqual(['', 'Added (0):', '- nothing', '', 'Marked done (0):', '- nothing', '', 'Still in the Inbox (0):', '- nothing']);
+  });
+
+  it('cuts a long list after 60 rows', () => {
+    const f = fixture([['Inbox', Array.from({ length: 62 }, (_, i) => `Item ${i + 1}`)]]);
+    const lines = weekLines(f.engine.tree, new Refs(), 1_100_000);
+    expect(lines[2]).toBe('Added (63):');
+    expect(lines[63]).toBe('- …and 3 more');
+    expect(lines[64]).toBe('');
+  });
+
+  it('asks how the week went with those rows, from the whole outline rather than the row you are on', async () => {
+    const f = spec();
+    const now = lastWeek(f);
+    const r = scripted(['{"answer":"A calm week, Avvos.","changes":[]}']);
+    const agent = createAgentService({ engine: f.engine, session, search: new SearchIndex(f.engine), key: () => 'k', step: r.step, now: () => now });
+    agent.setPageRoot(f.ids.Work!);
+    await agent.myWeek();
+    expect(agent.state.getState().turns.map((t) => [t.role, t.text])).toEqual([
+      ['user', 'How did my week go?'],
+      ['ai', 'A calm week, Avvos.'],
+    ]);
+    const prompt = r.sent[0]!.prompt;
+    expect(prompt.startsWith('They are on the home page (the whole outline).')).toBe(true);
+    expect(prompt.endsWith('Keep it short. Change nothing unless they ask.\n\nThem: How did my week go?')).toBe(true);
+    expect(prompt).toContain('\nMarked done (2):\n');
   });
 });

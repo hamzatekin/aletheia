@@ -1,3 +1,4 @@
+import { findInbox } from '@/app/capture';
 import { plainText } from '@/editor/markdown';
 import { ancestorIds, isLive, type TreeReader } from '@/model';
 import { tutorialText } from '@/help/TutorialDialog';
@@ -53,6 +54,8 @@ const OPEN_LINES = 60;
 const TOP_LINES = 120;
 const HISTORY_TURNS = 6;
 const MEMORY_LINES = 80;
+const WEEK_MS = 7 * 24 * 60 * 60_000;
+const WEEK_ROWS = 60;
 /** Who AI talks to: Aletheia has one user. */
 const NAME = 'Avvos';
 
@@ -188,6 +191,8 @@ export function startPrompt(o: {
   item: string | null;
   history: readonly ChatTurn[];
   question: string;
+  /** More for AI to go on, just before the question (My week's rows). */
+  context?: readonly string[];
 }): string {
   const { tree, refs, item } = o;
   const here = item && isLive(tree.get(item)) ? ['They are on this row:', ...openLines(tree, refs, item)] : ['They are on the home page (the whole outline).'];
@@ -201,9 +206,48 @@ export function startPrompt(o: {
     'The top of their outline:',
     ...treeLines(tree, refs, null, 2, TOP_LINES, memory),
     ...(turns.length > 0 ? ['', 'The conversation so far:', ...turns] : []),
+    ...(o.context && o.context.length > 0 ? ['', ...o.context] : []),
     '',
     `Them: ${o.question}`,
   ].join('\n');
+}
+
+/** The question My week asks. */
+export const WEEK_QUESTION = 'How did my week go?';
+
+/**
+ * The last 7 days, for My week: rows added, rows marked done, and what still
+ * waits in the Inbox, newest first, each with its day and place.
+ */
+export function weekLines(tree: TreeReader, refs: Refs, now: number): string[] {
+  const since = now - WEEK_MS;
+  const memory = memoryRow(tree);
+  const day = (t: number) => new Date(t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  const shown = (id: string) => {
+    const n = tree.get(id);
+    if (!isLive(n) || plainText(n.content).trim() === '') return false;
+    const up = ancestorIds(tree, id);
+    return !up.some((a) => !isLive(tree.get(a))) && id !== memory && !(memory !== null && up.includes(memory));
+  };
+  const list = (label: string, ids: string[], when: (id: string) => number) => [
+    '',
+    `${label} (${ids.length}):`,
+    ...(ids.length === 0 ? ['- nothing'] : ids.slice(0, WEEK_ROWS).map((id) => `- ${day(when(id))}: ${rowLine(tree, refs, id, true)}`)),
+    ...(ids.length > WEEK_ROWS ? [`- …and ${ids.length - WEEK_ROWS} more`] : []),
+  ];
+  const nodes = [...tree.all()].filter((n) => shown(n.id));
+  const added = nodes.filter((n) => n.createdAt >= since).sort((a, b) => b.createdAt - a.createdAt);
+  const done = nodes.filter((n) => (n.completedAt ?? 0) >= since).sort((a, b) => b.completedAt! - a.completedAt!);
+  const inbox = findInbox(tree);
+  const waiting = inbox === null ? [] : tree.children(inbox).filter((id) => shown(id) && tree.get(id)!.completedAt == null);
+  return [
+    `Their last 7 days (today is ${day(now)}):`,
+    ...list('Added', added.map((n) => n.id), (id) => tree.get(id)!.createdAt),
+    ...list('Marked done', done.map((n) => n.id), (id) => tree.get(id)!.completedAt!),
+    ...list('Still in the Inbox', waiting, (id) => tree.get(id)!.createdAt),
+    '',
+    'Look back on the week with them: a few highlights, what seems stuck or has waited long, and one gentle thought for the week ahead. Keep it short. Change nothing unless they ask.',
+  ];
 }
 
 /** What each read found, as the next message to AI. */
