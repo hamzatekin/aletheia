@@ -188,6 +188,9 @@ export const Row = memo(function Row({ id, depth, filterOpen, match }: Props) {
       data-focused={focusField ?? undefined}
       data-selected={selected || undefined}
       data-match={match || undefined}
+      data-done={node.completedAt != null || undefined}
+      data-heading={node.heading ?? undefined}
+      data-color={node.color ?? undefined}
     >
       {/* Indent guides, like WorkFlowy's: one line per ancestor level, down from its bullet through its children. */}
       {Array.from({ length: depth }, (_, level) => (

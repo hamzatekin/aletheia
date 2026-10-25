@@ -59,7 +59,7 @@ describe('sync server', () => {
 
   it('merges each field group by its own time', async () => {
     await call('POST', 'space', KEY_A);
-    const base = { content: 1, note: 1, pos: 1, collapsed: 1, starred: 1, deleted: 1 };
+    const base = { content: 1, note: 1, pos: 1, collapsed: 1, starred: 1, completed: 1, format: 1, deleted: 1 };
     await call('POST', 'push', KEY_A, { nodes: [wire('n', { content: 'v1', note: 'n1', order: 'a0', t: base })] });
     // Device 1 edits the text at t=10; device 2 moved it at t=5 and edited the text earlier (t=3).
     await call('POST', 'push', KEY_A, { nodes: [wire('n', { content: 'text from 1', order: 'a0', t: { ...NO_TIMES, content: 10 } })] });

@@ -11,6 +11,9 @@ const base: NodeFields = {
   note: 'note',
   collapsed: false,
   starredAt: null,
+  completedAt: null,
+  heading: null,
+  color: null,
   createdAt: 100,
   updatedAt: 200,
   deletedAt: null,
@@ -34,6 +37,9 @@ describe('changedGroups', () => {
     expect(changedGroups(base, { ...base, order: 'a1' })).toEqual(['pos']);
     expect(changedGroups(base, { ...base, collapsed: true })).toEqual(['collapsed']);
     expect(changedGroups(base, { ...base, starredAt: 5 })).toEqual(['starred']);
+    expect(changedGroups(base, { ...base, completedAt: 5 })).toEqual(['completed']);
+    expect(changedGroups(base, { ...base, heading: 2 })).toEqual(['format']);
+    expect(changedGroups(base, { ...base, color: 'red' })).toEqual(['format']);
     expect(changedGroups(base, { ...base, deletedAt: 5 })).toEqual(['deleted']);
   });
 
@@ -43,8 +49,14 @@ describe('changedGroups', () => {
     expect(changedGroups(old, { ...base, starredAt: 7 })).toEqual(['starred']);
   });
 
+  it('treats a missing done, heading or color as none', () => {
+    const { completedAt: _c, heading: _h, color: _k, ...old } = base;
+    expect(changedGroups(old, base)).toEqual([]);
+    expect(changedGroups(old, { ...base, completedAt: 7, color: 'blue' })).toEqual(['completed', 'format']);
+  });
+
   it('lists several groups in GROUPS order', () => {
-    const after = { ...base, content: 'x', note: 'y', order: 'b', collapsed: true, starredAt: 1, deletedAt: 2 };
+    const after = { ...base, content: 'x', note: 'y', order: 'b', collapsed: true, starredAt: 1, completedAt: 3, heading: 1, deletedAt: 2 };
     expect(changedGroups(base, after)).toEqual([...GROUPS]);
   });
 });
@@ -68,8 +80,8 @@ describe('mergeTimes', () => {
 });
 
 describe('toWire / fromWire / tombstone', () => {
-  it('fills missing group times with 0 and a missing star with null', () => {
-    const { starredAt: _, ...old } = base;
+  it('fills missing group times with 0 and a missing star, done, heading or color with null', () => {
+    const { starredAt: _, completedAt: _c, heading: _h, color: _k, ...old } = base;
     expect(toWire(old, { content: 300 })).toEqual({
       id: 'n1',
       parentId: 'p1',
@@ -78,6 +90,9 @@ describe('toWire / fromWire / tombstone', () => {
       note: 'note',
       collapsed: false,
       starredAt: null,
+      completedAt: null,
+      heading: null,
+      color: null,
       createdAt: 100,
       deletedAt: null,
       t: { ...NO_TIMES, content: 300 },
@@ -85,9 +100,9 @@ describe('toWire / fromWire / tombstone', () => {
   });
 
   it('does not send updatedAt; fromWire derives it from the newest group time', () => {
-    const w = toWire({ ...base, starredAt: 42 }, { note: 250, pos: 400 });
+    const w = toWire({ ...base, starredAt: 42, completedAt: 43, heading: 3, color: 'green' }, { note: 250, pos: 400 });
     expect(w).not.toHaveProperty('updatedAt');
-    expect(fromWire(w)).toEqual({ ...base, starredAt: 42, updatedAt: 400 });
+    expect(fromWire(w)).toEqual({ ...base, starredAt: 42, completedAt: 43, heading: 3, color: 'green', updatedAt: 400 });
   });
 
   it('uses createdAt as updatedAt when every group time is older', () => {
@@ -95,10 +110,10 @@ describe('toWire / fromWire / tombstone', () => {
     expect(fromWire(w).updatedAt).toBe(500);
   });
 
-  it('reads a node from an old client without stars as not starred', () => {
-    const { starredAt: _, ...w } = toWire(base, { content: 300 });
+  it('reads a node from an old client without stars, done, headings or colors as having none', () => {
+    const { starredAt: _, completedAt: _c, heading: _h, color: _k, ...w } = toWire(base, { content: 300 });
     const old = { ...w, t: { content: 300, note: 0, pos: 0, collapsed: 0, deleted: 0 } } as unknown as WireNode;
-    expect(fromWire(old)).toEqual({ ...base, starredAt: null, updatedAt: 300 });
+    expect(fromWire(old)).toEqual({ ...base, starredAt: null, completedAt: null, heading: null, color: null, updatedAt: 300 });
   });
 
   it('a tombstone carries only the deletion as news', () => {
@@ -110,17 +125,20 @@ describe('toWire / fromWire / tombstone', () => {
       note: '',
       collapsed: false,
       starredAt: null,
+      completedAt: null,
+      heading: null,
+      color: null,
       createdAt: 77,
       deletedAt: 77,
-      t: { content: 0, note: 0, pos: 0, collapsed: 0, starred: 0, deleted: 77 },
+      t: { content: 0, note: 0, pos: 0, collapsed: 0, starred: 0, completed: 0, format: 0, deleted: 77 },
     });
   });
 });
 
 describe('overlayPending', () => {
   const remote: NodeFields = { ...base, content: 'remote', note: 'remote note', parentId: 'pr', order: 'r', collapsed: false, starredAt: null, deletedAt: null, updatedAt: 500 };
-  const local: NodeFields = { ...base, content: 'local', note: 'local note', parentId: 'pl', order: 'l', collapsed: true, starredAt: 9, deletedAt: 8, updatedAt: 600 };
-  const remoteTimes = { content: 50, note: 50, pos: 50, collapsed: 50, starred: 50, deleted: 50 };
+  const local: NodeFields = { ...base, content: 'local', note: 'local note', parentId: 'pl', order: 'l', collapsed: true, starredAt: 9, completedAt: 7, heading: 2, color: 'red', deletedAt: 8, updatedAt: 600 };
+  const remoteTimes = { content: 50, note: 50, pos: 50, collapsed: 50, starred: 50, completed: 50, format: 50, deleted: 50 };
 
   it('returns the remote node when nothing is pending', () => {
     expect(overlayPending(remote, undefined, { content: 99 }, remoteTimes)).toBe(remote);
@@ -128,7 +146,7 @@ describe('overlayPending', () => {
   });
 
   it('keeps each local group that changed after the remote one', () => {
-    const pending = { content: 60, note: 60, pos: 60, collapsed: 60, starred: 60, deleted: 60 };
+    const pending = { content: 60, note: 60, pos: 60, collapsed: 60, starred: 60, completed: 60, format: 60, deleted: 60 };
     expect(overlayPending(remote, local, pending, remoteTimes)).toEqual({ ...local, updatedAt: 600 });
   });
 
@@ -144,6 +162,8 @@ describe('overlayPending', () => {
     expect(overlayPending(remote, local, { note: 51 }, remoteTimes)).toEqual({ ...remote, note: 'local note', updatedAt: 600 });
     expect(overlayPending(remote, local, { collapsed: 51 }, remoteTimes)).toEqual({ ...remote, collapsed: true, updatedAt: 600 });
     expect(overlayPending(remote, local, { deleted: 51 }, remoteTimes)).toEqual({ ...remote, deletedAt: 8, updatedAt: 600 });
+    expect(overlayPending(remote, local, { completed: 51 }, remoteTimes)).toEqual({ ...remote, completedAt: 7, updatedAt: 600 });
+    expect(overlayPending(remote, local, { format: 51 }, remoteTimes)).toEqual({ ...remote, heading: 2, color: 'red', updatedAt: 600 });
   });
 
   it('keeps the remote updatedAt when it is newer, and reads a missing local star as null', () => {
@@ -151,6 +171,12 @@ describe('overlayPending', () => {
     const out = overlayPending({ ...remote, starredAt: 3, updatedAt: 900 }, oldLocal, { starred: 51 }, remoteTimes);
     expect(out.starredAt).toBeNull();
     expect(out.updatedAt).toBe(900);
+  });
+
+  it('reads a missing local done, heading or color as null', () => {
+    const { completedAt: _c, heading: _h, color: _k, ...oldLocal } = local;
+    const out = overlayPending({ ...remote, completedAt: 3, heading: 1, color: 'blue' }, oldLocal, { completed: 51, format: 51 }, remoteTimes);
+    expect(out).toEqual({ ...remote, completedAt: null, heading: null, color: null, updatedAt: 600 });
   });
 
   it('does not change the remote node', () => {
@@ -180,7 +206,7 @@ describe('outbox entries', () => {
 
   it('uploads every group of every node at its last change', () => {
     expect(entriesForAll([{ ...node, updatedAt: 7 }])).toEqual([
-      { nodeId: 'n1', t: { content: 7, note: 7, pos: 7, collapsed: 7, starred: 7, deleted: 7 }, node: { ...node, updatedAt: 7 } },
+      { nodeId: 'n1', t: { content: 7, note: 7, pos: 7, collapsed: 7, starred: 7, completed: 7, format: 7, deleted: 7 }, node: { ...node, updatedAt: 7 } },
     ]);
   });
 
@@ -188,7 +214,7 @@ describe('outbox entries', () => {
     const a = { ...node, id: 'a' };
     const entries = entriesForReplace(['a', 'old'], [a], 50);
     expect(entries).toEqual([
-      { nodeId: 'a', t: { content: 50, note: 50, pos: 50, collapsed: 50, starred: 50, deleted: 50 }, node: a },
+      { nodeId: 'a', t: { content: 50, note: 50, pos: 50, collapsed: 50, starred: 50, completed: 50, format: 50, deleted: 50 }, node: a },
       { nodeId: 'old', t: { deleted: 50 }, node: null },
     ]);
   });

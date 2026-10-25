@@ -56,8 +56,8 @@ export function isFiltering(filter: Filter | null): filter is Filter {
   return filter !== null && queryWords(filter.query).length > 0;
 }
 
-/** The rows of the page under `rootId` while filtering. */
-export function filteredRows(tree: TreeReader, rootId: string | null, filter: Filter): FilteredRow[] {
+/** The rows of the page under `rootId` while filtering; with `hideCompleted`, done rows and what's under them are left out. */
+export function filteredRows(tree: TreeReader, rootId: string | null, filter: Filter, hideCompleted = false): FilteredRow[] {
   const words = queryWords(filter.query);
   const relevant = new Map<string, boolean>();
   const matches = new Set<string>();
@@ -65,7 +65,7 @@ export function filteredRows(tree: TreeReader, rootId: string | null, filter: Fi
   // Post-order over the whole subtree, ignoring collapsed state: a node is relevant if it matches, is kept, or has a relevant child.
   const visit = (id: string): boolean => {
     const node = tree.get(id);
-    if (!node) return false;
+    if (!node || (hideCompleted && node.completedAt != null)) return false;
     let any = false;
     for (const child of tree.children(id)) if (visit(child)) any = true;
     const self = nodeMatches(node, words);
@@ -88,7 +88,7 @@ export function filteredRows(tree: TreeReader, rootId: string | null, filter: Fi
       if (!open) continue;
       if (byHand === true && !leadsOn) {
         // Opened by hand with nothing matching below: its children as they are, unfiltered.
-        for (const row of visibleRows(tree, id)) out.push({ id: row.id, depth: depth + 1 + row.depth });
+        for (const row of visibleRows(tree, id, hideCompleted)) out.push({ id: row.id, depth: depth + 1 + row.depth });
       } else {
         emit(id, depth + 1);
       }
@@ -106,17 +106,17 @@ export function matchCount(rows: readonly FilteredRow[]): number {
 }
 
 /** The rows the page shows now: filtered while a search is on, else the usual visible rows. */
-export function pageRows(tree: TreeReader, rootId: string | null, filter: Filter | null): FilteredRow[] {
-  return isFiltering(filter) ? filteredRows(tree, rootId, filter) : visibleRows(tree, rootId);
+export function pageRows(tree: TreeReader, rootId: string | null, filter: Filter | null, hideCompleted = false): FilteredRow[] {
+  return isFiltering(filter) ? filteredRows(tree, rootId, filter, hideCompleted) : visibleRows(tree, rootId, hideCompleted);
 }
 
 /** Open or close a row the filter decides, remembering it only when it differs from the default. */
-export function toggleFilterRow(tree: TreeReader, rootId: string | null, filter: Filter, id: string): Filter {
-  const row = filteredRows(tree, rootId, filter).find((r) => r.id === id);
+export function toggleFilterRow(tree: TreeReader, rootId: string | null, filter: Filter, id: string, hideCompleted = false): Filter {
+  const row = filteredRows(tree, rootId, filter, hideCompleted).find((r) => r.id === id);
   if (!row || row.open === undefined) return filter;
   const open = new Map(filter.open);
   open.delete(id);
-  const byDefault = filteredRows(tree, rootId, { ...filter, open }).find((r) => r.id === id)?.open ?? false;
+  const byDefault = filteredRows(tree, rootId, { ...filter, open }, hideCompleted).find((r) => r.id === id)?.open ?? false;
   if (!row.open !== byDefault) open.set(id, !row.open);
   return { ...filter, open };
 }

@@ -4,9 +4,10 @@ import { importCommands, parseMarkdownOutline } from '@/io/import';
 import type { OutlineItem } from '@/io/types';
 import type { TreeReader } from '@/model';
 import { isCoarsePointer } from '@/ui/media';
+import { completeCommands } from './complete';
 import type { ActionContext } from './context';
 
-export type SelectionAction = 'indent' | 'outdent' | 'moveUp' | 'moveDown' | 'delete' | 'copy' | 'cut' | 'paste' | 'done';
+export type SelectionAction = 'indent' | 'outdent' | 'moveUp' | 'moveDown' | 'delete' | 'copy' | 'cut' | 'paste' | 'complete' | 'done';
 
 /** Whole-node selection: picking nodes, and acting on the picked ones. */
 export function selectionActions(ctx: ActionContext) {
@@ -126,6 +127,11 @@ export function selectionActions(ctx: ActionContext) {
       }
       case 'delete':
         deleteSelected(ids);
+        return;
+      case 'complete':
+        engine.batch(completeCommands(tree, top), 'completeSelection');
+        // Hidden done rows can't stay selected.
+        if (ctx.hideCompleted()) ui.setSelection(null);
         return;
       case 'copy':
       case 'cut':

@@ -18,6 +18,8 @@ import { inSandbox } from '@/app/sandbox';
 import { DataSection } from './DataSection';
 import { SandboxSection } from './SandboxSection';
 import { SyncSection } from './SyncSection';
+import { TrashSection } from './TrashSection';
+import { useOutline } from '@/tree-view/outline-context';
 
 interface Props {
   settings: SettingsStore;
@@ -53,6 +55,7 @@ export function SettingsPanel({ settings, ui, sync }: Props) {
   const panelRef = useRef<HTMLElement>(null);
   const update = (patch: Partial<Settings>) => s.update(patch);
   const notesCollapsed = useNotePrefs((n) => n.collapsedByDefault);
+  const { actions } = useOutline();
 
   useEscToClose(open, panelRef, useCallback(() => ui.setSettingsOpen(false), [ui]));
 
@@ -197,9 +200,11 @@ export function SettingsPanel({ settings, ui, sync }: Props) {
                 onChange={(v) => notePrefs.getState().setCollapsedByDefault(v)}
               />
               <Toggle label="Inbox dates" hint="Show when each Inbox item was added" checked={s.inboxDates} onChange={(v) => update({ inboxDates: v })} />
+              <Toggle label="Show completed" hint="Done items stay, struck through. Ctrl+O toggles it" checked={s.showCompleted} onChange={() => actions.toggleShowCompleted()} />
 
               <p className="mt-3 text-xs text-muted">Appearance is saved in this browser only.</p>
               <DataSection />
+              <TrashSection />
               {!inSandbox && <SandboxSection className="mt-4 border-t border-line pt-4" />}
             </div>
           </aside>

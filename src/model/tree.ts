@@ -68,17 +68,19 @@ export interface VisibleRow {
 
 /**
  * Flatten the visible tree under `rootId` (children of the root, recursively,
- * skipping collapsed subtrees). `null` = the whole top level.
+ * skipping collapsed subtrees). `null` = the whole top level. With
+ * `hideCompleted`, done rows are left out along with everything under them.
  */
-export function visibleRows(tree: TreeReader, rootId: string | null): VisibleRow[] {
+export function visibleRows(tree: TreeReader, rootId: string | null, hideCompleted = false): VisibleRow[] {
   const out: VisibleRow[] = [];
   const stack: VisibleRow[] = [];
   const top = tree.children(rootId);
   for (let i = top.length - 1; i >= 0; i--) stack.push({ id: top[i]!, depth: 0 });
   while (stack.length > 0) {
     const row = stack.pop()!;
-    out.push(row);
     const node = tree.get(row.id);
+    if (hideCompleted && node?.completedAt != null) continue;
+    out.push(row);
     if (!node || node.collapsed) continue;
     const kids = tree.children(row.id);
     for (let i = kids.length - 1; i >= 0; i--) stack.push({ id: kids[i]!, depth: row.depth + 1 });

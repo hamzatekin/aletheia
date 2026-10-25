@@ -59,8 +59,8 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, agent }: 
   const missing = rootId !== null && (!root || root.deletedAt !== null);
 
   const actions = useMemo(
-    () => createOutlineActions({ engine, ui, session, rootId, navigate }),
-    [engine, ui, session, rootId, navigate],
+    () => createOutlineActions({ engine, ui, session, rootId, navigate, settings }),
+    [engine, ui, session, rootId, navigate, settings],
   );
   const context = useMemo(
     () => ({ engine, ui, session, search, actions, rootId, settings, ai, navigate }),

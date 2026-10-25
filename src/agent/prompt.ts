@@ -77,6 +77,7 @@ function rowLine(tree: TreeReader, refs: Refs, id: string, withPath: boolean): s
     ...(node.note.trim() !== '' ? ['has a note'] : []),
     ...(kids > 0 ? [`${kids} inside`] : []),
     ...(node.starredAt ? ['starred'] : []),
+    ...(node.completedAt != null ? ['done'] : []),
   ];
   return `[${refs.ref(id)}] ${title(tree, id)}${extra.length > 0 ? `  (${extra.join(', ')})` : ''}`;
 }

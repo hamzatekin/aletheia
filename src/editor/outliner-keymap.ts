@@ -25,7 +25,9 @@ export type OutlineKey =
   | 'search'
   | 'selectUp'
   | 'selectDown'
-  | 'selectAll';
+  | 'selectAll'
+  | 'complete'
+  | 'showCompleted';
 
 export interface OutlinerKeymapStorage {
   /** Set by the outline; returns true when the key was consumed. */
@@ -48,7 +50,9 @@ export const OutlinerKeymap = Extension.create<Record<string, never>, OutlinerKe
     return {
       Enter: send('enter'),
       'Shift-Enter': send('note'),
-      'Mod-Enter': send('enter'),
+      // Like WorkFlowy and Dynalist: Ctrl/⌘+Enter marks the item done, Ctrl/⌘+O shows or hides done items.
+      'Mod-Enter': send('complete'),
+      'Mod-o': send('showCompleted'),
       Tab: send('indent'),
       'Shift-Tab': send('outdent'),
       Backspace: () => (atStart() ? send('backspaceAtStart')() : false),

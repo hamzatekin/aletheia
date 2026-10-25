@@ -17,9 +17,17 @@ export type Command =
   | { type: 'toggleCollapse'; id: string; collapsed?: boolean }
   /** Star (list under Starred in the sidebar) or unstar a node; omitted `starred` flips it. */
   | { type: 'toggleStar'; id: string; starred?: boolean }
+  /** Mark a node done or not done; omitted `completed` flips it. */
+  | { type: 'toggleComplete'; id: string; completed?: boolean }
+  /** Make a node a heading (1 to 3) or a normal row (null). */
+  | { type: 'setHeading'; id: string; heading: number | null }
+  /** Give a node a color label (one of `COLORS`) or none (null). */
+  | { type: 'setColor'; id: string; color: string | null }
   | { type: 'deleteSubtree'; id: string }
   /** Delete `id` but keep its children: they take its place under its parent. */
-  | { type: 'deleteNode'; id: string };
+  | { type: 'deleteNode'; id: string }
+  /** Bring back a deleted node with what was deleted along with it (Recently deleted). */
+  | { type: 'restoreNode'; id: string };
 
 /** The command of one type, e.g. `CommandOf<'indent'>`. */
 export type CommandOf<T extends Command['type']> = Extract<Command, { type: T }>;
