@@ -110,6 +110,7 @@ const TABS: Tab[] = [
             ['Tap ☆ by the title', 'Star the page: it shows under Starred at the top of the sidebar.'],
             ['Share → Aletheia', 'Once the app is installed, share a page or some text from any app: it lands at the top of your Inbox (a top-level line called Inbox, made for you the first time).'],
             ['+ at the bottom right', 'Add a new item to your Inbox and type it; the note button in the bar takes you into its note. The Inbox shows when each item was added. Long-press the app icon and pick Add to Inbox for the same thing from your home screen.'],
+            ['Mic above the +', 'Say a voice memo (sync must be on). Tap Done and it lands at the top of your Inbox, titled and tidied by AI in your own words, and opens. Up to 5 minutes; Cancel throws it away.'],
             ['Tap the magnifier', 'Search this page, top right. Only matching lines and the lines above them stay on screen.'],
             ['Long-press a line', 'Select it. Tap more lines to add or remove them, then use the bar at the bottom to indent, move, copy, cut, paste below or delete them all at once.'],
             ['Tap the ⇕ button', 'Next to the magnifier: collapse everything on the page, or expand it all.'],

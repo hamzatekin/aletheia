@@ -34,6 +34,8 @@ import { PageToolbar } from './PageToolbar';
 import { useNode } from './use-outline';
 import { usePageEvents } from './use-page-events';
 import { zoomingNavigate } from './zoom-transition';
+import { VoiceButton, VoiceSheet } from '@/voice/VoiceButton';
+import type { VoiceService } from '@/voice/service';
 
 interface Props {
   ui: UiStore;
@@ -43,13 +45,14 @@ interface Props {
   sync?: SyncService | undefined;
   ai: AiService;
   agent: AgentService;
+  voice: VoiceService;
 }
 
 /** Stands in for sync's state in the sandbox, which has no sync. */
 const noSync = createStore(() => ({ key: null as string | null }));
 
 /** `/` shows the top level; `/n/:id` zooms into a node. */
-export function OutlinePage({ ui, session, search, settings, sync, ai, agent }: Props) {
+export function OutlinePage({ ui, session, search, settings, sync, ai, agent, voice }: Props) {
   const engine: Engine = useEngine();
   const { id } = useParams<{ id: string }>();
   const rootId = id ?? null;
@@ -155,6 +158,8 @@ export function OutlinePage({ ui, session, search, settings, sync, ai, agent }: 
           </main>
         </div>
         <AddToInboxButton />
+        <VoiceButton voice={voice} />
+        <VoiceSheet voice={voice} />
         <MobileToolbar />
         <SelectionBar />
       </div>

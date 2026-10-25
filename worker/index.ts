@@ -1,7 +1,7 @@
 /**
  * The Worker. Static assets (the app) are served by Cloudflare without running
  * this code; only `/api/*` reaches it (see `run_worker_first` in wrangler.jsonc):
- * `/api/sync/*` is the sync API, `/api/ai/*` the proxy to the Claude relay,
+ * `/api/sync/*` is the sync API, `/api/ai/*` the proxy to the Claude relay (and speech to text),
  * `/api/capture` adds items from Claude Code, `/api/pages/*` serves the pages sent with them,
  * `/api/feed` is the read-only feed for pergent.
  */

@@ -15,6 +15,9 @@
   // Sync storage. No database_id: `wrangler deploy` creates the database on
   // first deploy. The Worker creates its tables itself.
   "d1_databases": [{ "binding": "DB", "database_name": "aletheia-sync" }],
+  // Workers AI: Whisper turns voice memos into text (POST /api/ai/transcribe).
+  // Free up to 10,000 neurons a day, about 3.5 hours of audio.
+  "ai": { "binding": "AI" },
   // Deploys keep variables added in the Cloudflare dashboard instead of
   // wiping them. Tokens never go in "vars" (this file is public): set
   // CLAUDE_RELAY_TOKEN as a secret (`npx wrangler secret put CLAUDE_RELAY_TOKEN`

@@ -62,6 +62,8 @@ src/io/               Markdown / OPML / JSON import and export, clipboard, WorkF
 src/sync/             opt-in sync client: wire format, outbox, service, tabs, clock, browser triggers
 src/settings/         Settings panel (appearance, sync, Claude Code, import/export, sandbox), sync status at the top right
 src/ai/               AI actions (Suggest title) via the Worker's proxy to the Claude relay
+src/voice/            voice memos on phones: the mic above the +, recorded and sent as 16 kHz WAV to the
+                      Worker's Whisper (Workers AI), tidied into a title and note by the relay, added to the Inbox
 src/agent/            Ask AI: one chat for the app (sparkle button, right panel). AI searches and opens rows
                       (run on the device), then answers and makes changes (create, move, edit, star; no
                       delete) as one batch with its own Undo; questions start from the row you're on;
@@ -69,7 +71,8 @@ src/agent/            Ask AI: one chat for the app (sparkle button, right panel)
 src/help/             tutorial dialog (lists every shortcut)
 src/app/              bootstrap, engine context, /share and /capture (share target, Add to Inbox), /p/:id pages, sandbox
 worker/               Cloudflare Worker: only /api/* runs it; sync API on D1 (sync.ts), AI proxy (ai.ts: the relay's
-                      /v1/complete, or its /v1/chat session endpoint when the app sends `session`),
+                      /v1/complete, or its /v1/chat session endpoint when the app sends `session`;
+                      /api/ai/transcribe runs Whisper through the `ai` binding),
                       capture from Claude Code (capture.ts, pages.ts; the skill is public/claude-code/SKILL.md)
                       feed for pergent (feed.ts: read-only, FEED_TOKEN secret, FEED_PILES allow-list)
 pwa/                  service worker and the Vite plugin that builds it

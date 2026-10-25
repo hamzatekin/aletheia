@@ -12,6 +12,7 @@ import type { SettingsStore } from '@/store/settings-store';
 import type { SyncService } from '@/sync/service';
 import type { UiStore } from '@/store/ui-store';
 import { OutlinePage } from '@/tree-view/OutlinePage';
+import type { VoiceService } from '@/voice/service';
 
 interface Props {
   engine: Engine;
@@ -22,10 +23,11 @@ interface Props {
   sync?: SyncService | undefined;
   ai: AiService;
   agent: AgentService;
+  voice: VoiceService;
 }
 
-export function App({ engine, ui, session, search, settings, sync, ai, agent }: Props) {
-  const page = <OutlinePage ui={ui} session={session} search={search} settings={settings} sync={sync} ai={ai} agent={agent} />;
+export function App({ engine, ui, session, search, settings, sync, ai, agent, voice }: Props) {
+  const page = <OutlinePage ui={ui} session={session} search={search} settings={settings} sync={sync} ai={ai} agent={agent} voice={voice} />;
   return (
     <EngineProvider value={engine}>
       {/* In the sandbox every route sits under /sandbox, so links and navigate('/n/…') stay inside it. */}
