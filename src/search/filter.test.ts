@@ -74,6 +74,38 @@ describe('in-place search filter', () => {
     ]);
   });
 
+  it('leaves out done rows and what is under them when hiding them, searching or not', () => {
+    const f = fixture(spec as never);
+    const tree = f.engine.tree;
+    f.engine.execute({ type: 'toggleComplete', id: f.ids['Garden']! });
+    f.engine.execute({ type: 'toggleComplete', id: f.ids['Tomatoes']! });
+    const labels = (rows: { id: string }[]) => rows.map((r) => tree.get(r.id)!.content);
+    expect(labels(pageRows(tree, null, null, true))).toEqual(['Projects', 'House', 'Paint the fence', 'Shopping', 'Bread', 'Ideas']);
+    expect(labels(pageRows(tree, null, null))).toHaveLength(10);
+    expect(labels(pageRows(tree, null, filter('tomato'), true))).toEqual([]);
+    expect(labels(pageRows(tree, null, filter('tomato')))).toEqual(['Projects', 'Garden', 'Plant **tomatoes**', 'Shopping', 'Tomatoes']);
+    // A zoomed-in done page still shows what's inside it.
+    expect(labels(pageRows(tree, f.ids['Garden']!, null, true))).toEqual(['Plant **tomatoes**', 'Buy soil']);
+    // Opening a match by hand shows its children, still without the done ones.
+    let flt = filter('house');
+    flt = toggleFilterRow(tree, null, flt, f.ids['Projects']!, true);
+    flt = toggleFilterRow(tree, null, flt, f.ids['Projects']!, true);
+    flt = toggleFilterRow(tree, null, flt, f.ids['House']!, true);
+    f.engine.execute({ type: 'toggleComplete', id: f.ids['Paint the fence']! });
+    expect(labels(filteredRows(tree, null, flt, true))).toEqual(['Projects', 'House']);
+    expect(labels(filteredRows(tree, null, flt))).toEqual(['Projects', 'House', 'Paint the fence']);
+  });
+
+  it('opens or closes a row for the search as shown or hidden done rows leave it', () => {
+    const f = fixture(spec as never);
+    const tree = f.engine.tree;
+    f.engine.execute({ type: 'toggleComplete', id: f.ids['Garden']! });
+    const flt = filter('tomato');
+    expect(toggleFilterRow(tree, null, flt, f.ids['Garden']!).open.get(f.ids['Garden']!)).toBe(false);
+    // Hidden, the done row isn't on the page to toggle.
+    expect(toggleFilterRow(tree, null, flt, f.ids['Garden']!, true)).toBe(flt);
+  });
+
   it('shows the usual rows when the query is empty', () => {
     const f = fixture(spec as never);
     expect(pageRows(f.engine.tree, null, filter('  ')).length).toBe(pageRows(f.engine.tree, null, null).length);

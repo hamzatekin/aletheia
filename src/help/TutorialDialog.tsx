@@ -106,7 +106,7 @@ const TABS: Tab[] = [
             ['Tap a line', 'Start editing it. A toolbar appears above the keyboard.'],
             ['Tap the arrow on the right', 'Every line with children has one. ▸ expands a collapsed node, ▾ collapses an open one. Collapsed nodes also have a halo around the bullet.'],
             ['Tap a bullet', 'Zoom into that node. Tap Home or a crumb at the top to go back.'],
-            ['Long-press a bullet', 'Open the menu for that node: note, star, move, duplicate, copy link, delete. Tap outside it to close it.'],
+            ['Long-press a bullet', 'Open the menu for that node: complete, note, star, move, duplicate, copy link, heading, color, delete. Tap outside it to close it.'],
             ['Tap ☆ by the title', 'Star the page: it shows under Starred at the top of the sidebar.'],
             ['Share → Aletheia', 'Once the app is installed, share a page or some text from any app: it lands at the top of your Inbox (a top-level line called Inbox, made for you the first time).'],
             ['+ at the bottom right', 'Add a new item to your Inbox and type it; the note button in the bar takes you into its note. The Inbox shows when each item was added. Long-press the app icon and pick Add to Inbox for the same thing from your home screen.'],
@@ -153,6 +153,16 @@ const TABS: Tab[] = [
             [<Keys k="Mod+Alt+N" />, 'Add to Inbox: a new item at the top of your Inbox, zoomed into, to type it. Shift+Enter goes on into its note. The + at the top right does the same.'],
             ['Outline sidebar', 'Click any item to zoom straight to it.'],
             ['☆ left of the page title', 'Star the page you are on, like WorkFlowy: it is listed under Starred at the top of the sidebar, on every synced device. The ≡ menu does the same for any node (on a phone, long-press its bullet); click the gold star in the sidebar to unstar.'],
+          ]}
+        />
+        <H>Done items, headings and colors</H>
+        <Table
+          rows={[
+            [<Keys k="Mod+Enter" />, 'Complete the node: it stays, struck through, until you hide done items. Again marks it not done. With nodes selected, it completes them all. The ≡ menu has Complete too.'],
+            [<Keys k="Mod+O" />, 'Show or hide done items, on every page. Settings → Show completed does the same.'],
+            ['H1 H2 H3 in the ≡ menu', 'Make the node a heading, larger and bold, like Dynalist. Pick it again for a normal line.'],
+            ['Colors in the ≡ menu', 'Give the node a color label: a soft band of color behind its text. Pick it again to remove it.'],
+            ['Settings → Recently deleted', 'Everything you deleted, newest first. Restore puts an item back where it was, with what was deleted along with it.'],
           ]}
         />
         <H>Move nodes</H>

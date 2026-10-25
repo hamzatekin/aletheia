@@ -1,6 +1,6 @@
 import { createNode, mergeNodes, splitNode, updateContent, updateNote } from './content-commands';
-import { deleteNode, deleteSubtree } from './delete-commands';
-import { indent, moveNode, outdent, toggleCollapse, toggleStar } from './structure-commands';
+import { deleteNode, deleteSubtree, restoreNode } from './delete-commands';
+import { indent, moveNode, outdent, setColor, setHeading, toggleCollapse, toggleComplete, toggleStar } from './structure-commands';
 import type { Command, CommandContext, Effect, Rejection } from './types';
 
 /** Pure: compute what a command would change against the given tree. */
@@ -30,5 +30,13 @@ export function computeEffect(ctx: CommandContext, cmd: Command): Effect | Rejec
       return deleteSubtree(ctx, cmd);
     case 'deleteNode':
       return deleteNode(ctx, cmd);
+    case 'toggleComplete':
+      return toggleComplete(ctx, cmd);
+    case 'setHeading':
+      return setHeading(ctx, cmd);
+    case 'setColor':
+      return setColor(ctx, cmd);
+    case 'restoreNode':
+      return restoreNode(ctx, cmd);
   }
 }

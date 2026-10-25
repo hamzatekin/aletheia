@@ -16,11 +16,23 @@ export interface Node {
   collapsed: boolean;
   /** When the node was starred (listed under Starred in the sidebar); absent or null = not starred. */
   starredAt?: number | null;
+  /** When the node was marked done (Ctrl/⌘+Enter); absent or null = not done. */
+  completedAt?: number | null;
+  /** Heading size, 1 (largest) to 3; absent or null = a normal row. */
+  heading?: number | null;
+  /** Color label, one of `COLORS`; absent or null = none. */
+  color?: string | null;
   createdAt: number;
   updatedAt: number;
   /** Soft delete timestamp. Deleting a parent stamps its whole subtree. */
   deletedAt: number | null;
 }
+
+/** Color labels a row can carry, as in Dynalist. */
+export const COLORS = ['red', 'orange', 'yellow', 'green', 'blue', 'purple'] as const;
+
+/** Heading sizes a row can have, as in WorkFlowy and Dynalist. */
+export const HEADINGS = [1, 2, 3] as const;
 
 /** Key used in `childrenByParent` for top-level nodes. */
 export const ROOT = '__root__' as const;

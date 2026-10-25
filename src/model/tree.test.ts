@@ -39,6 +39,13 @@ describe('tree helpers', () => {
     engine.undo();
   });
 
+  it('visibleRows shows done rows unless asked to hide them, with what is under them', () => {
+    engine.execute({ type: 'toggleComplete', id: ids.A2! });
+    expect(visibleRows(engine.tree, null).map((r) => labelOf(r.id))).toEqual(['A', 'A1', 'A2', 'A2a', 'B']);
+    expect(visibleRows(engine.tree, null, true).map((r) => labelOf(r.id))).toEqual(['A', 'A1', 'B']);
+    engine.undo();
+  });
+
   function labelOf(id: string): string {
     return engine.tree.get(id)!.content;
   }

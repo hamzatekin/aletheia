@@ -1,4 +1,5 @@
-import { descendantIds, isLive, orderBetween, type Node } from '@/model';
+import { deletionRoot, descendantIds, isLive, orderBetween, type Node } from '@/model';
+import { orderFor } from './position';
 import { ChangeSet } from './changes';
 import { Rejection, type CommandContext, type CommandOf, type Effect } from './types';
 
@@ -36,6 +37,24 @@ export function deleteNode(ctx: CommandContext, cmd: CommandOf<'deleteNode'>): E
 
   const focus = focusAfterDelete(ctx, node);
   return { changes: cs.list(), ...(focus ? { focus } : {}) };
+}
+
+/**
+ * Bring back a deleted node and everything deleted with it (the same moment,
+ * beneath it). If its parent is gone, it comes back at the top of Home.
+ */
+export function restoreNode(ctx: CommandContext, cmd: CommandOf<'restoreNode'>): Effect | Rejection {
+  const { tree } = ctx;
+  const node = tree.get(cmd.id);
+  if (!node || node.deletedAt === null) return new Rejection('node is missing or not deleted');
+  const cs = new ChangeSet(tree, ctx.now);
+  const parentGone = node.parentId !== null && !isLive(tree.get(node.parentId));
+  cs.update(node.id, parentGone ? { deletedAt: null, parentId: null, order: orderFor(tree, null, 'first')! } : { deletedAt: null });
+  for (const n of tree.all()) {
+    // Stryker disable next-line ConditionalExpression,LogicalOperator: the id and time checks only skip, cheaply, nodes deletionRoot rejects anyway
+    if (n.id !== node.id && n.deletedAt === node.deletedAt && deletionRoot(tree, n).id === node.id) cs.update(n.id, { deletedAt: null });
+  }
+  return { changes: cs.list() };
 }
 
 /** Previous sibling, else the parent, with the caret at the end. */

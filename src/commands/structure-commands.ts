@@ -1,4 +1,4 @@
-import { isLive, isSelfOrDescendant, nextSibling, previousSibling } from '@/model';
+import { COLORS, HEADINGS, isLive, isSelfOrDescendant, nextSibling, previousSibling } from '@/model';
 import { ChangeSet } from './changes';
 import { orderFor } from './position';
 import { Rejection, type Command, type CommandContext, type CommandOf, type Effect, type Position } from './types';
@@ -68,6 +68,36 @@ export function toggleStar(ctx: CommandContext, cmd: CommandOf<'toggleStar'>): E
   if (starred === (node.starredAt != null)) return { changes: [] };
   const cs = new ChangeSet(ctx.tree, ctx.now);
   cs.update(cmd.id, { starredAt: starred ? ctx.now : null });
+  return { changes: cs.list() };
+}
+
+export function toggleComplete(ctx: CommandContext, cmd: CommandOf<'toggleComplete'>): Effect | Rejection {
+  const node = ctx.tree.get(cmd.id);
+  if (!isLive(node)) return new Rejection('node is missing or deleted');
+  const completed = cmd.completed ?? node.completedAt == null;
+  if (completed === (node.completedAt != null)) return { changes: [] };
+  const cs = new ChangeSet(ctx.tree, ctx.now);
+  cs.update(cmd.id, { completedAt: completed ? ctx.now : null });
+  return { changes: cs.list() };
+}
+
+export function setHeading(ctx: CommandContext, cmd: CommandOf<'setHeading'>): Effect | Rejection {
+  const node = ctx.tree.get(cmd.id);
+  if (!isLive(node)) return new Rejection('node is missing or deleted');
+  if (cmd.heading !== null && !(HEADINGS as readonly number[]).includes(cmd.heading)) return new Rejection('unknown heading');
+  if (cmd.heading === (node.heading ?? null)) return { changes: [] };
+  const cs = new ChangeSet(ctx.tree, ctx.now);
+  cs.update(cmd.id, { heading: cmd.heading });
+  return { changes: cs.list() };
+}
+
+export function setColor(ctx: CommandContext, cmd: CommandOf<'setColor'>): Effect | Rejection {
+  const node = ctx.tree.get(cmd.id);
+  if (!isLive(node)) return new Rejection('node is missing or deleted');
+  if (cmd.color !== null && !(COLORS as readonly string[]).includes(cmd.color)) return new Rejection('unknown color');
+  if (cmd.color === (node.color ?? null)) return { changes: [] };
+  const cs = new ChangeSet(ctx.tree, ctx.now);
+  cs.update(cmd.id, { color: cmd.color });
   return { changes: cs.list() };
 }
 

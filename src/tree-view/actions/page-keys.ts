@@ -1,15 +1,16 @@
 import type { Command } from '@/commands';
+import type { CompleteActions } from './complete';
 import type { ActionContext } from './context';
 import type { FilterActions } from './filter';
 import type { NavigationActions } from './navigation';
 import type { SelectionActions } from './selection';
 
-type Parts = NavigationActions & FilterActions & SelectionActions;
+type Parts = NavigationActions & FilterActions & SelectionActions & CompleteActions;
 
 /** Keys pressed while nothing is being edited (page shortcuts, tree-level selection). Returns true if handled. */
 export function pageKeyHandler(ctx: ActionContext, parts: Parts): (e: KeyboardEvent) => boolean {
   const { engine, ui, session, navigate } = ctx;
-  const { openFilter, closeFilter, undoRedo, toggleAll, createFirst, zoomOut, selectionAction } = parts;
+  const { openFilter, closeFilter, undoRedo, toggleAll, createFirst, zoomOut, selectionAction, toggleShowCompleted } = parts;
 
   return (e) => {
     const mod = e.metaKey || e.ctrlKey;
@@ -34,6 +35,12 @@ export function pageKeyHandler(ctx: ActionContext, parts: Parts): (e: KeyboardEv
     if (mod && e.key === 'y') {
       e.preventDefault();
       undoRedo('redo');
+      return true;
+    }
+    // Ctrl/⌘+O shows or hides done items, as in WorkFlowy.
+    if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'o') {
+      e.preventDefault();
+      toggleShowCompleted();
       return true;
     }
     // Ctrl/⌘+Shift+. like Dynalist; e.code, since Shift turns "." into ">" on many layouts.
@@ -106,7 +113,8 @@ export function pageKeyHandler(ctx: ActionContext, parts: Parts): (e: KeyboardEv
         return true;
       case 'Enter':
         e.preventDefault();
-        ui.focusNode(head, { kind: 'end' });
+        if (mod) selectionAction('complete');
+        else ui.focusNode(head, { kind: 'end' });
         return true;
       case 'Escape':
         e.preventDefault();

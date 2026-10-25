@@ -2,6 +2,7 @@ import type { Command, Engine, Outcome } from '@/commands';
 import type { EditorSession } from '@/editor/session';
 import type { TreeReader } from '@/model';
 import { pageRows, type FilteredRow } from '@/search/filter';
+import type { SettingsStore } from '@/store/settings-store';
 import type { Caret, UiStore } from '@/store/ui-store';
 import type { NavigateFunction } from 'react-router';
 
@@ -12,11 +13,14 @@ export interface ActionDeps {
   /** The zoomed-in node (null: the top level). */
   rootId: string | null;
   navigate: NavigateFunction;
+  settings: SettingsStore;
 }
 
 /** What every group of outline actions shares: the dependencies plus row helpers. */
 export interface ActionContext extends ActionDeps {
   tree: TreeReader;
+  /** Whether done rows are hidden right now (Settings → Show completed off). */
+  hideCompleted(): boolean;
   /** The rows on screen, in order: filtered while a search is on. */
   rowsNow(): FilteredRow[];
   previousVisible(id: string): string | null;
@@ -34,10 +38,11 @@ export interface ActionContext extends ActionDeps {
 }
 
 export function createActionContext(deps: ActionDeps): ActionContext {
-  const { engine, ui, rootId } = deps;
+  const { engine, ui, rootId, settings } = deps;
+  const hideCompleted = () => !settings.getState().showCompleted;
   const tree: TreeReader = engine.tree;
 
-  const rowsNow = () => pageRows(tree, rootId, ui.getState().filter);
+  const rowsNow = () => pageRows(tree, rootId, ui.getState().filter, hideCompleted());
   const previousVisible = (id: string): string | null => {
     const rows = rowsNow();
     const i = rows.findIndex((r) => r.id === id);
@@ -52,6 +57,7 @@ export function createActionContext(deps: ActionDeps): ActionContext {
   return {
     ...deps,
     tree,
+    hideCompleted,
     rowsNow,
     previousVisible,
     nextVisible,

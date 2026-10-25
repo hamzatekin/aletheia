@@ -35,6 +35,8 @@ export interface Settings {
   outlineDepth: number;
   /** Show when each Inbox item was added, at the right of its row. */
   inboxDates: boolean;
+  /** Show done items (struck through); off hides them, like WorkFlowy's "Hide completed". */
+  showCompleted: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -53,6 +55,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sidebarOpen: true,
   outlineDepth: 2,
   inboxDates: false,
+  showCompleted: true,
 };
 
 export const LIMITS = {
@@ -113,7 +116,7 @@ export function sanitize(input: unknown): Settings {
     if (typeof v === 'number' && Number.isFinite(v)) out[k] = Math.min(LIMITS[k].max, Math.max(LIMITS[k].min, v));
   }
   if (src.pageShape === 'portrait' || src.pageShape === 'landscape') out.pageShape = src.pageShape;
-  for (const k of ['bookPage', 'sidebarOpen', 'inboxDates'] as const) {
+  for (const k of ['bookPage', 'sidebarOpen', 'inboxDates', 'showCompleted'] as const) {
     if (typeof src[k] === 'boolean') out[k] = src[k];
   }
   return out;
@@ -185,5 +188,7 @@ export function applySettings(s: Settings, root: HTMLElement, prefersDark: boole
   set('--font', FONTS[s.font].stack);
   set('--font-size', `${s.fontSize}px`);
   set('--row-lh', `${Math.round(s.fontSize * s.lineHeight)}px`);
+  // Heading rows scale their own line height from this one.
+  set('--row-lh-base', `${Math.round(s.fontSize * s.lineHeight)}px`);
   set('--page-width', `${s.pageShape === 'landscape' ? s.landscapeWidth : s.pageWidth}px`);
 }

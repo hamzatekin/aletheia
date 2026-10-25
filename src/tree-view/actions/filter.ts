@@ -4,7 +4,7 @@ import type { ActionContext } from './context';
 
 /** The in-place search (Ctrl/⌘+F) that filters the page. */
 export function filterActions(ctx: ActionContext) {
-  const { ui, session, rootId, tree, expandCollapsed } = ctx;
+  const { ui, session, rootId, tree, expandCollapsed, hideCompleted } = ctx;
 
   const openFilter = () => {
     session.flush();
@@ -31,7 +31,7 @@ export function filterActions(ctx: ActionContext) {
 
   const toggleFilterRow = (id: string) => {
     const filter = ui.getState().filter;
-    if (filter) ui.setFilter(toggledFilter(tree, rootId, filter, id));
+    if (filter) ui.setFilter(toggledFilter(tree, rootId, filter, id, hideCompleted()));
   };
 
   return { openFilter, closeFilter, toggleFilterRow };

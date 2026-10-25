@@ -27,7 +27,7 @@ function sync(method: string, path: string, body?: unknown): Promise<Response> {
 /** A node changed at `at` (every group), created a week before NOW unless given. */
 function wire(id: string, parentId: string | null, order: string, content: string, fields: Partial<WireNode> & { at?: number } = {}): WireNode {
   const { at = NOW - 7 * DAY, ...rest } = fields;
-  const t = { content: at, note: at, pos: at, collapsed: at, starred: at, deleted: at };
+  const t = { content: at, note: at, pos: at, collapsed: at, starred: at, completed: at, format: at, deleted: at };
   return { id, parentId, order, content, note: '', collapsed: false, starredAt: null, createdAt: NOW - 7 * DAY, deletedAt: null, t, ...rest };
 }
 
@@ -135,7 +135,7 @@ describe('feed', () => {
       wire('w1', 'work', 'a0', 'one', { note: 'details', createdAt: NOW - 30 * DAY, at: NOW - 21 * DAY }),
       wire('w2', 'work', 'a1', 'two'),
     );
-    await push({ ...wire('w2', 'work', 'a1', 'two', { at: 0 }), note: 'edited', t: { content: 0, note: NOW - DAY, pos: 0, collapsed: NOW, starred: NOW, deleted: 0 } });
+    await push({ ...wire('w2', 'work', 'a1', 'two', { at: 0 }), note: 'edited', t: { content: 0, note: NOW - DAY, pos: 0, collapsed: NOW, starred: NOW, completed: NOW, format: NOW, deleted: 0 } });
     const r = await body('', { FEED_PILES: '["Work"]' });
     expect(r.nodes).toEqual([
       { id: 'work', parentId: null, path: [], text: 'Work', note: null, order: 0, createdAt: '2026-10-03T06:00:00.000Z', updatedAt: '2026-10-03T06:00:00.000Z' },

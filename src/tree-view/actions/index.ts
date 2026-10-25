@@ -1,5 +1,6 @@
 import type { OutlineKey } from '@/editor/outliner-keymap';
 import type { Caret } from '@/store/ui-store';
+import { completeActions } from './complete';
 import { createActionContext, type ActionDeps } from './context';
 import { editorKeyHandler } from './editor-keys';
 import { filterActions } from './filter';
@@ -59,6 +60,10 @@ export interface OutlineActions {
   copySelection(data: DataTransfer | null, cut?: boolean): boolean;
   /** Paste below the selection. Returns false when nothing is selected. */
   pasteIntoSelection(text: string, json?: string | null): boolean;
+  /** Mark the row being edited done, or not done (Ctrl/⌘+Enter). */
+  completeFocused(id: string): void;
+  /** Show or hide done items (Ctrl/⌘+O, Settings). */
+  toggleShowCompleted(): void;
   /** Open (or close) the tutorial, leaving any row being edited. Without `open`, toggles it. */
   toggleHelp(open?: boolean): void;
 }
@@ -70,10 +75,11 @@ export function createOutlineActions(deps: ActionDeps): OutlineActions {
   const slash = slashActions(ctx);
   const selection = selectionActions(ctx);
   const { pasteLines } = pasteActions(ctx);
+  const complete = completeActions(ctx);
 
   return {
-    handleKey: editorKeyHandler(ctx, { ...navigation, ...filter, ...slash }),
-    handleGlobalKey: pageKeyHandler(ctx, { ...navigation, ...filter, ...selection }),
+    handleKey: editorKeyHandler(ctx, { ...navigation, ...filter, ...slash, ...complete }),
+    handleGlobalKey: pageKeyHandler(ctx, { ...navigation, ...filter, ...selection, ...complete }),
     focusNext: navigation.focusNext,
     createFirst: navigation.createFirst,
     setAllCollapsed: navigation.setAllCollapsed,
@@ -99,6 +105,8 @@ export function createOutlineActions(deps: ActionDeps): OutlineActions {
     selectionAction: selection.selectionAction,
     copySelection: selection.copySelection,
     pasteIntoSelection: selection.pasteIntoSelection,
+    completeFocused: complete.completeFocused,
+    toggleShowCompleted: complete.toggleShowCompleted,
     toggleHelp: (open = !deps.ui.getState().helpOpen) => {
       deps.session.flush();
       deps.ui.blur();

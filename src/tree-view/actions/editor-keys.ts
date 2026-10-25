@@ -3,23 +3,28 @@ import type { OutlineKey } from '@/editor/outliner-keymap';
 import { slashCommands } from '@/editor/slash-registry';
 import { newId } from '@/model';
 import { isNoteCollapsed, notePrefs } from '@/store/note-prefs';
+import type { CompleteActions } from './complete';
 import type { ActionContext } from './context';
 import type { FilterActions } from './filter';
 import type { NavigationActions } from './navigation';
 import type { SlashActions } from './slash';
 
-type Parts = NavigationActions & FilterActions & SlashActions;
+type Parts = NavigationActions & FilterActions & SlashActions & CompleteActions;
 
 /** Structural keys coming from the editor keymap (`OutlineKey`). Returns true if handled. */
 export function editorKeyHandler(ctx: ActionContext, parts: Parts): (key: OutlineKey) => boolean {
   const { engine, ui, session, rootId, navigate, tree } = ctx;
-  const { closeSlash, openSlash, runSlash, undoRedo, createFirst, focusPrev, focusNext, zoomOut, toggleFilterRow } = parts;
+  const { closeSlash, openSlash, runSlash, undoRedo, createFirst, focusPrev, focusNext, zoomOut, toggleFilterRow, completeFocused, toggleShowCompleted } = parts;
 
   const hasNote = (id: string) => (tree.get(id)?.note ?? '') !== '';
 
   return (key) => {
     if (key === 'undo' || key === 'redo') {
       undoRedo(key);
+      return true;
+    }
+    if (key === 'showCompleted') {
+      toggleShowCompleted();
       return true;
     }
     if (key === 'search') {
@@ -78,6 +83,9 @@ export function editorKeyHandler(ctx: ActionContext, parts: Parts): (key: Outlin
       case 'note':
         session.flush();
         ui.focusNode(id, { kind: 'end' }, 'note');
+        return true;
+      case 'complete':
+        completeFocused(id);
         return true;
       case 'indent':
         if (isTitle) return true;

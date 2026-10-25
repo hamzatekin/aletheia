@@ -3,14 +3,22 @@ import { ancestorIds, visibleRows, type Node, type VisibleRow } from '@/model';
 import { useEngine } from '@/app/engine-context';
 import { pageRows, type FilteredRow } from '@/search/filter';
 import { useTreeStore } from '@/store/tree-store';
+import { useSettings } from '@/store/settings-store';
 import { useUiStore } from '@/store/ui-store';
 import { useOutline } from './outline-context';
+
+/** Whether done rows are hidden (Settings → Show completed off). */
+function useHideCompleted(): boolean {
+  const { settings } = useOutline();
+  return useSettings(settings, (s) => !s.showCompleted);
+}
 
 /** Visible rows under `rootId`, recomputed only when the structure changes. */
 export function useVisibleRows(rootId: string | null): VisibleRow[] {
   const engine = useEngine();
   const structureVersion = useTreeStore(engine.store, (s) => s.structureVersion);
-  return useMemo(() => visibleRows(engine.tree, rootId), [engine, rootId, structureVersion]);
+  const hide = useHideCompleted();
+  return useMemo(() => visibleRows(engine.tree, rootId, hide), [engine, rootId, structureVersion, hide]);
 }
 
 /** The rows the page shows: filtered while an in-place search is on. */
@@ -19,7 +27,8 @@ export function usePageRows(rootId: string | null): FilteredRow[] {
   const { ui } = useOutline();
   const structureVersion = useTreeStore(engine.store, (s) => s.structureVersion);
   const filter = useUiStore(ui, (s) => s.filter);
-  return useMemo(() => pageRows(engine.tree, rootId, filter), [engine, rootId, structureVersion, filter]);
+  const hide = useHideCompleted();
+  return useMemo(() => pageRows(engine.tree, rootId, filter, hide), [engine, rootId, structureVersion, filter, hide]);
 }
 
 export function useNode(id: string | null): Node | undefined {

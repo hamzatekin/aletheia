@@ -37,7 +37,7 @@ function capture(key: string | null, body: unknown, init: { method?: string; pat
 }
 
 function wire(id: string, fields: Partial<WireNode> = {}): WireNode {
-  const t = { content: 1, note: 1, pos: 1, collapsed: 1, starred: 1, deleted: 1 };
+  const t = { content: 1, note: 1, pos: 1, collapsed: 1, starred: 1, completed: 1, format: 1, deleted: 1 };
   return { id, parentId: null, order: 'a0', content: '', note: '', collapsed: false, starredAt: null, createdAt: NOW - DAY, deletedAt: null, t, ...fields };
 }
 
@@ -115,7 +115,7 @@ describe('POST /api/capture', () => {
     expect(body.url).toBe(`https://aletheia.test/n/${body.id}`);
     expect(await outline()).toEqual(['Work', '  14 Oct', '    Fix the login bug | ## Done\n\n- one\n- two', 'Inbox', 'Projects']);
     const item = (await nodes()).find((n) => n.id === body.id)!;
-    expect(item).toMatchObject({ createdAt: NOW, t: { content: NOW, note: NOW, pos: NOW, collapsed: NOW, starred: NOW, deleted: NOW } });
+    expect(item).toMatchObject({ createdAt: NOW, t: { content: NOW, note: NOW, pos: NOW, collapsed: NOW, starred: NOW, completed: NOW, format: NOW, deleted: NOW } });
   });
 
   it('uses an existing Work and date, adds items at the end of the day and new days at the top', async () => {

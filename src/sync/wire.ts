@@ -7,8 +7,10 @@
  * one device and editing its text on another both survive.
  */
 
-export const GROUPS = ['content', 'note', 'pos', 'collapsed', 'starred', 'deleted'] as const;
+export const GROUPS = ['content', 'note', 'pos', 'collapsed', 'starred', 'completed', 'format', 'deleted'] as const;
 export type Group = (typeof GROUPS)[number];
+/** Groups added after the first release: clients older than them leave their times out. */
+export const LATER_GROUPS: readonly Group[] = ['starred', 'completed', 'format'];
 export type GroupTimes = Record<Group, number>;
 
 /** Structural subset of the app's `Node` (kept here so the Worker needs nothing else). */
@@ -20,6 +22,9 @@ export interface NodeFields {
   note: string;
   collapsed: boolean;
   starredAt?: number | null;
+  completedAt?: number | null;
+  heading?: number | null;
+  color?: string | null;
   createdAt: number;
   updatedAt: number;
   deletedAt: number | null;
@@ -34,6 +39,11 @@ export interface WireNode {
   collapsed: boolean;
   /** Absent from clients older than stars; read as not starred, with the group's time 0. */
   starredAt?: number | null;
+  /** Absent from clients older than done items; read as not done, with the group's time 0. */
+  completedAt?: number | null;
+  /** Heading and color travel together as the "format" group; absent from older clients like the above. */
+  heading?: number | null;
+  color?: string | null;
   createdAt: number;
   deletedAt: number | null;
   /** When each group last changed. 0 = unchanged here (never wins). */
@@ -62,7 +72,7 @@ export interface PullResponse {
   more: boolean;
 }
 
-export const NO_TIMES: GroupTimes = { content: 0, note: 0, pos: 0, collapsed: 0, starred: 0, deleted: 0 };
+export const NO_TIMES: GroupTimes = { content: 0, note: 0, pos: 0, collapsed: 0, starred: 0, completed: 0, format: 0, deleted: 0 };
 
 /** The groups that differ between two versions of a node. */
 export function changedGroups(before: NodeFields | null, after: NodeFields | null): Group[] {
@@ -74,6 +84,8 @@ export function changedGroups(before: NodeFields | null, after: NodeFields | nul
   if (before.parentId !== after.parentId || before.order !== after.order) out.push('pos');
   if (before.collapsed !== after.collapsed) out.push('collapsed');
   if ((before.starredAt ?? null) !== (after.starredAt ?? null)) out.push('starred');
+  if ((before.completedAt ?? null) !== (after.completedAt ?? null)) out.push('completed');
+  if ((before.heading ?? null) !== (after.heading ?? null) || (before.color ?? null) !== (after.color ?? null)) out.push('format');
   if (before.deletedAt !== after.deletedAt) out.push('deleted');
   return out;
 }
@@ -97,6 +109,9 @@ export function toWire(node: NodeFields, times: Partial<GroupTimes>): WireNode {
     note: node.note,
     collapsed: node.collapsed,
     starredAt: node.starredAt ?? null,
+    completedAt: node.completedAt ?? null,
+    heading: node.heading ?? null,
+    color: node.color ?? null,
     createdAt: node.createdAt,
     deletedAt: node.deletedAt,
     t: { ...NO_TIMES, ...times },
@@ -113,6 +128,9 @@ export function tombstone(id: string, at: number): WireNode {
     note: '',
     collapsed: false,
     starredAt: null,
+    completedAt: null,
+    heading: null,
+    color: null,
     createdAt: at,
     deletedAt: at,
     t: { ...NO_TIMES, deleted: at },
@@ -128,6 +146,9 @@ export function fromWire(w: WireNode): NodeFields {
     note: w.note,
     collapsed: w.collapsed,
     starredAt: w.starredAt ?? null,
+    completedAt: w.completedAt ?? null,
+    heading: w.heading ?? null,
+    color: w.color ?? null,
     createdAt: w.createdAt,
     updatedAt: Math.max(w.createdAt, ...GROUPS.map((g) => w.t[g] ?? 0)),
     deletedAt: w.deletedAt,
@@ -150,6 +171,11 @@ export function overlayPending(remote: NodeFields, local: NodeFields | undefined
   }
   if (newer('collapsed')) out.collapsed = local.collapsed;
   if (newer('starred')) out.starredAt = local.starredAt ?? null;
+  if (newer('completed')) out.completedAt = local.completedAt ?? null;
+  if (newer('format')) {
+    out.heading = local.heading ?? null;
+    out.color = local.color ?? null;
+  }
   if (newer('deleted')) out.deletedAt = local.deletedAt;
   out.updatedAt = Math.max(out.updatedAt, local.updatedAt);
   return out;

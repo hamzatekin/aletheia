@@ -174,9 +174,12 @@ function newNode(parentId: string | null, order: string, content: string, note: 
     note,
     collapsed: false,
     starredAt: null,
+    completedAt: null,
+    heading: null,
+    color: null,
     createdAt: now,
     deletedAt: null,
-    t: { content: now, note: now, pos: now, collapsed: now, starred: now, deleted: now },
+    t: { content: now, note: now, pos: now, collapsed: now, starred: now, completed: now, format: now, deleted: now },
   };
 }
 

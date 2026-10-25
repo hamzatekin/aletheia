@@ -309,6 +309,16 @@ describe('engine: details', () => {
     expect(f.engine.applyExternal([{ ...a, starredAt: null }], 'pull')).toBeNull();
   });
 
+  it('sees a change in done, heading or color as a difference, and a missing one as none', () => {
+    const f = fixture(['A']);
+    const a = f.node('A');
+    for (const patch of [{ completedAt: 3 }, { heading: 2 }, { color: 'red' }]) {
+      expect(f.engine.applyExternal([{ ...a, ...patch }], 'pull')?.changes).toHaveLength(1);
+      f.engine.applyExternal([a], 'pull');
+    }
+    expect(f.engine.applyExternal([{ ...a, completedAt: null, heading: null, color: null }], 'pull')).toBeNull();
+  });
+
   it('applyPeer shows changes without writing, tells listeners, and treats a newer updatedAt as a change', async () => {
     const f = fixture(['A']);
     await f.engine.flush();

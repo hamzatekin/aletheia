@@ -5,3 +5,4 @@ export * from './tree';
 export * from './operation';
 export * from './seed';
 export * from './repair';
+export * from './trash';

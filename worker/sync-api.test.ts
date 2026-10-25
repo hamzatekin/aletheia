@@ -130,14 +130,17 @@ describe('push', () => {
       ['createdAt', { createdAt: 'now' }],
       ['deletedAt', { deletedAt: 'then' }],
       ['starredAt', { starredAt: 'soon' }],
+      ['completedAt', { completedAt: 'done' }],
+      ['heading', { heading: 4 }],
+      ['color', { color: 'pink' }],
       ['no times', { t: null }],
       ['times not object', { t: 5 }],
       ['missing time', { t: { ...t, content: undefined } }],
       ['bad time', { t: { ...t, pos: 'x' } }],
     ];
     const nodes = bad.map(([name, fields]) => ({ ...wire(name), ...fields }));
-    const res = await body<PushResponse>(push([...nodes, wire('x'.repeat(64)), wire('ok', { parentId: 'p', deletedAt: 3, starredAt: 4 })]));
-    expect(res.rejected).toEqual(['', 'x'.repeat(65), 'parent', 'order', 'content', 'note', 'collapsed', 'createdAt', 'deletedAt', 'starredAt', 'no times', 'times not object', 'missing time', 'bad time']);
+    const res = await body<PushResponse>(push([...nodes, wire('x'.repeat(64)), wire('ok', { parentId: 'p', deletedAt: 3, starredAt: 4, completedAt: 5, heading: 3, color: 'purple' })]));
+    expect(res.rejected).toEqual(['', 'x'.repeat(65), 'parent', 'order', 'content', 'note', 'collapsed', 'createdAt', 'deletedAt', 'starredAt', 'completedAt', 'heading', 'color', 'no times', 'times not object', 'missing time', 'bad time']);
     expect(res.seq).toBe(2);
     expect((await pull()).nodes.map((n) => n.id)).toEqual(['x'.repeat(64), 'ok']);
   });
@@ -148,26 +151,52 @@ describe('push', () => {
     expect(await body(push([{ ...old, t: times }]))).toEqual({ seq: 1, rejected: [] });
   });
 
+  it('accepts a node without done, heading or color, and without their times, and reads them back as none', async () => {
+    const { completed: _c, format: _f, ...times } = NO_TIMES;
+    expect(await body(push([{ ...wire('old'), t: times }]))).toEqual({ seq: 1, rejected: [] });
+    expect((await pull()).nodes).toEqual([{ ...wire('old'), seq: 1, completedAt: null, heading: null, color: null }]);
+  });
+
+  it('adds the done, heading and color columns to a database made before them', async () => {
+    resetSchemaCache();
+    db = sqliteD1();
+    await db.prepare(`CREATE TABLE nodes (
+      space TEXT NOT NULL, id TEXT NOT NULL, seq INTEGER NOT NULL, created_at INTEGER NOT NULL,
+      content TEXT NOT NULL, content_t INTEGER NOT NULL, note TEXT NOT NULL, note_t INTEGER NOT NULL,
+      parent_id TEXT, ord TEXT NOT NULL, pos_t INTEGER NOT NULL, collapsed INTEGER NOT NULL, collapsed_t INTEGER NOT NULL,
+      deleted_at INTEGER, deleted_t INTEGER NOT NULL, starred_at INTEGER, starred_t INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (space, id))`).run();
+    await call('POST', 'space', KEY);
+    const t = { ...NO_TIMES, completed: 5, format: 6 };
+    expect(await body(push([wire('n', { completedAt: 5, heading: 1, color: 'yellow', t })]))).toEqual({ seq: 1, rejected: [] });
+    expect((await pull()).nodes).toEqual([{ ...wire('n', { completedAt: 5, heading: 1, color: 'yellow', t }), seq: 1 }]);
+  });
+
+  it('rejects a done or format time that is there but not a number', async () => {
+    const res = await body<PushResponse>(push([wire('a', { t: { ...NO_TIMES, completed: 'x' as never } }), wire('b', { t: { ...NO_TIMES, format: null as never } })]));
+    expect(res).toEqual({ seq: null, rejected: ['a', 'b'] });
+  });
+
   it('stores every field and reads it back exactly', async () => {
-    const t = { content: 11, note: 12, pos: 13, collapsed: 14, starred: 15, deleted: 16 };
-    await push([wire('n', { parentId: 'p', order: 'b5', content: 'c', note: 'nn', collapsed: true, starredAt: 40, createdAt: 7, deletedAt: 50, t })]);
+    const t = { content: 11, note: 12, pos: 13, collapsed: 14, starred: 15, completed: 17, format: 18, deleted: 16 };
+    await push([wire('n', { parentId: 'p', order: 'b5', content: 'c', note: 'nn', collapsed: true, starredAt: 40, completedAt: 41, heading: 2, color: 'blue', createdAt: 7, deletedAt: 50, t })]);
     expect(await pull()).toEqual({
-      nodes: [{ id: 'n', seq: 1, parentId: 'p', order: 'b5', content: 'c', note: 'nn', collapsed: true, starredAt: 40, createdAt: 7, deletedAt: 50, t }],
+      nodes: [{ id: 'n', seq: 1, parentId: 'p', order: 'b5', content: 'c', note: 'nn', collapsed: true, starredAt: 40, completedAt: 41, heading: 2, color: 'blue', createdAt: 7, deletedAt: 50, t }],
       cursor: 1,
       more: false,
     });
   });
 
   it('merges each group by its time: newer wins, older and equal lose, and createdAt keeps the earliest', async () => {
-    const t1 = { content: 10, note: 10, pos: 10, collapsed: 10, starred: 10, deleted: 10 };
+    const t1 = { content: 10, note: 10, pos: 10, collapsed: 10, starred: 10, completed: 10, format: 10, deleted: 10 };
     await push([wire('n', { content: 'c1', note: 'n1', parentId: 'p1', order: 'a1', collapsed: false, starredAt: null, deletedAt: null, createdAt: 5, t: t1 })]);
     // Equal times do not overwrite.
-    await push([wire('n', { content: 'c2', note: 'n2', parentId: 'p2', order: 'a2', collapsed: true, starredAt: 9, deletedAt: 9, createdAt: 8, t: t1 })]);
+    await push([wire('n', { content: 'c2', note: 'n2', parentId: 'p2', order: 'a2', collapsed: true, starredAt: 9, completedAt: 9, heading: 1, color: 'red', deletedAt: 9, createdAt: 8, t: t1 })]);
     let n = (await pull()).nodes[0]!;
-    expect(n).toMatchObject({ content: 'c1', note: 'n1', parentId: 'p1', order: 'a1', collapsed: false, starredAt: null, deletedAt: null, createdAt: 5, t: t1 });
+    expect(n).toMatchObject({ content: 'c1', note: 'n1', parentId: 'p1', order: 'a1', collapsed: false, starredAt: null, completedAt: null, heading: null, color: null, deletedAt: null, createdAt: 5, t: t1 });
     // Newer times win, group by group; older ones don't lower the stored time.
-    const t2 = { content: 20, note: 5, pos: 20, collapsed: 5, starred: 20, deleted: 5 };
-    await push([wire('n', { content: 'c3', note: 'n3', parentId: 'p3', order: 'a3', collapsed: true, starredAt: 30, deletedAt: 30, createdAt: 2, t: t2 })]);
+    const t2 = { content: 20, note: 5, pos: 20, collapsed: 5, starred: 20, completed: 20, format: 5, deleted: 5 };
+    await push([wire('n', { content: 'c3', note: 'n3', parentId: 'p3', order: 'a3', collapsed: true, starredAt: 30, completedAt: 31, heading: 3, color: 'green', deletedAt: 30, createdAt: 2, t: t2 })]);
     n = (await pull()).nodes[0]!;
     expect(n).toEqual({
       id: 'n',
@@ -178,9 +207,12 @@ describe('push', () => {
       order: 'a3',
       collapsed: false,
       starredAt: 30,
+      completedAt: 31,
+      heading: null,
+      color: null,
       deletedAt: null,
       createdAt: 2,
-      t: { content: 20, note: 10, pos: 20, collapsed: 10, starred: 20, deleted: 10 },
+      t: { content: 20, note: 10, pos: 20, collapsed: 10, starred: 20, completed: 20, format: 10, deleted: 10 },
     });
   });
 

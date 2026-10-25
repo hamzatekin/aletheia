@@ -18,7 +18,7 @@ interface TreeState {
   readonly childrenByParent: ReadonlyMap<string, readonly string[]>;
   /** Increments on every change; subscribe to this for "anything changed". */
   readonly version: number;
-  /** Increments only when hierarchy, order, collapse or deletion changes. */
+  /** Increments only when hierarchy, order, collapse, done or deletion changes. */
   readonly structureVersion: number;
   /** Replace the whole tree (initial load). */
   load(nodes: Iterable<Node>): void;
@@ -73,6 +73,8 @@ function isStructural(before: Node | null, after: Node | null): boolean {
     before.parentId !== after.parentId ||
     before.order !== after.order ||
     before.collapsed !== after.collapsed ||
+    // Done rows can be hidden, so marking one done changes what the page shows.
+    (before.completedAt ?? null) !== (after.completedAt ?? null) ||
     before.deletedAt !== after.deletedAt
   );
 }
