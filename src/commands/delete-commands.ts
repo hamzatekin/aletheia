@@ -51,6 +51,7 @@ export function restoreNode(ctx: CommandContext, cmd: CommandOf<'restoreNode'>):
   const parentGone = node.parentId !== null && !isLive(tree.get(node.parentId));
   cs.update(node.id, parentGone ? { deletedAt: null, parentId: null, order: orderFor(tree, null, 'first')! } : { deletedAt: null });
   for (const n of tree.all()) {
+    // Stryker disable next-line ConditionalExpression,LogicalOperator: the id and time checks only skip, cheaply, nodes deletionRoot rejects anyway
     if (n.id !== node.id && n.deletedAt === node.deletedAt && deletionRoot(tree, n).id === node.id) cs.update(n.id, { deletedAt: null });
   }
   return { changes: cs.list() };

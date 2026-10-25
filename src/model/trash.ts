@@ -15,6 +15,7 @@ export interface DeletedItem {
 export function deletionRoot(tree: TreeReader, node: Node): Node {
   let root = node;
   const seen = new Set<string>([node.id]);
+  // Stryker disable next-line ConditionalExpression: with no parent, get(null) finds nothing and the loop stops just the same
   while (root.parentId !== null && !seen.has(root.parentId)) {
     const parent = tree.get(root.parentId);
     if (!parent || parent.deletedAt !== node.deletedAt) break;

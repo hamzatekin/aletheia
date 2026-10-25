@@ -172,6 +172,11 @@ describe('push', () => {
     expect((await pull()).nodes).toEqual([{ ...wire('n', { completedAt: 5, heading: 1, color: 'yellow', t }), seq: 1 }]);
   });
 
+  it('rejects a done or format time that is there but not a number', async () => {
+    const res = await body<PushResponse>(push([wire('a', { t: { ...NO_TIMES, completed: 'x' as never } }), wire('b', { t: { ...NO_TIMES, format: null as never } })]));
+    expect(res).toEqual({ seq: null, rejected: ['a', 'b'] });
+  });
+
   it('stores every field and reads it back exactly', async () => {
     const t = { content: 11, note: 12, pos: 13, collapsed: 14, starred: 15, completed: 17, format: 18, deleted: 16 };
     await push([wire('n', { parentId: 'p', order: 'b5', content: 'c', note: 'nn', collapsed: true, starredAt: 40, completedAt: 41, heading: 2, color: 'blue', createdAt: 7, deletedAt: 50, t })]);

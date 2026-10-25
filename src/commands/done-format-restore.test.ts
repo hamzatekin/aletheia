@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deletedItems } from '@/model';
+import { deletedItems, deletionRoot, type Node, type TreeReader } from '@/model';
 import { fixture, ok, outline } from '@/test/helpers';
 import { computeEffect } from './dispatch';
 import { Rejection, type Command, type Effect } from './types';
@@ -87,6 +87,14 @@ describe('restoreNode', () => {
     expect(f.node('K').parentId).toBe(f.ids.P);
   });
 
+  it('brings back only the chosen one of several nodes deleted together', () => {
+    const f = fixture(['A', 'B', 'C']);
+    ok(f.engine.batch([{ type: 'deleteSubtree', id: f.ids.A! }, { type: 'deleteSubtree', id: f.ids.B! }], 'deleteSelection'));
+    expect(f.node('A').deletedAt).toBe(f.node('B').deletedAt);
+    ok(f.engine.execute({ type: 'restoreNode', id: f.ids.B! }));
+    expect(outline(f)).toEqual(['B', 'C']);
+  });
+
   it('refuses a live or missing node', () => {
     const f = fixture(['A']);
     expect(effect(f, { type: 'restoreNode', id: f.ids.A! })).toEqual(new Rejection('node is missing or not deleted'));
@@ -110,6 +118,35 @@ describe('deletedItems', () => {
     expect(deletedItems(f.engine.tree, 2)).toHaveLength(2);
     ok(f.engine.execute({ type: 'restoreNode', id: f.ids.A! }));
     expect(deletedItems(f.engine.tree).map((d) => d.node.content)).toEqual(['', 'C']);
+  });
+
+  it('orders deletions made at the same moment by id, and lists a blank row that has a note', () => {
+    const f = fixture(['A', 'B', '   ', ' ']);
+    const blank = f.engine.tree.children(null).filter((id) => f.engine.tree.get(id)!.content.trim() === '');
+    ok(f.engine.execute({ type: 'updateNote', id: blank[0]!, note: 'kept' }));
+    ok(f.engine.execute({ type: 'updateNote', id: blank[1]!, note: '  ' }));
+    const ids = [f.ids.A!, f.ids.B!, ...blank];
+    ok(f.engine.batch(ids.map((id): Command => ({ type: 'deleteSubtree', id })), 'deleteSelection'));
+    expect(deletedItems(f.engine.tree).map((d) => d.node.id)).toEqual([f.ids.A!, f.ids.B!, blank[0]!].sort());
+  });
+
+  const deleted = (id: string, parentId: string | null, at = 5): Node => ({ id, parentId, order: 'a', content: id, note: '', collapsed: false, createdAt: 1, updatedAt: 1, deletedAt: at });
+  const treeOf = (list: Node[]): TreeReader => {
+    const nodes = new Map(list.map((n) => [n.id, n]));
+    return { get: (id) => nodes.get(id), children: () => [], all: () => nodes.values() };
+  };
+
+  it('follows a broken parent cycle no further than once round', () => {
+    const tree = treeOf([deleted('x', 'y'), deleted('y', 'x'), deleted('w', 'x')]);
+    expect(deletionRoot(tree, tree.get('x')!).id).toBe('y');
+    expect(deletionRoot(tree, tree.get('y')!).id).toBe('x');
+    // A cycle above the node, not through it, ends too.
+    expect(deletionRoot(tree, tree.get('w')!).id).toBe('y');
+  });
+
+  it('breaks ties between deletions at the same moment by id, whatever order the tree holds them in', () => {
+    const tree = treeOf([deleted('b', null), deleted('c', null), deleted('a', null), deleted('d', null, 9)]);
+    expect(deletedItems(tree).map((d) => d.node.id)).toEqual(['d', 'a', 'b', 'c']);
   });
 
   it('lists a child deleted earlier on its own, apart from its parent deleted later', () => {

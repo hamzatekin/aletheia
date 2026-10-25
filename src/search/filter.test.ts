@@ -96,6 +96,16 @@ describe('in-place search filter', () => {
     expect(labels(filteredRows(tree, null, flt))).toEqual(['Projects', 'House', 'Paint the fence']);
   });
 
+  it('opens or closes a row for the search as shown or hidden done rows leave it', () => {
+    const f = fixture(spec as never);
+    const tree = f.engine.tree;
+    f.engine.execute({ type: 'toggleComplete', id: f.ids['Garden']! });
+    const flt = filter('tomato');
+    expect(toggleFilterRow(tree, null, flt, f.ids['Garden']!).open.get(f.ids['Garden']!)).toBe(false);
+    // Hidden, the done row isn't on the page to toggle.
+    expect(toggleFilterRow(tree, null, flt, f.ids['Garden']!, true)).toBe(flt);
+  });
+
   it('shows the usual rows when the query is empty', () => {
     const f = fixture(spec as never);
     expect(pageRows(f.engine.tree, null, filter('  ')).length).toBe(pageRows(f.engine.tree, null, null).length);
