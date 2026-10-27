@@ -10,6 +10,7 @@ import { createAiService } from './ai/service';
 import { bootstrap } from './app/bootstrap';
 import { inSandbox, mainSyncKey, sandboxDb } from './app/sandbox';
 import { nameAllFromNotes, watchNameFromNote } from './editor/first-line';
+import { localChats } from './agent/chats';
 import { createAgentService } from './agent/service';
 import { EditorSession } from './editor/session';
 import { SearchIndex } from './search';
@@ -64,7 +65,7 @@ const sandboxKey = inSandbox ? await mainSyncKey() : null;
 const syncKey = () => (sync ? sync.state.getState().key : sandboxKey);
 const complete = httpComplete();
 const ai = createAiService({ engine, session, key: syncKey, complete });
-const agent = createAgentService({ engine, session, search, key: syncKey, step: httpStep() });
+const agent = createAgentService({ engine, session, search, key: syncKey, step: httpStep(), chats: localChats(inSandbox ? 'aletheia:sandbox-chats' : 'aletheia:chats') });
 const voice = createVoiceService({ engine, key: syncKey, complete, transcribe: httpTranscribe(), record: startRecording, encode: toBase64Wav, canRecord });
 registerAiSlashCommands(ai);
 // On narrow screens the sidebar would cover the page, so start with it hidden (without saving that).
