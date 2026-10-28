@@ -82,7 +82,7 @@ export function editorKeyHandler(ctx: ActionContext, parts: Parts): (key: Outlin
       }
       case 'note':
         session.flush();
-        ui.focusNode(id, { kind: 'end' }, 'note');
+        ui.focusNode(id, { kind: 'start' }, 'note');
         return true;
       case 'complete':
         completeFocused(id);
