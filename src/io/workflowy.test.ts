@@ -202,6 +202,7 @@ describe('WorkFlowy code blocks: details', () => {
     expect(codeTitle('\n   \n  ⏺  hello  \nworld')).toBe('hello');
     expect(codeTitle('⏺x')).toBe('x');
     expect(codeTitle('a ⏺ b')).toBe('a ⏺ b');
+    expect(codeTitle('● hello')).toBe('hello');
     expect(codeTitle('   ')).toBe('');
     const eighty = 'x'.repeat(80);
     expect(codeTitle(eighty)).toBe(eighty);

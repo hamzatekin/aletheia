@@ -154,6 +154,13 @@ describe('terminalToMarkdown: details', () => {
     expect(terminalToMarkdown('⏺ First line\n  second line')).toBe('First line\nsecond line');
   });
 
+  it('removes the ● marker Claude Code uses on Linux, but keeps ● lists as lists', () => {
+    expect(terminalToMarkdown('● First line\n  second line\n\n● Next answer')).toBe('First line\nsecond line\n\nNext answer');
+    expect(terminalToMarkdown('● a\n● b')).toBe('- a\n- b');
+    expect(terminalToMarkdown('intro\n  ● a')).toBe('intro\n  - a');
+    expect(terminalToMarkdown('●x')).toBe('●x');
+  });
+
   it('drops trailing spaces', () => {
     expect(terminalToMarkdown('a   \nb')).toBe('a\nb');
   });
@@ -257,6 +264,9 @@ describe('isTerminalPaste / formatTerminalContent', () => {
     expect(isTerminalPaste('intro\n  ⏺ The answer')).toBe(true);
     expect(isTerminalPaste('a ⏺ b')).toBe(false);
     expect(isTerminalPaste('⏺x')).toBe(false);
+    expect(isTerminalPaste('● The answer\n  goes on')).toBe(true);
+    expect(isTerminalPaste('● a\n● b')).toBe(false);
+    expect(isTerminalPaste('intro\n  ● a')).toBe(false);
     expect(isTerminalPaste('plain')).toBe(false);
   });
 
@@ -265,6 +275,8 @@ describe('isTerminalPaste / formatTerminalContent', () => {
     expect(formatTerminalContent('⏺   hello')).toBe('hello');
     expect(formatTerminalContent('⏺hello')).toBe('hello');
     expect(formatTerminalContent('a ⏺ b')).toBe('a ⏺ b');
+    expect(formatTerminalContent('● hello')).toBe('hello');
+    expect(formatTerminalContent('●hello')).toBe('●hello');
   });
 });
 
@@ -321,6 +333,27 @@ describe('styled terminal copies', () => {
         '',
         '**Sources** (for you)',
         '- 1: `e34b418a4`, `734008f05` · fixes: `a7264167a`',
+      ].join('\n'),
+    );
+  });
+
+  it('read the way Ghostty on Linux copies a Claude Code answer: entities, a bold ● marker', () => {
+    const html = ghostty(
+      [
+        `${bold('&#9679;')} ${bold('Since Wed 21 Oct')} &#183; 7 pieces of work`,
+        '',
+        `  ${bold('New and improved')}`,
+        `  1. ${bold('Benchmarking page rebuilt.')} Firms now see three tabs.`,
+        '     Show it: Dashboard &#8594; Benchmarking',
+      ].join('\n'),
+    );
+    expect(terminalPasteMarkdown('● Since Wed 21 Oct · 7 pieces of work', html)).toBe(
+      [
+        '**Since Wed 21 Oct** · 7 pieces of work',
+        '',
+        '**New and improved**',
+        '1. **Benchmarking page rebuilt.** Firms now see three tabs.',
+        '   Show it: Dashboard → Benchmarking',
       ].join('\n'),
     );
   });
