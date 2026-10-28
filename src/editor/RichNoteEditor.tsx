@@ -79,6 +79,17 @@ export function RichNoteEditor({ id }: { id: string }) {
       return selection instanceof GapCursor && selection.from === (side === 'start' ? 0 : doc.content.size);
     };
 
+    // Undo/redo belong to the outline: save first, then run it from here, since
+    // ProseMirror keeps these keys from reaching the page. When the change was
+    // on this item, the caret stays in its note, as in Dynalist.
+    const undoRedo = (which: 'undo' | 'redo') => () => {
+      save();
+      actions[which]();
+      const focus = ui.getState().focus;
+      if (focus?.id === id && focus.field !== 'note') ui.focusNode(id, { kind: 'end' }, 'note');
+      return true;
+    };
+
     // The "/" menu, as on the node's line: typing filters, arrows pick, Enter runs, Esc closes.
     const slashItems = () => slashCommands(slashRef.current?.query ?? '', 'note');
     const moveSlash = (step: number) => {
@@ -136,10 +147,9 @@ export function RichNoteEditor({ id }: { id: string }) {
               : false;
           },
           Backspace: ({ editor: e }) => (e.isEmpty ? leave(toContent)() : false),
-          // Undo/redo belong to the outline: save first, then let the key reach it.
-          'Mod-z': () => (save(), false),
-          'Shift-Mod-z': () => (save(), false),
-          'Mod-y': () => (save(), false),
+          'Mod-z': undoRedo('undo'),
+          'Shift-Mod-z': undoRedo('redo'),
+          'Mod-y': undoRedo('redo'),
           // Tab only means something inside lists, where it nests or un-nests the item.
           Tab: ({ editor: e }) => (e.commands.sinkListItem('listItem') || e.commands.sinkListItem('taskItem'), true),
           'Shift-Tab': ({ editor: e }) => (e.commands.liftListItem('listItem') || e.commands.liftListItem('taskItem'), true),
@@ -244,7 +254,8 @@ export function RichNoteEditor({ id }: { id: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one editor per note
   }, [id]);
 
-  // External change (undo/redo): show the stored note.
+  // External change (undo/redo): show the stored note. On `node` too: an undo
+  // right after typing saves and reverts in one render, so `stored` looks unchanged.
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor || stored === known.current) return;
@@ -252,7 +263,7 @@ export function RichNoteEditor({ id }: { id: string }) {
     editor.commands.setContent(stored, { emitUpdate: false });
     source.current = loadedNote(editor, stored);
     loaded.current = noteMarkdown(editor, source.current);
-  }, [stored]);
+  }, [stored, node]);
 
   const slashItems = slash ? slashCommands(slash.query, 'note') : [];
   const view = editorRef.current?.view;

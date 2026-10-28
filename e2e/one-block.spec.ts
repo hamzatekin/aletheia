@@ -89,7 +89,7 @@ test('a note is hidden in the list, with a mark, and shows only while you are on
   await expect.poll(() => focused(page)).toBeNull();
   await expect(viewNote).toHaveCount(0);
   await expect(marker).toBeVisible();
-  expect(await note(page, 'alpha')).toBe('one\n\ntwo!');
+  expect(await note(page, 'alpha')).toBe('!one\n\ntwo');
 });
 
 test('clicking between an item and its hidden note keeps the item highlighted and the note open, with the caret where you clicked', async ({ page }) => {

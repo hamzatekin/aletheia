@@ -93,6 +93,48 @@ test('Shift+Enter edits the note; Escape returns to the content', async ({ page 
   await expect(page.locator('.node-note', { hasText: 'in spring' })).toBeVisible();
 });
 
+test('Shift+Enter puts the caret on the top line of the note', async ({ page }) => {
+  await page.evaluate(() => {
+    const { engine } = (window as any).__aletheia;
+    const node = [...engine.tree.all()].find((n: any) => n.content === 'Plant a tree');
+    engine.execute({ type: 'updateNote', id: node.id, note: 'first\n\nlast' });
+  });
+  await edit(page, 'Plant a tree');
+  await page.keyboard.press('Shift+Enter');
+  await expect.poll(() => focused(page)).toBe('Plant a tree:note');
+  await page.keyboard.type('the ');
+  await expect.poll(async () => (await nodeByText(page, 'Plant a tree'))?.note).toBe('the first\n\nlast');
+});
+
+test('Ctrl+Z and Ctrl+Y undo and redo typing in a note, and the caret stays in the note', async ({ page }) => {
+  const note = async () => (await nodeByText(page, 'Plant a tree'))?.note;
+  await edit(page, 'Plant a tree');
+  await page.keyboard.press('Shift+Enter');
+  await page.keyboard.type('in spring');
+  await page.keyboard.press('Control+z');
+  await expect.poll(note).toBe('');
+  await expect(page.locator('.ProseMirror[data-editor=note]')).toHaveText('');
+  expect(await focused(page)).toBe('Plant a tree:note');
+  await page.keyboard.press('Control+y');
+  await expect.poll(note).toBe('in spring');
+  await expect(page.locator('.ProseMirror[data-editor=note]')).toHaveText('in spring');
+  expect(await focused(page)).toBe('Plant a tree:note');
+
+  // The same in the raw Markdown editor.
+  await row(page, 'Plant a tree').locator('[data-testid=note-mode-toggle]').click();
+  const raw = page.locator('textarea[data-editor=note]');
+  await expect(raw).toBeFocused();
+  await page.keyboard.type(' soon');
+  await page.keyboard.press('Control+z');
+  await expect.poll(note).toBe('in spring');
+  await expect(raw).toHaveValue('in spring');
+  await expect(raw).toBeFocused();
+  await page.keyboard.press('Control+Shift+z');
+  await expect.poll(note).toBe('in spring soon');
+  await expect(raw).toHaveValue('in spring soon');
+  await expect(raw).toBeFocused();
+});
+
 test('Ctrl+Up/Down collapse and expand; Alt+Shift+Up/Down move among siblings', async ({ page }) => {
   await edit(page, 'Projects');
   const before = await rowCount(page);

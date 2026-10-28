@@ -143,13 +143,14 @@ function RawNoteEditor({ id }: Props) {
     engine.execute({ type: 'updateNote', id, note: value });
   };
 
-  // External change (undo/redo).
+  // External change (undo/redo). On `node` too: an undo right after typing
+  // saves and reverts in one render, so `stored` looks unchanged.
   useEffect(() => {
     if (stored !== known.current) {
       known.current = stored;
       setText(stored);
     }
-  }, [stored]);
+  }, [stored, node]);
 
   useLayoutEffect(() => {
     const el = ref.current!;
@@ -196,9 +197,13 @@ function RawNoteEditor({ id }: Props) {
       e.preventDefault();
       save('');
       ui.focusNode(id, { kind: 'end' });
-    } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
-      // Let the global undo handler run with the note saved.
+    } else if ((e.metaKey || e.ctrlKey) && /^[zy]$/i.test(e.key)) {
+      // Undo/redo the outline with the note saved; the caret stays in the note if the change was on this item.
+      e.preventDefault();
       save(el.value);
+      actions[e.key.toLowerCase() === 'y' || e.shiftKey ? 'redo' : 'undo']();
+      const focus = ui.getState().focus;
+      if (focus?.id === id && focus.field !== 'note') ui.focusNode(id, { kind: 'end' }, 'note');
     }
   };
 
