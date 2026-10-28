@@ -1,9 +1,36 @@
 import { useState } from 'react';
 import { Button } from '@/ui/widgets';
-import { createCaptureKey, setupCommand } from './claude-code';
+import { createKey, mcpCommand, setupCommand } from './claude-code';
 
-/** Under Sync: set up a computer so Claude Code's /aletheia skill can add items here. */
+/**
+ * Under Sync: set up a computer for Claude Code. The /aletheia skill adds
+ * items here; the MCP connection lets it search and read the notes.
+ */
 export function ClaudeCodeSection({ syncKey }: { syncKey: string }) {
+  return (
+    <div data-testid="claude-code" className="mt-4">
+      <h3 className="mb-1 text-xs font-semibold">Claude Code</h3>
+      <KeyCommand
+        intro="Run /aletheia in Claude Code to save its answer here, under Work › today's date."
+        button="Set up Claude Code"
+        label="Setup command"
+        after="It saves a key that can only add items, and installs the skill. Setting up again turns this key off."
+        make={async () => setupCommand(window.location.origin, await createKey(syncKey, 'capture'), Intl.DateTimeFormat().resolvedOptions().timeZone)}
+      />
+      <KeyCommand
+        intro="Let Claude Code search and read your notes, so you can ask about them in the terminal."
+        button="Connect to your notes"
+        label="Connect command"
+        after="It gives Claude Code a key that can only read, for all your projects (Passwords and Budget stay out). Connecting again turns this key off."
+        make={async () => mcpCommand(window.location.origin, await createKey(syncKey, 'read'))}
+        testId="claude-code-mcp"
+      />
+    </div>
+  );
+}
+
+/** A button that makes a key and shows the command to run with it, ready to copy. */
+function KeyCommand({ intro, button, label, after, make, testId }: { intro: string; button: string; label: string; after: string; make(): Promise<string>; testId?: string }) {
   const [command, setCommand] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -13,8 +40,7 @@ export function ClaudeCodeSection({ syncKey }: { syncKey: string }) {
     setBusy(true);
     setProblem(null);
     try {
-      const key = await createCaptureKey(syncKey);
-      setCommand(setupCommand(window.location.origin, key, Intl.DateTimeFormat().resolvedOptions().timeZone));
+      setCommand(await make());
     } catch (error) {
       setProblem(error instanceof TypeError ? 'Could not reach the sync server. Are you online?' : (error as Error).message);
     } finally {
@@ -32,9 +58,8 @@ export function ClaudeCodeSection({ syncKey }: { syncKey: string }) {
   };
 
   return (
-    <div data-testid="claude-code" className="mt-4">
-      <h3 className="mb-1 text-xs font-semibold">Claude Code</h3>
-      <p className="mb-2 text-xs text-muted">Run /aletheia in Claude Code to save its answer here, under Work › today's date.</p>
+    <div className="mb-3" data-testid={testId}>
+      <p className="mb-2 text-xs text-muted">{intro}</p>
       {command ? (
         <>
           <p className="mb-1.5 text-xs text-muted">Run this once in a terminal on your computer:</p>
@@ -42,7 +67,7 @@ export function ClaudeCodeSection({ syncKey }: { syncKey: string }) {
             readOnly
             value={command}
             rows={4}
-            aria-label="Setup command"
+            aria-label={label}
             onFocus={(e) => e.target.select()}
             className="mb-2 block w-full resize-none rounded border border-line bg-transparent px-2 py-1 font-mono text-xs text-muted"
           />
@@ -51,11 +76,11 @@ export function ClaudeCodeSection({ syncKey }: { syncKey: string }) {
               {copied ? 'Copied' : 'Copy command'}
             </Button>
           </div>
-          <p className="text-xs text-muted">It saves a key that can only add items, and installs the skill. Setting up again turns this key off.</p>
+          <p className="text-xs text-muted">{after}</p>
         </>
       ) : (
         <Button disabled={busy} onClick={() => void setUp()}>
-          Set up Claude Code
+          {button}
         </Button>
       )}
       {problem && (

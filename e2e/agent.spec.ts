@@ -120,6 +120,26 @@ test('AI keeps a memory in the outline and reads it in the next chat', async ({ 
   expect(prompts[1]).toContain('What you remember about Avvos:\n[1] Training for a 10k\n');
 });
 
+test('My week looks back on the last 7 days from a new chat', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await build(page);
+  await syncOn(page);
+  await page.evaluate(() => (window as any).__aletheia.engine.execute({ type: 'toggleComplete', id: 'ag-1', completed: true })); // 14 Oct
+  const prompts: string[] = [];
+  await page.route('**/api/ai/complete', async (route) => {
+    prompts.push(route.request().postDataJSON().prompt);
+    await route.fulfill({ json: { text: '', structured: { answer: 'You cleared a lot this week, Avvos.', changes: [] }, model: 'm', durationMs: 5, session: 's1' } });
+  });
+  await page.getByTestId('agent-button').click();
+  const panel = page.getByTestId('agent-panel');
+  await panel.getByTestId('agent-my-week').click();
+  await expect(panel.getByTestId('agent-answer').locator('.agent-answer')).toHaveText('You cleared a lot this week, Avvos.');
+  await expect(panel.getByTestId('agent-chat')).toContainText('How did my week go?');
+  expect(prompts[0]).toMatch(/\nMarked done \(1\):\n- \w{3} \d{1,2} \w{3}: \[\d+\] 14 Oct {2}\(inside: Work, done\)\n/);
+  expect(prompts[0]).toMatch(/\nStill in the Inbox \(3\):\n- [^\n]*Lavazza/);
+  await expect(panel.getByTestId('agent-my-week')).toHaveCount(0);
+});
+
 test('the last chats are kept on this device: reload comes back to one, Recent reopens the others', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await build(page);

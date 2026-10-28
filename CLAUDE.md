@@ -30,7 +30,8 @@ pnpm dev        dev server on :5173
   `CHROMIUM_PATH=/opt/pw-browsers/chromium pnpm test:e2e`.
 - `pnpm test:e2e e2e/foo.spec.ts` runs one spec; add `--repeat-each 3` to
   check whether a failure is a flake.
-- Sync API locally: `pnpm build && npx wrangler dev` (serves on :8787; `pnpm dev`
+- Sync API locally: `pnpm build && npx wrangler dev --env local` (serves on :8787; the
+  `local` env has no Workers AI binding, which needs a Cloudflare login; `pnpm dev`
   proxies `/api` to it).
 - There is no CI on GitHub. The "Workers Builds: aletheia" check fails
   instantly on every PR and is not caused by the code; don't block on it.
@@ -75,6 +76,7 @@ worker/               Cloudflare Worker: only /api/* runs it; sync API on D1 (sy
                       /api/ai/transcribe runs Whisper through the `ai` binding),
                       capture from Claude Code (capture.ts, pages.ts; the skill is public/claude-code/SKILL.md)
                       feed for pergent (feed.ts: read-only, FEED_TOKEN secret, FEED_PILES allow-list)
+                      MCP server for Claude Code (mcp.ts: search_notes, read_item; read key alr_…)
 pwa/                  service worker and the Vite plugin that builds it
 e2e/                  Playwright specs; helpers.ts drives the app via window.__aletheia
 .claude/              cloud session hook (installs deps, sets CHROMIUM_PATH)

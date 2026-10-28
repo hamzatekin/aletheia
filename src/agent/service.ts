@@ -6,7 +6,7 @@ import { isLive, isSelfOrDescendant, newId } from '@/model';
 import type { SearchIndex } from '@/search';
 import { MAX_CHATS, savedTurn, type ChatStore, type SavedChat } from './chats';
 import { planChanges } from './changes';
-import { Refs, type ChatTurn } from './prompt';
+import { Refs, WEEK_QUESTION, weekLines, type ChatTurn } from './prompt';
 import { runAgent } from './run';
 
 export interface Turn extends ChatTurn {
@@ -48,6 +48,8 @@ export interface AgentService {
   show(): void;
   hide(): void;
   ask(question: string): Promise<void>;
+  /** Ask how the week went, with the rows added, done and still in the Inbox in the last 7 days. */
+  myWeek(): Promise<void>;
   /** Take back the changes AI made for an answer. */
   undoChanges(turn: number): void;
   /** Start a new chat. */
@@ -65,6 +67,7 @@ interface Deps {
   step: Step;
   /** Where the last few chats are kept; without it they last until reload. */
   chats?: ChatStore;
+  now?: () => number;
 }
 
 /** A chat's row numbers, from its last answer (each answer lists every row numbered so far). */
@@ -72,7 +75,7 @@ function rowsOf(turns: readonly Turn[]): string[] {
   return turns.findLast((t) => t.rows !== undefined)?.rows ?? [];
 }
 
-export function createAgentService({ engine, session, search, key, step, chats: store }: Deps): AgentService {
+export function createAgentService({ engine, session, search, key, step, chats: store, now = Date.now }: Deps): AgentService {
   const saved = store?.load() ?? [];
   // Reopening the app comes back to the chat you were in.
   const last = saved[0];
@@ -113,6 +116,73 @@ export function createAgentService({ engine, session, search, key, step, chats: 
     const { row, pageRoot } = state.getState();
     const id = row ?? pageRoot;
     return id && isLive(engine.tree.get(id)) ? id : null;
+  };
+
+  /** Ask AI; `context` adds rows for it to go on (My week), instead of the row you're on. */
+  const run = async (question: string, context?: (refs: Refs) => string[]): Promise<void> => {
+    const q = question.trim();
+    const s = state.getState();
+    if (q === '' || s.busy) return;
+    const k = key();
+    if (!k) return state.setState({ error: AI_NEEDS_SYNC });
+    session.flush();
+    const mine = chatNo;
+    const history = s.turns;
+    const steps: string[] = [];
+    state.setState({
+      turns: [...history, { role: 'user', text: q }],
+      busy: true,
+      steps,
+      error: null,
+    });
+    save(true);
+    try {
+      const result = await runAgent({
+        tree: engine.tree,
+        search,
+        step,
+        key: k,
+        item: context ? null : here(),
+        history,
+        question: q,
+        ...(context ? { context: context(refs) } : {}),
+        refs,
+        progress: (line) => {
+          if (chatNo !== mine) return;
+          steps.push(line);
+          state.setState({ steps: [...steps] });
+        },
+      });
+      if (chatNo !== mine) return;
+      session.flush();
+      const plan = planChanges(engine.tree, result.refs, result.changes);
+      const index = state.getState().turns.length;
+      let did: string[] = [];
+      if (plan.items.length > 0 && engine.batch(plan.items, 'ai').ok) {
+        did = plan.done(engine.tree);
+        undos.set(index, plan.undo());
+      }
+      const answer: Turn = {
+        role: 'ai',
+        text: result.answer || 'AI gave an empty answer.',
+        rows: result.refs.list(),
+        ...(did.length > 0 ? { did, undoable: true } : {}),
+        ...(plan.dropped > 0 ? { skipped: plan.dropped } : {}),
+      };
+      state.setState({
+        turns: [...state.getState().turns, answer],
+        busy: false,
+        steps: [],
+      });
+      save(false);
+    } catch (e) {
+      if (chatNo !== mine) return;
+      state.setState({
+        busy: false,
+        steps: [],
+        error: e instanceof AiError ? e.message : 'AI failed.',
+      });
+    }
   };
 
   return {
@@ -162,70 +232,9 @@ export function createAgentService({ engine, session, search, key, step, chats: 
       });
     },
 
-    async ask(question) {
-      const q = question.trim();
-      const s = state.getState();
-      if (q === '' || s.busy) return;
-      const k = key();
-      if (!k) return state.setState({ error: AI_NEEDS_SYNC });
-      session.flush();
-      const mine = chatNo;
-      const history = s.turns;
-      const steps: string[] = [];
-      state.setState({
-        turns: [...history, { role: 'user', text: q }],
-        busy: true,
-        steps,
-        error: null,
-      });
-      save(true);
-      try {
-        const run = await runAgent({
-          tree: engine.tree,
-          search,
-          step,
-          key: k,
-          item: here(),
-          history,
-          question: q,
-          refs,
-          progress: (line) => {
-            if (chatNo !== mine) return;
-            steps.push(line);
-            state.setState({ steps: [...steps] });
-          },
-        });
-        if (chatNo !== mine) return;
-        session.flush();
-        const plan = planChanges(engine.tree, run.refs, run.changes);
-        const index = state.getState().turns.length;
-        let did: string[] = [];
-        if (plan.items.length > 0 && engine.batch(plan.items, 'ai').ok) {
-          did = plan.done(engine.tree);
-          undos.set(index, plan.undo());
-        }
-        const answer: Turn = {
-          role: 'ai',
-          text: run.answer || 'AI gave an empty answer.',
-          rows: run.refs.list(),
-          ...(did.length > 0 ? { did, undoable: true } : {}),
-          ...(plan.dropped > 0 ? { skipped: plan.dropped } : {}),
-        };
-        state.setState({
-          turns: [...state.getState().turns, answer],
-          busy: false,
-          steps: [],
-        });
-        save(false);
-      } catch (e) {
-        if (chatNo !== mine) return;
-        state.setState({
-          busy: false,
-          steps: [],
-          error: e instanceof AiError ? e.message : 'AI failed.',
-        });
-      }
-    },
+    ask: (question) => run(question),
+
+    myWeek: () => run(WEEK_QUESTION, (r) => weekLines(engine.tree, r, now())),
 
     undoChanges(turn) {
       const items = undos.get(turn);

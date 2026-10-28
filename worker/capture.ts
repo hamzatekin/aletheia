@@ -20,7 +20,7 @@ import { v7 } from 'uuid';
 import { NO_TIMES, type WireNode } from '../src/sync/wire';
 import { json } from './http';
 import { MAX_PAGE_CHARS, savePage } from './pages';
-import { captureSpace, mergeNodes, type SyncEnv } from './sync';
+import { keySpace, mergeNodes, type SyncEnv } from './sync';
 
 const MAX_TITLE_CHARS = 1_000;
 const MAX_NOTE_CHARS = 200_000;
@@ -49,7 +49,7 @@ interface LiveRow {
 export async function handleCapture(request: Request, env: SyncEnv, now = Date.now()): Promise<Response> {
   const url = new URL(request.url);
   if (`${request.method} ${url.pathname}` !== 'POST /api/capture') return json({ error: 'not found' }, 404);
-  const space = await captureSpace(request, env);
+  const space = await keySpace(request, env, 'capture');
   if (!space) return json({ error: 'Unknown capture key. Make a new one in Aletheia: Settings → Sync → Claude Code.' }, 401);
 
   const parsed = await readRequest(request, now);

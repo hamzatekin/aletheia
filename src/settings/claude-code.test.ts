@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createCaptureKey, setupCommand } from './claude-code';
+import { createKey, mcpCommand, setupCommand } from './claude-code';
 
 describe('setupCommand', () => {
   it('writes curl config with the address, key and time zone, then installs the skill', () => {
@@ -12,20 +12,34 @@ describe('setupCommand', () => {
   });
 });
 
-describe('createCaptureKey', () => {
+describe('mcpCommand', () => {
+  it('replaces any earlier aletheia server, for all projects, with the read key as a header', () => {
+    expect(mcpCommand('https://notes.test', 'alr_abc')).toBe(
+      'claude mcp remove --scope user aletheia >/dev/null 2>&1; ' +
+        'claude mcp add --transport http --scope user aletheia https://notes.test/api/mcp --header "Authorization: Bearer alr_abc"',
+    );
+  });
+});
+
+describe('createKey', () => {
   it('posts with the sync key and returns the new key', async () => {
     let seen: [string, RequestInit | undefined] | null = null;
-    const key = await createCaptureKey('sync-key', async (url, init) => {
+    const key = await createKey('sync-key', 'capture', async (url, init) => {
       seen = [String(url), init];
       return Response.json({ key: 'alc_new' });
     });
     expect(key).toBe('alc_new');
     expect(seen).toEqual(['/api/sync/capture-key', { method: 'POST', headers: { Authorization: 'Bearer sync-key' } }]);
+    await createKey('sync-key', 'read', async (url, init) => {
+      seen = [String(url), init];
+      return Response.json({ key: 'alr_new' });
+    });
+    expect(seen).toEqual(['/api/sync/read-key', { method: 'POST', headers: { Authorization: 'Bearer sync-key' } }]);
   });
 
   it('throws the server error, or the status when there is none', async () => {
-    await expect(createCaptureKey('k', async () => Response.json({ error: 'no sync space for this key' }, { status: 404 }))).rejects.toThrow('no sync space for this key');
-    await expect(createCaptureKey('k', async () => new Response('oops', { status: 502 }))).rejects.toThrow('Sync server error (502)');
-    await expect(createCaptureKey('k', async () => Response.json({}))).rejects.toThrow('Sync server error (200)');
+    await expect(createKey('k', 'capture', async () => Response.json({ error: 'no sync space for this key' }, { status: 404 }))).rejects.toThrow('no sync space for this key');
+    await expect(createKey('k', 'capture', async () => new Response('oops', { status: 502 }))).rejects.toThrow('Sync server error (502)');
+    await expect(createKey('k', 'capture', async () => Response.json({}))).rejects.toThrow('Sync server error (200)');
   });
 });

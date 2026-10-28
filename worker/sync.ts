@@ -9,6 +9,7 @@
  *   GET  /api/sync/pull?since=N&limit=M -> { nodes, cursor, more }
  *   POST /api/sync/capture-key   -> { key }: a new key for /api/capture (worker/capture.ts),
  *                                   replacing this space's old one
+ *   POST /api/sync/read-key      -> { key }: the same for /api/mcp (worker/mcp.ts), which only reads
  *
  * Every request needs `Authorization: Bearer <sync key>`.
  */
@@ -64,6 +65,12 @@ const SCHEMA = [
   `CREATE INDEX IF NOT EXISTS nodes_by_seq ON nodes (space, seq)`,
   // Keys that may only add nodes (Claude Code's /aletheia skill). Only their SHA-256 is kept.
   `CREATE TABLE IF NOT EXISTS capture_keys (
+    hash TEXT PRIMARY KEY,
+    space TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  )`,
+  // Keys that may only read (Claude Code's MCP connection, worker/mcp.ts). Only their SHA-256 is kept.
+  `CREATE TABLE IF NOT EXISTS read_keys (
     hash TEXT PRIMARY KEY,
     space TEXT NOT NULL,
     created_at INTEGER NOT NULL
@@ -188,7 +195,9 @@ export async function handleSync(request: Request, env: SyncEnv): Promise<Respon
     case 'GET /api/sync/pull':
       return pull(env, space, url);
     case 'POST /api/sync/capture-key':
-      return createCaptureKey(env, space);
+      return createKey(env, space, 'capture');
+    case 'POST /api/sync/read-key':
+      return createKey(env, space, 'read');
     default:
       return json({ error: 'not found' }, 404);
   }
@@ -238,25 +247,35 @@ export async function mergeNodes(db: SqlDatabase, space: string, nodes: WireNode
   return last?.results?.[0]?.seq ?? null;
 }
 
-/** Prefix of capture keys, so one pasted in the wrong place is recognizable. */
-const CAPTURE_KEY_PREFIX = 'alc_';
+/**
+ * Keys that can do one thing in a space, so a computer running Claude Code
+ * never holds the sync key: capture keys only add items, read keys only read.
+ * The prefix makes one pasted in the wrong place recognizable.
+ */
+const KEYS = {
+  capture: { table: 'capture_keys', prefix: 'alc_' },
+  read: { table: 'read_keys', prefix: 'alr_' },
+} as const;
+type KeyKind = keyof typeof KEYS;
 
-async function createCaptureKey(env: SyncEnv, space: string): Promise<Response> {
-  const key = CAPTURE_KEY_PREFIX + randomHex(32);
+/** A new key of this kind for the space, replacing its old one. */
+async function createKey(env: SyncEnv, space: string, kind: KeyKind): Promise<Response> {
+  const { table, prefix } = KEYS[kind];
+  const key = prefix + randomHex(32);
   await env.DB.batch([
-    env.DB.prepare('DELETE FROM capture_keys WHERE space = ?1').bind(space),
-    env.DB.prepare('INSERT INTO capture_keys (hash, space, created_at) VALUES (?1, ?2, ?3)').bind(await sha256(key), space, Date.now()),
+    env.DB.prepare(`DELETE FROM ${table} WHERE space = ?1`).bind(space),
+    env.DB.prepare(`INSERT INTO ${table} (hash, space, created_at) VALUES (?1, ?2, ?3)`).bind(await sha256(key), space, Date.now()),
   ]);
   return json({ key });
 }
 
-/** The space a capture key (`Authorization: Bearer alc_...`) belongs to, or null. */
-export async function captureSpace(request: Request, env: SyncEnv): Promise<string | null> {
+/** The space a key of this kind (`Authorization: Bearer alc_...` or `alr_...`) belongs to, or null. */
+export async function keySpace(request: Request, env: SyncEnv, kind: KeyKind): Promise<string | null> {
   const key = bearerKey(request);
   // Stryker disable next-line ConditionalExpression: without it a missing key is hashed as "null", which matches no stored key either
   if (!key) return null;
   await ensureSchema(env.DB);
-  const row = await env.DB.prepare('SELECT space FROM capture_keys WHERE hash = ?1').bind(await sha256(key)).first<{ space: string }>();
+  const row = await env.DB.prepare(`SELECT space FROM ${KEYS[kind].table} WHERE hash = ?1`).bind(await sha256(key)).first<{ space: string }>();
   return row && (await spaceExists(env.DB, row.space)) ? row.space : null;
 }
 

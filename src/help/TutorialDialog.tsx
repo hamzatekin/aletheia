@@ -272,7 +272,7 @@ const TABS: Tab[] = [
         />
         <H>Ask AI</H>
         <P>
-          The sparkle button at the top opens one chat about your notes (sync must be on). Ask anything: AI searches and opens your rows by itself, starting from the row you're on, and adds, moves, edits or stars rows when you ask. It never deletes. What it changed is listed under the answer, and Undo takes it all back. The chat stays while you move around; New chat starts over. AI keeps what it learns about you in a row called “AI memory” at the bottom of Home, which you can read and edit.
+          The sparkle button at the top opens one chat about your notes (sync must be on). Ask anything: AI searches and opens your rows by itself, starting from the row you're on, and adds, moves, edits or stars rows when you ask. It never deletes. What it changed is listed under the answer, and Undo takes it all back. The chat stays while you move around; New chat starts over. In a new chat, My week looks back on your last 7 days: what you added, what you finished and what still waits in your Inbox. AI keeps what it learns about you in a row called “AI memory” at the bottom of Home, which you can read and edit.
         </P>
         <H>Slash commands</H>
         <P>

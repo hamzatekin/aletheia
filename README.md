@@ -139,8 +139,10 @@ notes.
   deployment accepts, so the first device to turn sync on owns a personal
   deployment. The Worker creates its tables on first use.
 
-Local development: `pnpm build && npx wrangler dev` serves the app and the
-API with a local D1 on :8787 (`pnpm dev` proxies `/api` to it). Reset local
+Local development: `pnpm build && npx wrangler dev --env local` serves the app and the
+API with a local D1 on :8787 (`pnpm dev` proxies `/api` to it). The `local`
+environment leaves out the Workers AI binding, which only runs on Cloudflare
+and needs a login, so voice memos fail there. Reset local
 sync data with `npx wrangler d1 execute aletheia-sync --local --command "DELETE FROM spaces; DELETE FROM nodes;"`.
 
 ## Sandbox
@@ -184,6 +186,26 @@ new date goes at the top of Work, and items go at the end of their date.
   can open it, and shows it in an iframe sandboxed without
   `allow-same-origin`: its scripts run, but can't reach the app's storage or
   the sync key.
+
+## Claude Code: reading the notes (MCP)
+
+Claude Code can search and read the notes through an MCP server on the
+Worker, so a question in the terminal can use them.
+
+- **Setup** (once per computer, sync must be on): Settings → Sync → Claude
+  Code → **Connect to your notes** shows a `claude mcp add --transport http
+  --scope user aletheia …/api/mcp --header "Authorization: Bearer alr_…"`
+  command (it removes an earlier `aletheia` server first).
+- **Read key.** `POST /api/sync/read-key` makes a key (`alr_…`) that can only
+  read; like the capture key, only its SHA-256 is kept and a new one turns
+  the old one off. The two keys are separate.
+- **`POST /api/mcp`** (`worker/mcp.ts`) speaks MCP over Streamable HTTP,
+  one JSON-RPC message per request, answered as plain JSON with no sessions
+  (initialize for 2025 clients, server/discover for 2026-07-28). Tools:
+  `search_notes` (all words in an item's text, note or path; own-text
+  matches first, then newest) and `read_item` (one item's place, note and
+  three levels inside it, or the top of the outline). Rows named Passwords
+  or Budget, and everything under them, are left out, as in the feed.
 
 ## Feed for pergent
 

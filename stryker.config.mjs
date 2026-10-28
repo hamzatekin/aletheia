@@ -20,6 +20,7 @@ export default {
     'worker/capture.ts',
     'worker/pages.ts',
     'worker/feed.ts',
+    'worker/mcp.ts',
     'src/app/pages.ts',
     '!**/*.test.ts',
     '!src/model/index.ts',
