@@ -6,6 +6,7 @@ import { fixture, outline } from '@/test/helpers';
 import { planChanges } from './changes';
 import { AGENT_SCHEMA, AGENT_SYSTEM, linkCitations, parseReply, readReply, readResults, Refs, startPrompt, weekLines } from './prompt';
 import { runAgent } from './run';
+import type { SavedChat } from './chats';
 import { createAgentService } from './service';
 
 const session = { flush: () => {} } as unknown as EditorSession;
@@ -393,6 +394,41 @@ describe('AgentService', () => {
     await agent.ask('How am I doing?');
     expect(sent[1]!.prompt).toContain('What you remember about Avvos:\n[1] Training for a 10k\n\nThe top of their outline:\n[2] Work');
     expect(f.kids(null)).toEqual(['Work', 'Inbox', 'AI memory']);
+  });
+
+  it('keeps the last 5 chats, and reopens one with its row numbers', async () => {
+    const f = spec();
+    let kept: SavedChat[] = [];
+    const store = { load: () => kept, save: (c: SavedChat[]) => (kept = c) };
+    const replies = ['{"answer":"It\'s [7]."}', ...Array.from({ length: 5 }, (_, i) => `{"answer":"A${i}"}`), '{"answer":"Starred [7].","changes":[{"star":{"row":7,"on":true}}]}'];
+    const r = scripted(replies);
+    const make = () => createAgentService({ engine: f.engine, session, search: new SearchIndex(f.engine), key: () => 'k', step: r.step, chats: store });
+    const agent = make();
+    await agent.ask('Which row is the call?');
+    const first = agent.state.getState().chatId;
+    for (let i = 0; i < 4; i++) {
+      agent.clear();
+      await agent.ask(`Q${i}`);
+    }
+    expect(kept.map((c) => c.turns[0]!.text)).toEqual(['Q3', 'Q2', 'Q1', 'Q0', 'Which row is the call?']);
+    // Reloading comes back to the last chat; the oldest drops off after five.
+    const again = make();
+    expect(again.state.getState().turns.map((t) => t.text)).toEqual(['Q3', 'A3']);
+    again.clear();
+    await again.ask('Q4');
+    expect(kept.map((c) => c.turns[0]!.text)).toEqual(['Q4', 'Q3', 'Q2', 'Q1', 'Q0']);
+    expect(kept.some((c) => c.id === first)).toBe(false);
+    // Reopening a chat keeps its numbers: [7] is still Call mum.
+    kept = [{ id: first, at: 1, turns: agent.state.getState().chats.find((c) => c.id === first)!.turns }, ...kept.slice(0, 4)];
+    const third = make();
+    third.openChat(first);
+    await third.ask('Star it');
+    expect(f.engine.tree.get(f.ids['Call mum']!)!.starredAt).toBeTypeOf('number');
+    expect(kept[0]!.id).toBe(first);
+    expect(kept[0]!.turns.map((t) => t.text)).toEqual(['Which row is the call?', "It's [7].", 'Star it', 'Starred [7].']);
+    // Undo doesn't outlive the page; what changed does.
+    expect(kept[0]!.turns[3]).toMatchObject({ did: ['Starred “Call mum”.'] });
+    expect(kept[0]!.turns[3]!.undoable).toBeUndefined();
   });
 
   it('needs sync on, and shows a failed step as an error', async () => {

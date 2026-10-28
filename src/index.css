@@ -422,6 +422,18 @@ html { scroll-padding-top: 4rem; }
 .prose-note .tableWrapper > table { margin: 0; }
 .prose-note :is(th, td) p, .ProseMirror.prose-note :is(th, td) p { margin: 0; }
 .prose-note .selectedCell { background: var(--selection); }
+/* The caret beside a table (ProseMirror's gap cursor): a blinking line that takes no space. */
+.ProseMirror-gapcursor { display: none; position: absolute; pointer-events: none; }
+.ProseMirror-focused .ProseMirror-gapcursor { display: block; }
+.ProseMirror-gapcursor::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  width: 20px;
+  border-top: 1px solid var(--ink);
+  animation: gapcursor-blink 1.1s steps(2, start) infinite;
+}
+@keyframes gapcursor-blink { to { visibility: hidden; } }
 
 /* The single Tiptap editor, styled exactly like static content. */
 .ProseMirror {

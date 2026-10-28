@@ -2,8 +2,9 @@ import { createStore, type StoreApi } from 'zustand/vanilla';
 import { AI_NEEDS_SYNC, AiError, type Step } from '@/ai/client';
 import type { BatchItem, Engine } from '@/commands';
 import type { EditorSession } from '@/editor/session';
-import { isLive, isSelfOrDescendant } from '@/model';
+import { isLive, isSelfOrDescendant, newId } from '@/model';
 import type { SearchIndex } from '@/search';
+import { MAX_CHATS, savedTurn, type ChatStore, type SavedChat } from './chats';
 import { planChanges } from './changes';
 import { Refs, WEEK_QUESTION, weekLines, type ChatTurn } from './prompt';
 import { runAgent } from './run';
@@ -30,6 +31,9 @@ interface AgentState {
   /** While busy: what AI looked at so far ("Searching “coffee”"). */
   steps: string[];
   error: string | null;
+  /** The last few chats kept on this device, newest first (the current one too, once asked in). */
+  chats: SavedChat[];
+  chatId: string;
 }
 
 /** One chat for the whole app: it stays as you move around, and starts from the row you're on. */
@@ -50,6 +54,8 @@ export interface AgentService {
   undoChanges(turn: number): void;
   /** Start a new chat. */
   clear(): void;
+  /** Go back to a recent chat. */
+  openChat(id: string): void;
 }
 
 interface Deps {
@@ -59,17 +65,52 @@ interface Deps {
   /** This device's sync key, or null when sync is off. */
   key(): string | null;
   step: Step;
+  /** Where the last few chats are kept; without it they last until reload. */
+  chats?: ChatStore;
   now?: () => number;
 }
 
-export function createAgentService({ engine, session, search, key, step, now = Date.now }: Deps): AgentService {
-  const state = createStore<AgentState>(() => ({ open: false, row: null, pageRoot: null, turns: [], busy: false, steps: [], error: null }));
+/** A chat's row numbers, from its last answer (each answer lists every row numbered so far). */
+function rowsOf(turns: readonly Turn[]): string[] {
+  return turns.findLast((t) => t.rows !== undefined)?.rows ?? [];
+}
+
+export function createAgentService({ engine, session, search, key, step, chats: store, now = Date.now }: Deps): AgentService {
+  const saved = store?.load() ?? [];
+  // Reopening the app comes back to the chat you were in.
+  const last = saved[0];
+  const state = createStore<AgentState>(() => ({
+    open: false,
+    row: null,
+    pageRoot: null,
+    turns: last?.turns ?? [],
+    busy: false,
+    steps: [],
+    error: null,
+    chats: saved,
+    chatId: last?.id ?? newId(),
+  }));
   /** How to take back each answer's changes, by turn. */
   const undos = new Map<number, BatchItem[]>();
   /** Bumped by Clear, so an answer to a cleared chat is dropped. */
   let chatNo = 0;
   /** Row numbers for the whole chat: earlier answers cite rows by them. */
-  let refs = new Refs();
+  let refs = Refs.of(rowsOf(last?.turns ?? []));
+
+  /** Keep the current chat: `asked` moves it to the top of Recent chats. */
+  const save = (asked: boolean) => {
+    const { chatId, turns, chats } = state.getState();
+    if (turns.length === 0) return;
+    const prev = chats.find((c) => c.id === chatId);
+    const chat: SavedChat = {
+      id: chatId,
+      at: asked || !prev ? Date.now() : prev.at,
+      turns: turns.map(savedTurn),
+    };
+    const next = asked || !prev ? [chat, ...chats.filter((c) => c.id !== chatId)].slice(0, MAX_CHATS) : chats.map((c) => (c.id === chatId ? chat : c));
+    state.setState({ chats: next });
+    store?.save(next);
+  };
 
   const here = () => {
     const { row, pageRoot } = state.getState();
@@ -88,7 +129,13 @@ export function createAgentService({ engine, session, search, key, step, now = D
     const mine = chatNo;
     const history = s.turns;
     const steps: string[] = [];
-    state.setState({ turns: [...history, { role: 'user', text: q }], busy: true, steps, error: null });
+    state.setState({
+      turns: [...history, { role: 'user', text: q }],
+      busy: true,
+      steps,
+      error: null,
+    });
+    save(true);
     try {
       const result = await runAgent({
         tree: engine.tree,
@@ -122,10 +169,19 @@ export function createAgentService({ engine, session, search, key, step, now = D
         ...(did.length > 0 ? { did, undoable: true } : {}),
         ...(plan.dropped > 0 ? { skipped: plan.dropped } : {}),
       };
-      state.setState({ turns: [...state.getState().turns, answer], busy: false, steps: [] });
+      state.setState({
+        turns: [...state.getState().turns, answer],
+        busy: false,
+        steps: [],
+      });
+      save(false);
     } catch (e) {
       if (chatNo !== mine) return;
-      state.setState({ busy: false, steps: [], error: e instanceof AiError ? e.message : 'AI failed.' });
+      state.setState({
+        busy: false,
+        steps: [],
+        error: e instanceof AiError ? e.message : 'AI failed.',
+      });
     }
   };
 
@@ -152,7 +208,28 @@ export function createAgentService({ engine, session, search, key, step, now = D
       chatNo++;
       undos.clear();
       refs = new Refs();
-      state.setState({ turns: [], busy: false, steps: [], error: null });
+      state.setState({
+        turns: [],
+        busy: false,
+        steps: [],
+        error: null,
+        chatId: newId(),
+      });
+    },
+
+    openChat(id) {
+      const chat = state.getState().chats.find((c) => c.id === id);
+      if (!chat) return;
+      chatNo++;
+      undos.clear();
+      refs = Refs.of(rowsOf(chat.turns));
+      state.setState({
+        turns: chat.turns,
+        busy: false,
+        steps: [],
+        error: null,
+        chatId: chat.id,
+      });
     },
 
     ask: (question) => run(question),
@@ -166,7 +243,10 @@ export function createAgentService({ engine, session, search, key, step, now = D
       session.flush();
       engine.batch(items, 'undo ai');
       undos.delete(turn);
-      state.setState({ turns: state.getState().turns.map((x, i) => (i === turn ? { ...x, undone: true } : x)) });
+      state.setState({
+        turns: state.getState().turns.map((x, i) => (i === turn ? { ...x, undone: true } : x)),
+      });
+      save(false);
     },
   };
 }

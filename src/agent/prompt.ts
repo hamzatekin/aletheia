@@ -14,6 +14,13 @@ export class Refs {
   private readonly nums = new Map<string, number>();
   private readonly ids: string[] = [];
 
+  /** Numbers for rows already numbered in a chat: `ids[n - 1]` is [n]. */
+  static of(ids: readonly string[]): Refs {
+    const refs = new Refs();
+    for (const id of ids) refs.ref(id);
+    return refs;
+  }
+
   ref(id: string): number {
     let n = this.nums.get(id);
     if (n === undefined) {

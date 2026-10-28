@@ -140,6 +140,39 @@ test('My week looks back on the last 7 days from a new chat', async ({ page }) =
   await expect(panel.getByTestId('agent-my-week')).toHaveCount(0);
 });
 
+test('the last chats are kept on this device: reload comes back to one, Recent reopens the others', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await build(page);
+  await syncOn(page);
+  await page.route('**/api/ai/complete', async (route) => {
+    const q = /Them: ([^\n]*)$/.exec(route.request().postDataJSON().prompt)![1];
+    await route.fulfill({ json: { text: '', structured: { answer: `About ${q}.` }, model: 'm', durationMs: 5, session: 's1' } });
+  });
+  await page.getByTestId('agent-button').click();
+  const panel = page.getByTestId('agent-panel');
+  const ask = async (q: string) => {
+    await panel.getByTestId('agent-input').fill(q);
+    await page.keyboard.press('Enter');
+    await expect(panel.getByTestId('agent-answer').last()).toHaveText(`About ${q}.`);
+  };
+  await ask('coffee');
+  await panel.getByTestId('agent-clear').click();
+  await ask('suppliers');
+
+  await page.reload();
+  await page.locator('[data-testid=outline]').waitFor();
+  await page.getByTestId('agent-button').click();
+  await expect(panel.getByTestId('agent-answer')).toHaveText(['About suppliers.']);
+
+  await panel.getByTestId('agent-recent').click();
+  const chats = panel.getByTestId('agent-chats').getByRole('button');
+  await expect(chats).toHaveCount(2);
+  await expect(chats.first()).toContainText('suppliers');
+  await expect(chats.first()).toHaveAttribute('aria-current', 'true');
+  await chats.nth(1).click();
+  await expect(panel.getByTestId('agent-answer')).toHaveText(['About coffee.']);
+});
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 

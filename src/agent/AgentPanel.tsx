@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { useStore } from 'zustand';
+import { addedLabel } from '@/app/capture';
 import { plainText } from '@/editor/markdown';
 import { renderBlock } from '@/editor/render';
 import { useTreeStore } from '@/store/tree-store';
@@ -9,6 +10,7 @@ import { SidebarIcon } from '@/tree-view/OutlineSidebar';
 import { useEscToClose, useKeyboardInset } from '@/ui/hooks';
 import { isWide } from '@/ui/media';
 import { Spinner } from '@/ui/widgets';
+import { chatTitle, MAX_CHATS } from './chats';
 import { linkCitations } from './prompt';
 import type { AgentService, Turn } from './service';
 
@@ -64,13 +66,15 @@ export function AgentPanel({ agent }: { agent: AgentService }) {
   const panelRef = useRef<HTMLElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState('');
+  /** Showing Recent chats instead of the chat. */
+  const [recent, setRecent] = useState(false);
 
   useEscToClose(s.open, panelRef, useCallback(() => agent.hide(), [agent]));
 
   const turns = s.turns.length;
   useEffect(() => {
-    if (s.open) endRef.current?.scrollIntoView({ block: 'end' });
-  }, [s.open, turns, s.busy, s.steps.length]);
+    if (s.open && !recent) endRef.current?.scrollIntoView({ block: 'end' });
+  }, [s.open, recent, s.chatId, turns, s.busy, s.steps.length]);
 
   if (!s.open) return null;
   const ai = agent.available();
@@ -102,9 +106,28 @@ export function AgentPanel({ agent }: { agent: AgentService }) {
         style={inset > 0 ? { bottom: inset, maxHeight: `calc(100dvh - ${inset + 24}px)` } : undefined}
       >
         <div className="flex items-center gap-2 px-4 pt-4 pb-2">
-          <span className="flex-1 text-xs font-semibold tracking-wider text-muted uppercase">Ask AI</span>
-          {turns > 0 && (
-            <button type="button" onClick={() => agent.clear()} className="rounded px-1.5 py-0.5 text-xs text-muted hover:bg-hover hover:text-ink" data-testid="agent-clear">
+          <span className="flex-1 text-xs font-semibold tracking-wider text-muted uppercase">{recent ? 'Recent chats' : 'Ask AI'}</span>
+          {s.chats.length > 0 && !s.busy && (
+            <button
+              type="button"
+              onClick={() => setRecent(!recent)}
+              className={'rounded px-1.5 py-0.5 text-xs hover:bg-hover hover:text-ink ' + (recent ? 'bg-active text-ink' : 'text-muted')}
+              aria-pressed={recent}
+              data-testid="agent-recent"
+            >
+              Recent
+            </button>
+          )}
+          {(turns > 0 || recent) && (
+            <button
+              type="button"
+              onClick={() => {
+                agent.clear();
+                setRecent(false);
+              }}
+              className="rounded px-1.5 py-0.5 text-xs text-muted hover:bg-hover hover:text-ink"
+              data-testid="agent-clear"
+            >
               New chat
             </button>
           )}
@@ -113,59 +136,80 @@ export function AgentPanel({ agent }: { agent: AgentService }) {
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-          {turns === 0 && !s.busy && (
-            <p className="py-2 text-muted">
-              {ai
-                ? 'Ask anything about your notes. AI searches them by itself, and adds, moves or edits rows when you ask (one Undo takes it back). It starts from the row you’re on.'
-                : 'Turn on sync in Settings to use AI on this device.'}
-            </p>
-          )}
-          {turns === 0 && !s.busy && ai && (
-            <button
-              type="button"
-              onClick={() => void agent.myWeek()}
-              className="mb-2 rounded-full border border-line px-3 py-1 text-sm text-ink hover:bg-hover"
-              title="What you added and finished in the last 7 days, and what still waits in your Inbox"
-              data-testid="agent-my-week"
-            >
-              My week
-            </button>
-          )}
-          <div className="flex flex-col gap-3" data-testid="agent-chat">
-            {s.turns.map((t, i) => (
-              <Message
-                key={i}
-                turn={t}
-                label={(n) => {
-                  const id = t.rows?.[n - 1];
-                  return id ? title(id) : null;
+        {recent ? (
+          <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4" data-testid="agent-chats">
+            {s.chats.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  agent.openChat(c.id);
+                  setRecent(false);
                 }}
-                onCite={(n) => {
-                  const id = t.rows?.[n - 1];
-                  if (id) go(id);
-                }}
-                onUndo={() => agent.undoChanges(i)}
-              />
+                className={'flex w-full items-baseline gap-3 rounded-md px-2 py-2 text-left hover:bg-hover ' + (c.id === s.chatId ? 'bg-active' : '')}
+                aria-current={c.id === s.chatId ? 'true' : undefined}
+              >
+                <span className="min-w-0 flex-1 truncate">{chatTitle(c)}</span>
+                <span className="shrink-0 text-xs text-faint">{addedLabel(c.at, { short: !isWide() })}</span>
+              </button>
             ))}
-            {s.busy && (
-              <div className="flex flex-col gap-1 text-muted" role="status" data-testid="agent-steps">
-                {s.steps.map((line, i) => (
-                  <div key={i} className="text-xs">
-                    {line}
-                  </div>
-                ))}
-                <div className="flex items-center gap-2">
-                  <Spinner /> Thinking…
-                </div>
-              </div>
-            )}
-            {s.error && <p className="text-danger" role="alert">{s.error}</p>}
+            <p className="px-2 pt-2 text-xs text-faint">The last {MAX_CHATS} chats are kept on this device.</p>
           </div>
-          <div ref={endRef} />
-        </div>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+            {turns === 0 && !s.busy && (
+              <p className="py-2 text-muted">
+                {ai
+                  ? 'Ask anything about your notes. AI searches them by itself, and adds, moves or edits rows when you ask (one Undo takes it back). It starts from the row you’re on.'
+                  : 'Turn on sync in Settings to use AI on this device.'}
+              </p>
+            )}
+            {turns === 0 && !s.busy && ai && (
+              <button
+                type="button"
+                onClick={() => void agent.myWeek()}
+                className="mb-2 rounded-full border border-line px-3 py-1 text-sm text-ink hover:bg-hover"
+                title="What you added and finished in the last 7 days, and what still waits in your Inbox"
+                data-testid="agent-my-week"
+              >
+                My week
+              </button>
+            )}
+            <div className="flex flex-col gap-3" data-testid="agent-chat">
+              {s.turns.map((t, i) => (
+                <Message
+                  key={i}
+                  turn={t}
+                  label={(n) => {
+                    const id = t.rows?.[n - 1];
+                    return id ? title(id) : null;
+                  }}
+                  onCite={(n) => {
+                    const id = t.rows?.[n - 1];
+                    if (id) go(id);
+                  }}
+                  onUndo={() => agent.undoChanges(i)}
+                />
+              ))}
+              {s.busy && (
+                <div className="flex flex-col gap-1 text-muted" role="status" data-testid="agent-steps">
+                  {s.steps.map((line, i) => (
+                    <div key={i} className="text-xs">
+                      {line}
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2">
+                    <Spinner /> Thinking…
+                  </div>
+                </div>
+              )}
+              {s.error && <p className="text-danger" role="alert">{s.error}</p>}
+            </div>
+            <div ref={endRef} />
+          </div>
+        )}
 
-        {ai && (
+        {ai && !recent && (
           <div className="border-t border-line px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <div className="mb-1.5 truncate px-0.5 text-xs text-faint" data-testid="agent-here">
               {here ? `On: ${title(here)}` : 'On: Home'}
