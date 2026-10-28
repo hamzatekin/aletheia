@@ -1,14 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
-import { gotoHome, nodeByText, row } from './helpers';
+import { focused, gotoHome, nodeByText, row } from './helpers';
 
 test.beforeEach(async ({ page }) => gotoHome(page));
 
-function setNote(page: Page, note: string): Promise<void> {
-  return page.evaluate((note) => {
+function setNote(page: Page, note: string, item = 'Plant a tree'): Promise<void> {
+  return page.evaluate(([note, item]) => {
     const { engine } = (window as any).__aletheia;
-    const node = [...engine.tree.all()].find((n: any) => n.content === 'Plant a tree');
+    const node = [...engine.tree.all()].find((n: any) => n.content === item);
     engine.execute({ type: 'updateNote', id: node.id, note });
-  }, note);
+  }, [note, item]);
 }
 
 const savedNote = async (page: Page) => (await nodeByText(page, 'Plant a tree'))?.note;
@@ -84,4 +84,69 @@ test('editing inside a list or a table keeps the rest of it as written', async (
 
   // The image never changed.
   expect(await savedNote(page)).toContain('![diagram](data:image/gif;base64,');
+});
+
+/** Clicks into the table's first header cell and waits for the editor to take the caret there. */
+async function clickFirstHeader(page: Page, { start = false } = {}): Promise<void> {
+  await page.locator('.ProseMirror[data-editor=note] th').first().click();
+  if (start) await page.keyboard.press('Home');
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const { state } = (document.querySelector('.ProseMirror[data-editor=note]') as any).editor;
+        return state.selection.$from.parent.type.name === 'paragraph' && state.selection.$from.node(-1).type.name === 'tableHeader' && state.selection.from === 4;
+      }),
+    )
+    .toBe(true);
+}
+
+const TABLE_NOTE = ['| Saved ranking | Rows |', '| --- | ---: |', '| National | 11,167 |', '| By location | 126,300 |'].join('\n');
+
+test('Enter at the start of a table or in its last row adds a line above or below it', async ({ page }) => {
+  await setNote(page, TABLE_NOTE);
+  const note = row(page, 'Plant a tree').locator('.node-note');
+  await note.getByText('126,300').click();
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('Below');
+  await expect.poll(() => savedNote(page)).toBe(`${TABLE_NOTE}\n\nBelow`);
+
+  await clickFirstHeader(page, { start: true });
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('Above');
+  await page.keyboard.press('Escape');
+  await expect.poll(() => savedNote(page)).toBe(`Above\n\n${TABLE_NOTE}\n\nBelow`);
+});
+
+test('the arrow keys step out of a table onto a new line', async ({ page }) => {
+  await setNote(page, TABLE_NOTE);
+  const note = row(page, 'Plant a tree').locator('.node-note');
+  await note.getByText('126,300').click();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('.ProseMirror[data-editor=note] .ProseMirror-gapcursor')).toHaveCount(1);
+  await page.keyboard.type('Below');
+  await expect.poll(() => savedNote(page)).toBe(`${TABLE_NOTE}\n\nBelow`);
+
+  await clickFirstHeader(page, { start: true });
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.type('Above');
+  await expect.poll(() => savedNote(page)).toBe(`Above\n\n${TABLE_NOTE}\n\nBelow`);
+});
+
+test('from the gap beside a table that opens or ends the note, the arrow keys leave the note', async ({ page }) => {
+  await setNote(page, TABLE_NOTE, 'Learn to juggle');
+  await row(page, 'Learn to juggle').locator('.node-note').getByText('126,300').click();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('.ProseMirror[data-editor=note] .ProseMirror-gapcursor')).toHaveCount(1);
+  await page.keyboard.press('ArrowDown');
+  await expect.poll(() => focused(page)).toBe('Plant a tree:content');
+
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('ArrowUp');
+  await expect.poll(() => focused(page)).toBe('Learn to juggle:note');
+  await clickFirstHeader(page, { start: true });
+  await page.keyboard.press('ArrowUp');
+  await expect(page.locator('.ProseMirror[data-editor=note] .ProseMirror-gapcursor')).toHaveCount(1);
+  await page.keyboard.press('ArrowUp');
+  await expect.poll(() => focused(page)).toBe('Learn to juggle:content');
+  expect((await nodeByText(page, 'Learn to juggle'))?.note).toBe(TABLE_NOTE);
 });

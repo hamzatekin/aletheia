@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Editor, Extension } from '@tiptap/core';
 import { Plugin, Selection } from '@tiptap/pm/state';
+import { GapCursor } from '@tiptap/pm/gapcursor';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from 'tiptap-markdown';
 import { useOutline } from '@/tree-view/outline-context';
@@ -8,7 +9,7 @@ import { useNode } from '@/tree-view/use-outline';
 import { markdownOptions } from './markdown';
 import { takeCaretHandoff } from './caret-handoff';
 import { registerNoteFlush } from './note-flush';
-import { noteTableExtensions } from './note-table';
+import { gapBesideTable, lineBesideTable, noteTableExtensions } from './note-table';
 import { noteTaskExtensions } from './note-tasks';
 import { NoteImage, NoteText } from './note-text';
 import { loadedNote, noteMarkdown, type LoadedNote } from './note-source';
@@ -72,6 +73,11 @@ export function RichNoteEditor({ id }: { id: string }) {
     const toContent = () => ui.focusNode(id, { kind: 'end' });
     const inFirstBlock = () => editor.state.selection.$from.index(0) === 0;
     const inLastBlock = () => editor.state.selection.$to.index(0) === editor.state.doc.childCount - 1;
+    // The gap cursor beside a table that opens or closes the note.
+    const atGap = (side: 'start' | 'end') => {
+      const { selection, doc } = editor.state;
+      return selection instanceof GapCursor && selection.from === (side === 'start' ? 0 : doc.content.size);
+    };
 
     // The "/" menu, as on the node's line: typing filters, arrows pick, Enter runs, Esc closes.
     const slashItems = () => slashCommands(slashRef.current?.query ?? '', 'note');
@@ -106,21 +112,29 @@ export function RichNoteEditor({ id }: { id: string }) {
       addKeyboardShortcuts() {
         return {
           Escape: () => (slashRef.current ? (setSlash(null), true) : leave(toContent)()),
-          Enter: () => {
-            if (!slashRef.current) return false;
+          Enter: ({ editor: e }) => {
+            if (!slashRef.current) return e.isActive('table') && lineBesideTable(e.state, e.view.dispatch);
             const count = slashItems().length;
             if (count === 0) return (setSlash(null), false);
             runSlash(Math.min(slashRef.current.index, count - 1));
             return true;
           },
           'Shift-Enter': leave(toContent),
-          ArrowUp: ({ editor: e }) => slashRef.current ? moveSlash(-1) : (inFirstBlock() && e.view.endOfTextblock('up') ? leave(toContent)() : false),
-          // At the end of a closing code block, ArrowDown first steps out of it
-          // into a new paragraph (the code block's own rule), then leaves the note.
-          ArrowDown: ({ editor: e }) =>
-            slashRef.current ? moveSlash(1) : inLastBlock() && e.view.endOfTextblock('down') && !e.isActive('codeBlock')
+          // At the edge of a code block or table that opens or closes the note, the
+          // arrow first steps out of it (a new paragraph after a code block, the
+          // gap cursor beside a table), then leaves the note.
+          ArrowUp: ({ editor: e }) => {
+            if (slashRef.current) return moveSlash(-1);
+            if (e.isActive('table')) return e.view.endOfTextblock('up') && gapBesideTable(e.state, -1, e.view.dispatch);
+            return atGap('start') || (inFirstBlock() && e.view.endOfTextblock('up')) ? leave(toContent)() : false;
+          },
+          ArrowDown: ({ editor: e }) => {
+            if (slashRef.current) return moveSlash(1);
+            if (e.isActive('table')) return e.view.endOfTextblock('down') && gapBesideTable(e.state, 1, e.view.dispatch);
+            return atGap('end') || (inLastBlock() && e.view.endOfTextblock('down') && !e.isActive('codeBlock'))
               ? leave(() => actions.focusNext(id, { kind: 'start' }))()
-              : false,
+              : false;
+          },
           Backspace: ({ editor: e }) => (e.isEmpty ? leave(toContent)() : false),
           // Undo/redo belong to the outline: save first, then let the key reach it.
           'Mod-z': () => (save(), false),
@@ -160,7 +174,7 @@ export function RichNoteEditor({ id }: { id: string }) {
           // lay out exactly like the rendered note so nothing moves on click.
           trailingNode: false,
           dropcursor: false,
-          gapcursor: false,
+          // The gap cursor stays on: it lets the caret sit before or after a table with nothing beside it.
           heading: { levels: [1, 2, 3, 4, 5, 6] },
           link: { openOnClick: false, autolink: false, linkOnPaste: true },
           text: false,
