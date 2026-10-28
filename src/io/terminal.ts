@@ -87,17 +87,29 @@ export function boxTablesToMarkdown(text: string): string {
   return out.join('\n');
 }
 
+const LINUX_MARKER = /^● /;
+
 /**
- * Terminal output → Markdown: Claude Code's "⏺" markers and the shared indent
- * go, "•" bullets become list items, ─── lines become rules and box tables
- * become tables.
+ * Lines with Claude Code's answer markers turned into spaces of the same
+ * width, so continuation lines still line up. The marker is "⏺" on macOS and
+ * "●" elsewhere; a "●" counts only at the very start of a line, and not next
+ * to another such line, which makes the two of them list bullets.
+ */
+function unmarkLines(lines: string[]): string[] {
+  return lines.map((l, i) => (hasLinuxMarker(lines, i) ? `  ${l.slice(2)}` : l.replace(/^(\s*)⏺ ?/, '$1  ')));
+}
+
+function hasLinuxMarker(lines: string[], i: number): boolean {
+  return LINUX_MARKER.test(lines[i]!) && !LINUX_MARKER.test(lines[i - 1] ?? '') && !LINUX_MARKER.test(lines[i + 1] ?? '');
+}
+
+/**
+ * Terminal output → Markdown: Claude Code's "⏺"/"●" markers and the shared
+ * indent go, "•" bullets become list items, ─── lines become rules and box
+ * tables become tables.
  */
 export function terminalToMarkdown(text: string): string {
-  const lines = text
-    .replace(/\r\n?/g, '\n')
-    .split('\n')
-    // Same width as the marker, so continuation lines still line up.
-    .map((l) => l.replace(/^(\s*)⏺ ?/, '$1  ').replace(/\s+$/, ''));
+  const lines = unmarkLines(text.replace(/\r\n?/g, '\n').split('\n')).map((l) => l.replace(/\s+$/, ''));
   const out: string[] = [];
   for (const line of boxTablesToMarkdown(dedent(lines.join('\n'))).split('\n')) {
     if (/^\s*[─━═]{3,}\s*$/.test(line)) {
@@ -251,7 +263,9 @@ export function terminalHtmlToText(html: string): string | null {
 
 /** Whether pasted text is terminal output worth converting: a box table or a Claude Code answer. */
 export function isTerminalPaste(text: string): boolean {
-  return hasBoxTable(text) || /^\s*⏺ /m.test(text);
+  if (hasBoxTable(text) || /^\s*⏺ /m.test(text)) return true;
+  const lines = text.split(/\r?\n/);
+  return lines.some((_, i) => hasLinuxMarker(lines, i));
 }
 
 /**
@@ -288,7 +302,7 @@ export function formatTerminalNote(note: string): string {
   return out === note ? note : out.replace(/\n{3,}/g, '\n\n');
 }
 
-/** Content with Claude Code's leading "⏺" marker removed. */
+/** Content with Claude Code's leading "⏺" or "●" marker removed. */
 export function formatTerminalContent(content: string): string {
-  return content.replace(/^⏺\s*/, '');
+  return content.replace(/^⏺\s*|^● +/, '');
 }
