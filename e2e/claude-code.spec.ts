@@ -40,7 +40,7 @@ test('Settings makes a read key and shows the command that lets Claude Code read
   const origin = new URL(page.url()).origin;
   await expect(section.getByLabel('Connect command')).toHaveValue(
     'claude mcp remove --scope user aletheia >/dev/null 2>&1; ' +
-      `claude mcp add --transport http --scope user aletheia ${origin}/api/mcp --header "Authorization: Bearer alr_test-key"`,
+      `claude mcp add --transport http --scope user aletheia '${origin}/api/mcp?tz=Europe%2FIstanbul' --header "Authorization: Bearer alr_test-key"`,
   );
   expect(auth).toBe(`Bearer ${key}`);
   // The capture setup is untouched.

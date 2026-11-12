@@ -13,10 +13,10 @@ describe('setupCommand', () => {
 });
 
 describe('mcpCommand', () => {
-  it('replaces any earlier aletheia server, for all projects, with the read key as a header', () => {
-    expect(mcpCommand('https://notes.test', 'alr_abc')).toBe(
+  it('replaces any earlier aletheia server, for all projects, with the read key as a header and the time zone in the quoted URL', () => {
+    expect(mcpCommand('https://notes.test', 'alr_abc', 'Etc/GMT+3')).toBe(
       'claude mcp remove --scope user aletheia >/dev/null 2>&1; ' +
-        'claude mcp add --transport http --scope user aletheia https://notes.test/api/mcp --header "Authorization: Bearer alr_abc"',
+        `claude mcp add --transport http --scope user aletheia 'https://notes.test/api/mcp?tz=Etc%2FGMT%2B3' --header "Authorization: Bearer alr_abc"`,
     );
   });
 });

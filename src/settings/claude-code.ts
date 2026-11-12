@@ -34,10 +34,14 @@ export function setupCommand(origin: string, key: string, timeZone: string): str
   ].join(' && ');
 }
 
-/** The command that connects Claude Code (all projects) to the notes, replacing an earlier connection. */
-export function mcpCommand(origin: string, key: string): string {
+/**
+ * The command that connects Claude Code (all projects) to the notes, replacing
+ * an earlier connection. The time zone in the URL gives dates as the app shows
+ * them; the URL is quoted because zsh reads `?` as a wildcard.
+ */
+export function mcpCommand(origin: string, key: string, timeZone: string): string {
   return [
     'claude mcp remove --scope user aletheia >/dev/null 2>&1',
-    `claude mcp add --transport http --scope user aletheia ${origin}/api/mcp --header "Authorization: Bearer ${key}"`,
+    `claude mcp add --transport http --scope user aletheia '${origin}/api/mcp?tz=${encodeURIComponent(timeZone)}' --header "Authorization: Bearer ${key}"`,
   ].join('; ');
 }

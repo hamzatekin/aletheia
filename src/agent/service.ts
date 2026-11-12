@@ -6,10 +6,12 @@ import { isLive, isSelfOrDescendant, newId } from '@/model';
 import type { SearchIndex } from '@/search';
 import { MAX_CHATS, savedTurn, type ChatStore, type SavedChat } from './chats';
 import { planChanges } from './changes';
-import { Refs, WEEK_QUESTION, weekLines, type ChatTurn } from './prompt';
+import { Refs, WEEK_QUESTION, WEEK_REVIEW, weekLines, type ChatTurn } from './prompt';
 import { runAgent } from './run';
 
 export interface Turn extends ChatTurn {
+  /** This question was My week: later questions in the chat get the week's rows too. */
+  week?: true;
   /** Rows the answer may cite: [n] is `rows[n - 1]`. */
   rows?: string[];
   /** What AI changed in the outline for this answer, one line each. */
@@ -118,8 +120,12 @@ export function createAgentService({ engine, session, search, key, step, chats: 
     return id && isLive(engine.tree.get(id)) ? id : null;
   };
 
-  /** Ask AI; `context` adds rows for it to go on (My week), instead of the row you're on. */
-  const run = async (question: string, context?: (refs: Refs) => string[]): Promise<void> => {
+  /**
+   * Ask AI. `myWeek` asks about the last 7 days, from the whole outline rather
+   * than the row you're on; later questions in that chat (a follow-up, or a
+   * retry after it failed) get the week's rows too.
+   */
+  const run = async (question: string, myWeek = false): Promise<void> => {
     const q = question.trim();
     const s = state.getState();
     if (q === '' || s.busy) return;
@@ -128,9 +134,10 @@ export function createAgentService({ engine, session, search, key, step, chats: 
     session.flush();
     const mine = chatNo;
     const history = s.turns;
+    const week = myWeek || history.some((t) => t.week);
     const steps: string[] = [];
     state.setState({
-      turns: [...history, { role: 'user', text: q }],
+      turns: [...history, { role: 'user', text: q, ...(myWeek ? { week: true as const } : {}) }],
       busy: true,
       steps,
       error: null,
@@ -142,10 +149,10 @@ export function createAgentService({ engine, session, search, key, step, chats: 
         search,
         step,
         key: k,
-        item: context ? null : here(),
+        item: myWeek ? undefined : here(),
         history,
         question: q,
-        ...(context ? { context: context(refs) } : {}),
+        ...(week ? { context: [...weekLines(engine.tree, refs, now()), ...(myWeek ? ['', WEEK_REVIEW] : [])] } : {}),
         refs,
         progress: (line) => {
           if (chatNo !== mine) return;
@@ -234,7 +241,7 @@ export function createAgentService({ engine, session, search, key, step, chats: 
 
     ask: (question) => run(question),
 
-    myWeek: () => run(WEEK_QUESTION, (r) => weekLines(engine.tree, r, now())),
+    myWeek: () => run(WEEK_QUESTION, true),
 
     undoChanges(turn) {
       const items = undos.get(turn);

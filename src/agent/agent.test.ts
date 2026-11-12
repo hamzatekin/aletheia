@@ -4,7 +4,7 @@ import type { EditorSession } from '@/editor/session';
 import { SearchIndex } from '@/search';
 import { fixture, outline } from '@/test/helpers';
 import { planChanges } from './changes';
-import { AGENT_SCHEMA, AGENT_SYSTEM, linkCitations, parseReply, readReply, readResults, Refs, startPrompt, weekLines } from './prompt';
+import { AGENT_SCHEMA, AGENT_SYSTEM, linkCitations, parseReply, readReply, readResults, Refs, startPrompt, WEEK_REVIEW, weekLines } from './prompt';
 import { runAgent } from './run';
 import type { SavedChat } from './chats';
 import { createAgentService } from './service';
@@ -471,24 +471,29 @@ describe('My week', () => {
       'Still in the Inbox (2):',
       `- ${d}: [3] Lavazza  (inside: Inbox)`,
       `- ${d}: [1] Call mum  (inside: Inbox)`,
-      '',
-      'Look back on the week with them: a few highlights, what seems stuck or has waited long, and one gentle thought for the week ahead. Keep it short. Change nothing unless they ask.',
     ]);
+  });
+
+  it('writes the day the same way in every month', () => {
+    const f = fixture(['Work']);
+    expect(weekLines(f.engine.tree, new Refs(), new Date(2026, 8, 14, 12).getTime())[0]).toBe('Their last 7 days (today is Mon 14 Sep):');
+    expect(weekLines(f.engine.tree, new Refs(), new Date(2026, 5, 7, 12).getTime())[0]).toBe('Their last 7 days (today is Sun 7 Jun):');
+    expect(weekLines(f.engine.tree, new Refs(), 9e15)[0]).toBe('Their last 7 days (today is unknown day):');
   });
 
   it('says when nothing happened, and leaves out deleted rows and AI memory', () => {
     const f = fixture([['AI memory', ['Likes tea']], 'Gone']);
     f.engine.execute({ type: 'deleteNode', id: f.ids.Gone! });
     const lines = weekLines(f.engine.tree, new Refs(), 2_000_000);
-    expect(lines.slice(1, -2)).toEqual(['', 'Added (0):', '- nothing', '', 'Marked done (0):', '- nothing', '', 'Still in the Inbox (0):', '- nothing']);
+    expect(lines.slice(1)).toEqual(['', 'Added (0):', '- nothing', '', 'Marked done (0):', '- nothing', '', 'Still in the Inbox (0):', '- nothing']);
   });
 
-  it('cuts a long list after 60 rows', () => {
+  it('cuts a long list after 60 rows, and counts no open row as done', () => {
     const f = fixture([['Inbox', Array.from({ length: 62 }, (_, i) => `Item ${i + 1}`)]]);
     const lines = weekLines(f.engine.tree, new Refs(), 1_100_000);
     expect(lines[2]).toBe('Added (63):');
     expect(lines[63]).toBe('- …and 3 more');
-    expect(lines[64]).toBe('');
+    expect(lines.slice(64, 68)).toEqual(['', 'Marked done (0):', '- nothing', '']);
   });
 
   it('asks how the week went with those rows, from the whole outline rather than the row you are on', async () => {
@@ -498,13 +503,52 @@ describe('My week', () => {
     const agent = createAgentService({ engine: f.engine, session, search: new SearchIndex(f.engine), key: () => 'k', step: r.step, now: () => now });
     agent.setPageRoot(f.ids.Work!);
     await agent.myWeek();
-    expect(agent.state.getState().turns.map((t) => [t.role, t.text])).toEqual([
-      ['user', 'How did my week go?'],
-      ['ai', 'A calm week, Avvos.'],
+    expect(agent.state.getState().turns.map((t) => [t.role, t.text, t.week])).toEqual([
+      ['user', 'How did my week go?', true],
+      ['ai', 'A calm week, Avvos.', undefined],
     ]);
     const prompt = r.sent[0]!.prompt;
-    expect(prompt.startsWith('They are on the home page (the whole outline).')).toBe(true);
-    expect(prompt.endsWith('Keep it short. Change nothing unless they ask.\n\nThem: How did my week go?')).toBe(true);
+    // Not where they are: the week is about the whole outline. The week's rows were numbered first.
+    expect(prompt.startsWith('The top of their outline:\n[5] Work')).toBe(true);
+    expect(prompt).not.toContain('They are on');
+    expect(prompt.endsWith(`[1] Call mum  (inside: Inbox)\n\n${WEEK_REVIEW}\n\nThem: How did my week go?`)).toBe(true);
     expect(prompt).toContain('\nMarked done (2):\n');
+  });
+
+  it('keeps the week for later questions in that chat, without asking for the look back again', async () => {
+    const f = spec();
+    const now = lastWeek(f);
+    const r = scripted(['{"answer":"A calm week, Avvos.","changes":[]}', '{"answer":"Lavazza.","changes":[]}', '{"answer":"Hi.","changes":[]}']);
+    const agent = createAgentService({ engine: f.engine, session, search: new SearchIndex(f.engine), key: () => 'k', step: r.step, now: () => now });
+    agent.setPageRoot(f.ids.Work!);
+    await agent.myWeek();
+    await agent.ask('Which has waited longest?');
+    const followUp = r.sent[1]!.prompt;
+    // Asked from the row you're on, like any question; the week's rows keep their numbers.
+    expect(followUp.startsWith('They are on this row:\n[5] Work')).toBe(true);
+    expect(followUp).toContain('\nThe conversation so far:\nThem: How did my week go?\nYou: A calm week, Avvos.\n\nTheir last 7 days (today is ');
+    expect(followUp.endsWith(`[1] Call mum  (inside: Inbox)\n\nThem: Which has waited longest?`)).toBe(true);
+    expect(followUp).not.toContain(WEEK_REVIEW);
+    // A new chat is a normal one again.
+    agent.clear();
+    await agent.ask('hi');
+    expect(r.sent[2]!.prompt).not.toContain('Their last 7 days');
+  });
+
+  it('keeps the week when My week failed, so asking again has it', async () => {
+    const f = spec();
+    const now = lastWeek(f);
+    const sent: string[] = [];
+    const step: Step = async (_key, prompt) => {
+      sent.push(prompt);
+      if (sent.length === 1) throw new Error('relay down');
+      return { text: '{"answer":"A calm week, Avvos.","changes":[]}', session: null };
+    };
+    const agent = createAgentService({ engine: f.engine, session, search: new SearchIndex(f.engine), key: () => 'k', step, now: () => now });
+    await agent.myWeek();
+    expect(agent.state.getState()).toMatchObject({ error: 'AI failed.', turns: [{ role: 'user', text: 'How did my week go?', week: true }] });
+    await agent.ask('How did my week go?');
+    expect(sent[1]).toContain('\nMarked done (2):\n');
+    expect(agent.state.getState().turns.at(-1)).toEqual({ role: 'ai', text: 'A calm week, Avvos.', rows: [f.ids['Call mum'], f.ids.Liquidline, f.ids.Lavazza, f.ids.Suppliers, f.ids.Work, f.ids['14 Oct'], f.ids.Inbox, 'blank'] });
   });
 });

@@ -22,7 +22,7 @@ export function ClaudeCodeSection({ syncKey }: { syncKey: string }) {
         button="Connect to your notes"
         label="Connect command"
         after="It gives Claude Code a key that can only read, for all your projects (Passwords and Budget stay out). Connecting again turns this key off."
-        make={async () => mcpCommand(window.location.origin, await createKey(syncKey, 'read'))}
+        make={async () => mcpCommand(window.location.origin, await createKey(syncKey, 'read'), Intl.DateTimeFormat().resolvedOptions().timeZone)}
         testId="claude-code-mcp"
       />
     </div>

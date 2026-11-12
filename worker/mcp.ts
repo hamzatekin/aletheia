@@ -2,18 +2,22 @@
  * MCP server: lets Claude Code (or any MCP client) search and read the notes,
  * so a question in the terminal can use them. Read only.
  *
- *   POST /api/mcp   one JSON-RPC message (MCP over Streamable HTTP), answered as plain JSON
+ *   POST /api/mcp[?tz=<IANA zone>]   one JSON-RPC message, or a batch of them (2025-03-26),
+ *                                    MCP over Streamable HTTP, answered as plain JSON
  *
  * Tools: search_notes (words anywhere in an item's text, note or path) and
  * read_item (one item with its note and what's inside it, or the top of the
  * outline). No sessions: every request stands alone, which suits both the
- * 2025 protocol (initialize first) and the stateless 2026-07-28 one.
+ * 2025 protocol (initialize first) and the stateless 2026-07-28 one. `tz`
+ * (put in the URL by the connect command) gives read_item's dates in the
+ * user's time zone; without it they are UTC.
  *
  * Needs `Authorization: Bearer <read key>` (alr_..., made in Settings → Sync →
  * Claude Code), a key that can only read. Like the pergent feed, the piles
  * named Passwords and Budget are left out wherever they are.
  */
-import { isBlockedPile } from './feed';
+import { label } from './capture';
+import { childrenByParent } from './feed';
 import { json } from './http';
 import { keySpace, type SyncEnv } from './sync';
 
@@ -70,11 +74,25 @@ interface NodeRow {
 }
 
 interface RpcMessage {
-  jsonrpc?: unknown;
+  jsonrpc: '2.0';
   id?: unknown;
-  method?: unknown;
+  method: string;
   params?: unknown;
 }
+
+type Reply = { jsonrpc: '2.0'; id: unknown } & ({ result: object } | { error: { code: number; message: string } });
+
+/** One request's setting, shared by the messages of a batch. */
+interface Context {
+  env: SyncEnv;
+  space: string;
+  origin: string;
+  zone: string;
+  /** Loaded by the first tool call, so a batch reads the notes once. */
+  outline?: Promise<Outline>;
+}
+
+const INVALID = 'Invalid request: send one JSON-RPC 2.0 message';
 
 export async function handleMcp(request: Request, env: SyncEnv): Promise<Response> {
   const url = new URL(request.url);
@@ -84,17 +102,27 @@ export async function handleMcp(request: Request, env: SyncEnv): Promise<Respons
   const space = await keySpace(request, env, 'read');
   if (!space) return json({ error: 'Unknown read key. Make a new one in Aletheia: Settings → Sync → Claude Code.' }, 401);
 
-  let message: RpcMessage;
+  let body: unknown;
   try {
-    message = (await request.json()) as RpcMessage;
+    body = await request.json();
   } catch {
-    return rpcError(null, -32700, 'Parse error', 400);
+    return json(failure(null, -32700, 'Parse error'), 400);
   }
-  if (message === null || Array.isArray(message) || message.jsonrpc !== '2.0' || typeof message.method !== 'string') {
-    return rpcError(null, -32600, 'Invalid request: send one JSON-RPC 2.0 message', 400);
+  const context: Context = { env, space, origin: url.origin, zone: timeZone(url.searchParams.get('tz')) };
+  // The 2025-03-26 protocol lets a client send several messages at once; each gets its answer in a list.
+  if (Array.isArray(body) && body.length > 0) {
+    const replies = (await Promise.all(body.map((m) => answer(m, context)))).filter((r) => r !== null);
+    return replies.length > 0 ? json(replies) : new Response(null, { status: 202 });
   }
-  // A notification (no id) needs no answer.
-  if (!('id' in message)) return new Response(null, { status: 202 });
+  if (!isMessage(body)) return json(failure(null, -32600, INVALID), 400);
+  const reply = await answer(body, context);
+  return reply ? json(reply) : new Response(null, { status: 202 });
+}
+
+/** The answer to one message; null for a notification (no id), which needs none. */
+async function answer(message: unknown, context: Context): Promise<Reply | null> {
+  if (!isMessage(message)) return failure(null, -32600, INVALID);
+  if (!('id' in message)) return null;
   const { id, method } = message;
   const params = (typeof message.params === 'object' && message.params !== null ? message.params : {}) as Record<string, unknown>;
 
@@ -103,22 +131,39 @@ export async function handleMcp(request: Request, env: SyncEnv): Promise<Respons
     case 'server/discover': {
       const asked = params.protocolVersion;
       const version = VERSIONS.includes(asked as string) ? asked : VERSIONS[0];
-      return rpcResult(id, { protocolVersion: version, capabilities: { tools: {} }, serverInfo: { name: 'aletheia', title: 'Aletheia notes', version: '1.0.0' }, instructions: INSTRUCTIONS });
+      return success(id, { protocolVersion: version, capabilities: { tools: {} }, serverInfo: { name: 'aletheia', title: 'Aletheia notes', version: '1.0.0' }, instructions: INSTRUCTIONS });
     }
     case 'ping':
-      return rpcResult(id, {});
+      return success(id, {});
     case 'tools/list':
-      return rpcResult(id, { tools: TOOLS });
+      return success(id, { tools: TOOLS });
     case 'tools/call': {
       const args = (typeof params.arguments === 'object' && params.arguments !== null ? params.arguments : {}) as Record<string, unknown>;
-      const outline = await loadOutline(env, space);
-      const origin = url.origin;
-      if (params.name === 'search_notes') return rpcResult(id, toolText(searchNotes(outline, args, origin)));
-      if (params.name === 'read_item') return rpcResult(id, toolText(readItem(outline, args, origin)));
-      return rpcError(id, -32602, `Unknown tool: ${String(params.name)}`);
+      context.outline ??= loadOutline(context.env, context.space);
+      const outline = await context.outline;
+      if (params.name === 'search_notes') return success(id, toolText(searchNotes(outline, args, context.origin)));
+      if (params.name === 'read_item') return success(id, toolText(readItem(outline, args, context.origin, context.zone)));
+      return failure(id, -32602, `Unknown tool: ${String(params.name)}`);
     }
     default:
-      return rpcError(id, -32601, `Method not found: ${method}`);
+      return failure(id, -32601, `Method not found: ${method}`);
+  }
+}
+
+function isMessage(m: unknown): m is RpcMessage {
+  // JSON has no undefined, and a string, number or list has no jsonrpc field.
+  const o = m as Partial<RpcMessage> | null;
+  return o !== null && o.jsonrpc === '2.0' && typeof o.method === 'string';
+}
+
+/** The zone named in the URL (the connect command adds the computer's), else UTC. */
+function timeZone(tz: string | null): string {
+  // Stryker disable next-line ConditionalExpression: equivalent, Intl rejects a missing or empty zone too and the catch gives UTC
+  if (!tz) return 'UTC';
+  try {
+    return new Intl.DateTimeFormat('en-US', { timeZone: tz }).resolvedOptions().timeZone;
+  } catch {
+    return 'UTC';
   }
 }
 
@@ -135,19 +180,14 @@ async function loadOutline(env: SyncEnv, space: string): Promise<Outline> {
   const { results } = await env.DB.prepare('SELECT id, parent_id, ord, content, note, created_at, completed_at FROM nodes WHERE space = ?1 AND deleted_at IS NULL')
     .bind(space)
     .all<NodeRow>();
-  const kids = new Map<string | null, NodeRow[]>();
-  for (const r of results) {
-    const list = kids.get(r.parent_id) ?? [];
-    list.push(r);
-    kids.set(r.parent_id, list);
-  }
-  for (const list of kids.values()) list.sort((a, b) => cmp(a.ord, b.ord) || cmp(a.id, b.id));
+  const kids = childrenByParent(results);
   // Walk down from the top, so items under a deleted or blocked one are left out too.
   const live = new Map<string, NodeRow>();
+  // Only the parents the walk reached, so a blocked pile's id lists nothing.
   const liveKids = new Map<string | null, NodeRow[]>();
   const paths = new Map<string, string[]>();
   const walk = (parent: string | null, path: string[]) => {
-    const list = (kids.get(parent) ?? []).filter((r) => !isBlockedPile(r.content));
+    const list = kids.get(parent) ?? [];
     liveKids.set(parent, list);
     for (const r of list) {
       live.set(r.id, r);
@@ -164,14 +204,30 @@ async function loadOutline(env: SyncEnv, space: string): Promise<Outline> {
   };
 }
 
+/**
+ * Text as search compares it: without accents or Markdown marks, in capitals,
+ * so Turkish ı, i and İ all read as I ("İş" is found by "is") and ß as SS.
+ * Item text goes through capture's `label` first, which also drops link addresses.
+ */
+const fold = (text: string) =>
+  text
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toUpperCase()
+    .replace(/[*_~`\\]/g, '');
+
 function searchNotes(outline: Outline, args: Record<string, unknown>, origin: string): { text: string; error?: boolean } {
   const query = typeof args.query === 'string' ? args.query.trim() : '';
-  if (query === '') return { text: 'Give some words to search for.', error: true };
+  const words = fold(query).match(/\S+/g);
+  if (!words) return { text: 'Give some words to search for.', error: true };
   const limit = Number.isInteger(args.limit) ? Math.min(MAX_SEARCH_LIMIT, Math.max(1, args.limit as number)) : SEARCH_LIMIT;
-  const words = query.toLowerCase().match(/\S+/g)!;
   const has = (text: string) => words.every((w) => text.includes(w));
+  // Like the app's search: the item's text without link addresses, and its note as written.
   const hits = outline.all
-    .map((r) => ({ r, own: has(r.content.toLowerCase()), any: has(`${r.content}\n${r.note}\n${outline.path(r.id).join('\n')}`.toLowerCase()) }))
+    .map((r) => {
+      const own = fold(label(r.content));
+      return { r, own: has(own), any: has(`${own}\n${fold(r.note)}\n${fold(label(outline.path(r.id).join('\n')))}`) };
+    })
     .filter((h) => h.any)
     .sort((a, b) => Number(b.own) - Number(a.own) || b.r.created_at - a.r.created_at);
   if (hits.length === 0) return { text: `Nothing found for "${query}".` };
@@ -183,7 +239,8 @@ function searchNotes(outline: Outline, args: Record<string, unknown>, origin: st
   return { text: `${hits.length === 1 ? '1 item' : `${hits.length} items`} found for "${query}" (open one with read_item; links go to ${origin}/n/<id>):\n${lines.join('\n')}${more}` };
 }
 
-function readItem(outline: Outline, args: Record<string, unknown>, origin: string): { text: string; error?: boolean } {
+function readItem(outline: Outline, args: Record<string, unknown>, origin: string, zone: string): { text: string; error?: boolean } {
+  const day = (t: number) => dayIn(t, zone);
   const id = typeof args.id === 'string' ? args.id : '';
   if (id === '') return { text: ['The top of the outline:', ...treeLines(outline, null, TOP_DEPTH)].join('\n') };
   const r = outline.get(id);
@@ -230,20 +287,24 @@ function itemLine(outline: Outline, r: NodeRow, withPath: boolean): string {
 
 const title = (r: NodeRow) => oneLine(r.content) || 'Untitled';
 const oneLine = (text: string) => text.replace(/\s+/g, ' ').trim();
-const day = (t: number) => new Date(t).toISOString().slice(0, 10);
+
+/** "2026-10-19" in `zone`; "unknown" for a time too far out for a date (push only checks it is a number). */
+function dayIn(t: number, zone: string): string {
+  const date = new Date(t);
+  if (Number.isNaN(date.getTime())) return 'unknown';
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+  const part = (type: string) => parts.find((p) => p.type === type)!.value;
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
 
 function toolText({ text, error }: { text: string; error?: boolean }) {
   return { content: [{ type: 'text', text }], ...(error ? { isError: true } : {}) };
 }
 
-function rpcResult(id: unknown, result: object): Response {
-  return json({ jsonrpc: '2.0', id, result });
+function success(id: unknown, result: object): Reply {
+  return { jsonrpc: '2.0', id, result };
 }
 
-function rpcError(id: unknown, code: number, message: string, status = 200): Response {
-  return json({ jsonrpc: '2.0', id, error: { code, message } }, status);
-}
-
-function cmp(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
+function failure(id: unknown, code: number, message: string): Reply {
+  return { jsonrpc: '2.0', id, error: { code, message } };
 }

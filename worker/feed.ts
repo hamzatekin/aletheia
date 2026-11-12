@@ -28,7 +28,24 @@ export interface FeedEnv extends SyncEnv {
 const BLOCKED = new Set(['passwords', 'budget']);
 
 /** Whether a node with this text is a pile that is never served (Passwords, Budget), wherever it is. */
-export const isBlockedPile = (text: string): boolean => BLOCKED.has(pileKey(text));
+const isBlockedPile = (text: string): boolean => BLOCKED.has(pileKey(text));
+
+/**
+ * Rows by parent in sibling order (order key, then id), without the blocked
+ * piles. The caller leaves out deleted rows. The MCP server reads the tree
+ * with it too, so both serve the same tree.
+ */
+export function childrenByParent<R extends { id: string; parent_id: string | null; ord: string; content: string }>(rows: readonly R[]): Map<string | null, R[]> {
+  const kids = new Map<string | null, R[]>();
+  for (const r of rows) {
+    if (isBlockedPile(r.content)) continue;
+    const list = kids.get(r.parent_id) ?? [];
+    list.push(r);
+    kids.set(r.parent_id, list);
+  }
+  for (const list of kids.values()) list.sort((a, b) => cmp(a.ord, b.ord) || cmp(a.id, b.id));
+  return kids;
+}
 
 interface FeedRow {
   id: string;
@@ -84,15 +101,8 @@ export async function handleFeed(request: Request, env: FeedEnv, now = Date.now(
 /** The feed for `rows`: the live subtrees of the allowed piles, and with `since`, only what changed after it. */
 function buildFeed(rows: FeedRow[], piles: Set<string>, since: number | null, now: number): FeedResponse {
   const byId = new Map(rows.map((r) => [r.id, r]));
-  const kids = new Map<string | null, FeedRow[]>();
-  for (const r of rows) {
-    if (r.deleted_at !== null) continue;
-    const list = kids.get(r.parent_id) ?? [];
-    list.push(r);
-    kids.set(r.parent_id, list);
-  }
-  const children = (id: string | null) =>
-    (kids.get(id) ?? []).filter((r) => !BLOCKED.has(pileKey(r.content))).sort((a, b) => cmp(a.ord, b.ord) || cmp(a.id, b.id));
+  const kids = childrenByParent(rows.filter((r) => r.deleted_at === null));
+  const children = (id: string | null) => kids.get(id) ?? [];
 
   const nodes: FeedNode[] = [];
   const emit = (row: FeedRow, order: number, path: string[], isPile: boolean) => {
@@ -133,8 +143,8 @@ function inAllowedPile(row: FeedRow, byId: Map<string, FeedRow>, piles: Set<stri
   }
   // A chain that doesn't reach the top level (missing parent or a cycle) is in no pile.
   if (chain[0]!.parent_id !== null) return false;
+  if (chain.some((n) => isBlockedPile(n.content))) return false;
   const keys = chain.map((n) => pileKey(n.content));
-  if (keys.some((k) => BLOCKED.has(k))) return false;
   return keys.some((_, i) => piles.has(keys.slice(0, i + 1).join('/')));
 }
 

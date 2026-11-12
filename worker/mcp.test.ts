@@ -196,7 +196,7 @@ describe('MCP protocol', () => {
     const bad = await post(key, '{not json');
     expect(bad.status).toBe(400);
     expect(await bad.json()).toEqual({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } });
-    for (const body of ['null', '"ping"', [{ jsonrpc: '2.0', id: 1, method: 'ping' }], { id: 1, method: 'ping' }, { jsonrpc: '1.0', id: 1, method: 'ping' }, { jsonrpc: '2.0', id: 1 }, { jsonrpc: '2.0', id: 1, method: 7 }]) {
+    for (const body of ['null', '"ping"', [], { id: 1, method: 'ping' }, { jsonrpc: '1.0', id: 1, method: 'ping' }, { jsonrpc: '2.0', id: 1 }, { jsonrpc: '2.0', id: 1, method: 7 }]) {
       const res = await post(key, body);
       expect(res.status).toBe(400);
       expect((await res.json()).error).toEqual({ code: -32600, message: 'Invalid request: send one JSON-RPC 2.0 message' });
@@ -207,6 +207,47 @@ describe('MCP protocol', () => {
     const elsewhere = await post(key, {}, { path: '/api/mcp/x' });
     expect(elsewhere.status).toBe(404);
     expect(await elsewhere.json()).toEqual({ error: 'not found' });
+  });
+
+  it('answers a batch (2025-03-26) with a list, in order, skipping notifications and flagging bad messages', async () => {
+    const key = await newKey('read');
+    const res = await post(key, [
+      { jsonrpc: '2.0', method: 'notifications/initialized' },
+      { jsonrpc: '2.0', id: 2, method: 'ping' },
+      'ping',
+      { jsonrpc: '2.0', id: 3, method: 'resources/list' },
+      [{ jsonrpc: '2.0', id: 4, method: 'ping' }],
+    ]);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('application/json');
+    expect(await res.json()).toEqual([
+      { jsonrpc: '2.0', id: 2, result: {} },
+      { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid request: send one JSON-RPC 2.0 message' } },
+      { jsonrpc: '2.0', id: 3, error: { code: -32601, message: 'Method not found: resources/list' } },
+      { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid request: send one JSON-RPC 2.0 message' } },
+    ]);
+    const quiet = await post(key, [{ jsonrpc: '2.0', method: 'notifications/initialized' }]);
+    expect(quiet.status).toBe(202);
+    expect(await quiet.text()).toBe('');
+  });
+
+  it('reads the notes once for all the tool calls in a batch', async () => {
+    await seed();
+    const key = await newKey('read');
+    const reads: string[] = [];
+    const DB: SqlDatabase = { ...db, prepare: (sql: string) => (reads.push(sql), db.prepare(sql)) };
+    const req = new Request('https://aletheia.test/api/mcp', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}` },
+      body: JSON.stringify([
+        { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'search_notes', arguments: { query: 'groceries' } } },
+        { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'read_item', arguments: { id: 'i2' } } },
+      ]),
+    });
+    const [search, read] = (await (await handleMcp(req, { DB })).json()) as any[];
+    expect(search.result.content[0].text).toBe(`1 item found for "groceries" ${FOUND}\n- Groceries [id: i2] (in Inbox)\n  note: milk, eggs`);
+    expect(read.result.content[0].text.split('\n')[0]).toBe('# Groceries');
+    expect(reads.filter((sql) => sql.includes('FROM nodes'))).toHaveLength(1);
   });
 });
 
@@ -283,6 +324,28 @@ describe('search_notes', () => {
     const key = await newKey('read');
     expect(await call(key, 'search_notes', { query: '  ' })).toEqual({ text: 'Give some words to search for.', isError: true });
     expect(await call(key, 'search_notes', { query: 5 })).toEqual({ text: 'Give some words to search for.', isError: true });
+    expect(await call(key, 'search_notes', { query: '** _' })).toEqual({ text: 'Give some words to search for.', isError: true });
+  });
+
+  it('ignores case, accents and Markdown, reads Turkish İ and ı as i, and skips link addresses like the app', async () => {
+    const nodes = [
+      wire('t1', null, 'b0', 'İş planı'),
+      wire('t2', null, 'b1', 'Girişimcilik / Yatırım'),
+      wire('t3', null, 'b2', '[Lavazza order](https://shop.example/x)'),
+      wire('t4', null, 'b3', 'rename foo\\_bar'),
+      wire('t5', null, 'b4', 'Coffee', { note: 'from https://shop.example/y' }),
+      wire('t6', null, 'b5', 'Straße'),
+    ];
+    expect((await sync('POST', 'push', { nodes })).status).toBe(200);
+    const key = await newKey('read');
+    expect((await call(key, 'search_notes', { query: 'iş planı' })).text).toBe(`1 item found for "iş planı" ${FOUND}\n- İş planı [id: t1]`);
+    expect((await call(key, 'search_notes', { query: 'IS PLANI' })).text).toBe(`1 item found for "IS PLANI" ${FOUND}\n- İş planı [id: t1]`);
+    expect((await call(key, 'search_notes', { query: 'girisim yatirim' })).text).toBe(`1 item found for "girisim yatirim" ${FOUND}\n- Girişimcilik / Yatırım [id: t2]`);
+    expect((await call(key, 'search_notes', { query: 'foo_bar' })).text).toBe(`1 item found for "foo_bar" ${FOUND}\n- rename foo\\_bar [id: t4]`);
+    expect((await call(key, 'search_notes', { query: ' strasse ' })).text).toBe(`1 item found for "strasse" ${FOUND}\n- Straße [id: t6]`);
+    expect((await call(key, 'search_notes', { query: 'lavazza order' })).text).toBe(`1 item found for "lavazza order" ${FOUND}\n- [Lavazza order](https://shop.example/x) [id: t3]`);
+    // A link's address in the text isn't searched; a note is, as written.
+    expect((await call(key, 'search_notes', { query: 'shop' })).text).toBe(`1 item found for "shop" ${FOUND}\n- Coffee [id: t5]\n  note: from https://shop.example/y`);
   });
 });
 
@@ -325,6 +388,33 @@ describe('read_item', () => {
     expect((await call(key, 'read_item', { id: 'i2' })).text).toContain('\nNote:\nmilk, eggs\n\nNothing inside it.');
     expect((await call(key, 'read_item', { id: 'i4' })).text).toContain('\nNo note.\n');
     expect((await call(key, 'read_item', { id: 'inbox' })).text).toContain('\nWhere: Home\n');
+  });
+
+  it('gives dates in the time zone the connect command put in the URL, else UTC', async () => {
+    // 22:30 UTC on 19 Oct is 01:30 on 20 Oct in Istanbul.
+    const late = Date.UTC(2026, 9, 19, 22, 30);
+    const nodes = [wire('late', null, 'b0', 'Late', { createdAt: late, completedAt: late }), wire('far', null, 'b1', 'Far', { createdAt: 9e15, completedAt: -9e15 })];
+    expect((await sync('POST', 'push', { nodes })).status).toBe(200);
+    const key = await newKey('read');
+    const added = async (id: string, tz?: string) => {
+      const res = await post(key, { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'read_item', arguments: { id } } }, { path: `/api/mcp${tz !== undefined ? `?tz=${tz}` : ''}` });
+      return ((await res.json()) as any).result.content[0].text.split('\n')[3];
+    };
+    expect(await added('late', 'Europe%2FIstanbul')).toBe('Added: 2026-10-20, done 2026-10-20');
+    expect(await added('late', 'europe%2Fistanbul')).toBe('Added: 2026-10-20, done 2026-10-20');
+    // UTC, not the server's own zone (here 14 hours ahead).
+    const serverZone = process.env.TZ;
+    process.env.TZ = 'Pacific/Kiritimati';
+    try {
+      expect(await added('late')).toBe('Added: 2026-10-19, done 2026-10-19');
+      expect(await added('late', 'Mars%2FBase')).toBe('Added: 2026-10-19, done 2026-10-19');
+      expect(await added('late', '')).toBe('Added: 2026-10-19, done 2026-10-19');
+    } finally {
+      if (serverZone === undefined) delete process.env.TZ;
+      else process.env.TZ = serverZone;
+    }
+    // A time no date can show (push only checks it is a number) doesn't break the item.
+    expect(await added('far', 'Europe%2FIstanbul')).toBe('Added: unknown, done unknown');
   });
 
   it('shows the top of the outline without an id, two levels deep', async () => {

@@ -22,8 +22,8 @@ export async function runAgent(o: {
   search: SearchIndex;
   step: Step;
   key: string;
-  /** The row they're on, or null for the whole outline. */
-  item: string | null;
+  /** The row they're on; null on Home; undefined when it doesn't matter (My week). */
+  item: string | null | undefined;
   history: readonly ChatTurn[];
   question: string;
   /** More for AI to go on, sent with the question. */

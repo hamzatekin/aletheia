@@ -194,16 +194,20 @@ Worker, so a question in the terminal can use them.
 
 - **Setup** (once per computer, sync must be on): Settings → Sync → Claude
   Code → **Connect to your notes** shows a `claude mcp add --transport http
-  --scope user aletheia …/api/mcp --header "Authorization: Bearer alr_…"`
-  command (it removes an earlier `aletheia` server first).
+  --scope user aletheia '…/api/mcp?tz=<time zone>' --header "Authorization:
+  Bearer alr_…"` command (it removes an earlier `aletheia` server first). The
+  time zone is this device's, so `read_item` gives dates as the app does;
+  connections made before it get UTC dates until connected again.
 - **Read key.** `POST /api/sync/read-key` makes a key (`alr_…`) that can only
   read; like the capture key, only its SHA-256 is kept and a new one turns
   the old one off. The two keys are separate.
 - **`POST /api/mcp`** (`worker/mcp.ts`) speaks MCP over Streamable HTTP,
-  one JSON-RPC message per request, answered as plain JSON with no sessions
-  (initialize for 2025 clients, server/discover for 2026-07-28). Tools:
-  `search_notes` (all words in an item's text, note or path; own-text
-  matches first, then newest) and `read_item` (one item's place, note and
+  one JSON-RPC message per request (or a batch, which 2025-03-26 clients may
+  send), answered as plain JSON with no sessions (initialize for 2025
+  clients, server/discover for 2026-07-28). Tools: `search_notes` (all words
+  in an item's text, note or path, ignoring case, accents and Markdown, with
+  Turkish ı/İ read as i; own-text matches first, then newest) and
+  `read_item` (one item's place, note and
   three levels inside it, or the top of the outline). Rows named Passwords
   or Budget, and everything under them, are left out, as in the feed.
 
