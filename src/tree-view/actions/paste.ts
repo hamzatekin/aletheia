@@ -21,7 +21,7 @@ export function pasteActions(ctx: ActionContext) {
     session.flush();
     const commands: Command[] = [];
     let rest = items;
-    if (session.isEmpty() && id !== rootId) {
+    if (session.isEmpty() && id !== rootId()) {
       // An empty node takes the first item; the rest follow as siblings.
       const [first, ...others] = items;
       commands.push({ type: 'updateContent', id, content: first!.content });
@@ -29,7 +29,7 @@ export function pasteActions(ctx: ActionContext) {
       commands.push(...importCommands(id, first!.children));
       rest = others;
     }
-    if (id === rootId) commands.push(...importCommands(id, rest, undefined));
+    if (id === rootId()) commands.push(...importCommands(id, rest, undefined));
     else commands.push(...importCommands(node.parentId, rest, id));
     const outcome = engine.batch(commands, 'paste');
     if (outcome.ok) {

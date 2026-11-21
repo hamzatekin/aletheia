@@ -1,12 +1,9 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext } from 'solid-js';
 import type { Engine } from '@/commands';
 
-const EngineContext = createContext<Engine | null>(null);
-
-export const EngineProvider = EngineContext.Provider;
+/** The command engine, provided once at the top of the app (`<EngineContext value={engine}>`). */
+export const EngineContext = createContext<Engine>();
 
 export function useEngine(): Engine {
-  const engine = useContext(EngineContext);
-  if (!engine) throw new Error('useEngine: no EngineProvider above this component');
-  return engine;
+  return useContext(EngineContext);
 }

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { edit, gotoHome, outline, syncOn, type Spec } from './helpers';
+import { edit, gotoHome, openNodeMenu, outline, syncOn, type Spec } from './helpers';
 
 /** Add a small outline at the top of Home. */
 async function build(page: Page): Promise<void> {
@@ -44,6 +44,21 @@ async function stubAi(page: Page, prompts: string[]) {
 }
 
 test.beforeEach(async ({ page }) => gotoHome(page));
+
+test('the row the chat starts from is forgotten once it is deleted', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await build(page);
+  await syncOn(page);
+  await page.getByTestId('agent-button').click();
+  const panel = page.getByTestId('agent-panel');
+  await edit(page, 'Call mum');
+  await expect(panel.getByTestId('agent-here')).toHaveText('On: Call mum');
+  await page.keyboard.press('Escape');
+  await openNodeMenu(page, 'Call mum');
+  await page.getByTestId('node-menu-delete').click();
+  await expect.poll(() => outline(page, 'Inbox')).toEqual(['Lavazza', 'Liquidline']);
+  await expect(panel.getByTestId('agent-here')).toHaveText('On: Home');
+});
 
 test('one AI chat for the app: it starts from the row you are on, acts, and keeps going as you move', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });

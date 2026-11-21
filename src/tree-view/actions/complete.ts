@@ -23,13 +23,14 @@ export function completeActions(ctx: ActionContext) {
     while (rows[j] && rows[j]!.depth > rows[i]!.depth) j++;
     if (rows[j]) return { id: rows[j]!.id, caret: { kind: 'start' } };
     if (i > 0) return { id: rows[i - 1]!.id, caret: { kind: 'end' } };
-    return rootId === null ? null : { id: rootId, caret: { kind: 'end' } };
+    const root = rootId();
+    return root === null ? null : { id: root, caret: { kind: 'end' } };
   };
 
   /** Ctrl/⌘+Enter on the row being edited. While done items are hidden, the caret moves on as the row goes. */
   const completeFocused = (id: string) => {
     session.flush();
-    const leaves = ctx.hideCompleted() && id !== rootId && tree.get(id)?.completedAt == null;
+    const leaves = ctx.hideCompleted() && id !== rootId() && tree.get(id)?.completedAt == null;
     const target = leaves ? rowAfterHiding(id) : null;
     engine.batch(completeCommands(tree, [id]), 'complete');
     if (!leaves) return;
@@ -45,7 +46,7 @@ export function completeActions(ctx: ActionContext) {
     // The row being edited or selected may have just gone from the page.
     const { focus, selection } = ui.getState();
     const rows = new Set(ctx.rowsNow().map((r) => r.id));
-    if (focus && focus.id !== rootId && !rows.has(focus.id)) ui.blur();
+    if (focus && focus.id !== rootId() && !rows.has(focus.id)) ui.blur();
     if (selection && [...selection.ids].some((id) => !rows.has(id))) ui.setSelection(null);
   };
 

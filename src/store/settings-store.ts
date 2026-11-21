@@ -1,5 +1,6 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import { useStore } from 'zustand';
+import type { Accessor } from 'solid-js';
+import { useStoreValue } from '@/ui/store';
 
 /**
  * Look-and-feel preferences. They live on this device only (localStorage),
@@ -151,8 +152,9 @@ function pick(s: SettingsState): Settings {
   return out as unknown as Settings;
 }
 
-export function useSettings<T>(store: SettingsStore, selector: (s: SettingsState) => T): T {
-  return useStore(store, selector);
+/** A slice of the settings, as an accessor (see `useStoreValue`). */
+export function useSettings<T>(store: SettingsStore, selector: (s: SettingsState) => T): Accessor<T> {
+  return useStoreValue(store, selector);
 }
 
 /** Resolve the theme to concrete colors; `null` colors mean "follow the OS". */

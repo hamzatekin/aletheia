@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { onSettled } from 'solid-js';
 
 /**
  * Pixels at the top of the window the bar can cover (it is 52-56px tall), plus
@@ -13,14 +13,14 @@ export const TOP_BAR_CLEARANCE_PX = 64;
  * and draws a hairline once the outline has scrolled under it.
  */
 export function TopBar() {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
+  let el: HTMLDivElement | undefined;
+  onSettled(() => {
     const update = () => {
-      if (ref.current) ref.current.dataset.scrolled = String(window.scrollY > 0);
+      if (el) el.dataset.scrolled = String(window.scrollY > 0);
     };
     update();
     window.addEventListener('scroll', update, { passive: true });
     return () => window.removeEventListener('scroll', update);
-  }, []);
-  return <div ref={ref} className="top-bar" aria-hidden="true" data-testid="top-bar" />;
+  });
+  return <div ref={el} class="top-bar" aria-hidden="true" data-testid="top-bar" />;
 }

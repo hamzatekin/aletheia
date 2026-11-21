@@ -8,31 +8,30 @@ interface Props {
 }
 
 /** Chevron for nodes with children: left of the bullet on hover with a mouse, at the right edge on touch screens. */
-export function CollapseToggle({ collapsed, onToggle, side = 'left', shown = false }: Props) {
-  const right = side === 'right';
+export function CollapseToggle(props: Props) {
+  const right = () => props.side === 'right';
   return (
     <button
       type="button"
-      tabIndex={-1}
-      aria-label={collapsed ? 'Expand' : 'Collapse'}
-      aria-expanded={!collapsed}
-      onClick={onToggle}
+      tabindex={-1}
+      aria-label={props.collapsed ? 'Expand' : 'Collapse'}
+      aria-expanded={props.collapsed ? 'false' : 'true'}
+      onClick={() => props.onToggle()}
       onMouseDown={(e) => e.preventDefault()}
-      className={
-        (right
-          ? 'collapse-toggle-right relative -mr-3 flex h-(--row-lh) w-11 shrink-0 items-center justify-center rounded active:bg-active '
-          : 'row-toggle relative flex h-(--row-lh) w-5 shrink-0 items-center justify-center rounded transition-opacity group-hover:opacity-100 hover:text-ink focus-visible:opacity-100 ' +
-            (shown ? 'opacity-100 ' : 'opacity-0 ')) +
-        (collapsed ? 'text-muted' : 'text-faint')
-      }
+      class={[
+        right()
+          ? 'collapse-toggle-right relative -mr-3 flex h-(--row-lh) w-11 shrink-0 items-center justify-center rounded active:bg-active'
+          : ['row-toggle relative flex h-(--row-lh) w-5 shrink-0 items-center justify-center rounded transition-opacity group-hover:opacity-100 hover:text-ink focus-visible:opacity-100', props.shown ? 'opacity-100' : 'opacity-0'],
+        props.collapsed ? 'text-muted' : 'text-faint',
+      ]}
     >
       <svg
-        width={right ? 14 : 10}
-        height={right ? 14 : 10}
+        width={right() ? 14 : 10}
+        height={right() ? 14 : 10}
         viewBox="0 0 10 10"
         fill="currentColor"
         aria-hidden="true"
-        className={'transition-transform ' + (collapsed ? '-rotate-90' : '')}
+        class={['transition-transform', { '-rotate-90': props.collapsed }]}
       >
         <path d="M1.5 3 L5 7 L8.5 3 Z" />
       </svg>

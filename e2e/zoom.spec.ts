@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { edit, expectPageNoteStill, focused, gotoHome, openNodeMenu, outline, row, rowCount } from './helpers';
+import { edit, editorText, expectPageNoteStill, focused, gotoHome, nodeByText, openNodeMenu, outline, row, rowCount, setCaret } from './helpers';
 
 test.beforeEach(async ({ page }) => gotoHome(page));
 
@@ -88,6 +88,37 @@ test('zooming in starts the new page at its top', async ({ page }) => {
   await row(page, 'Filler 30').getByRole('link', { name: 'Zoom in' }).click();
   await expect(title(page)).toHaveText('Filler 30');
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+});
+
+test('a zoomed page with a long note and many items shows rows all down the screen as you scroll', async ({ page }) => {
+  await page.evaluate(() => {
+    const { engine } = (window as any).__aletheia;
+    const note = Array.from({ length: 60 }, (_, i) => `- note line ${i}`).join('\n');
+    engine.execute({ type: 'createNode', id: 'long', parentId: null, at: 'first', content: 'Long page', note });
+    for (let i = 0; i < 300; i++) engine.execute({ type: 'createNode', id: `long-${i}`, parentId: 'long', at: 'last', content: `Item ${i}` });
+  });
+  await row(page, 'Long page').getByRole('link', { name: 'Zoom in' }).click();
+  await expect(page).toHaveURL(/\/n\/long$/);
+  // The list now starts far lower than on Home (under the 60-line note): the rows shown must follow that.
+  const blankBands = async () => {
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    return page.evaluate(() => {
+      const rows = [...document.querySelector('[data-testid=outline]')!.children].map((el) => el.getBoundingClientRect()).sort((a, b) => a.top - b.top);
+      const bands: [number, number][] = [];
+      let y = 64; // below the top bar
+      for (const r of rows) {
+        if (r.bottom <= y) continue;
+        if (r.top > y + 1 && y < innerHeight) bands.push([Math.round(y), Math.round(Math.min(r.top, innerHeight))]);
+        y = Math.max(y, r.bottom);
+      }
+      if (y < innerHeight) bands.push([Math.round(y), innerHeight]);
+      return bands;
+    });
+  };
+  for (const scrollY of [2500, 4000, 6000]) {
+    await page.evaluate((y) => window.scrollTo(0, y), scrollY);
+    await expect.poll(blankBands).toEqual([]);
+  }
 });
 
 test('Ctrl+. zooms into the focused node and Ctrl+, zooms out', async ({ page }) => {
@@ -183,4 +214,16 @@ test('zooming in and out animates, and not when the system asks for reduced moti
   await row(page, 'Projects').getByRole('link', { name: 'Zoom in' }).click();
   await expect(title(page)).toHaveText('Projects');
   expect(await directions()).toEqual(['in', 'out']);
+});
+
+test('a pause long enough to save the title leaves the caret where you are typing', async ({ page }) => {
+  await row(page, 'Write the outliner').getByRole('link', { name: 'Zoom in' }).click();
+  await title(page).click();
+  await expect(page.locator('.ProseMirror')).toBeFocused();
+  // Away from where the click put it (the end), as the arrow keys would.
+  await setCaret(page, 'start');
+  await page.keyboard.type('X');
+  await expect.poll(async () => (await nodeByText(page, 'XWrite the outliner')) !== undefined).toBe(true);
+  await page.keyboard.type('Y');
+  expect(await editorText(page)).toBe('XYWrite the outliner');
 });

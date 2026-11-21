@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { onSettled } from 'solid-js';
 import type { EditorSession } from '@/editor/session';
 import { CLIP_TYPE } from '@/io/clipboard';
 import type { SettingsStore } from '@/store/settings-store';
@@ -18,7 +18,7 @@ export function usePageEvents(actions: OutlineActions, session: EditorSession, u
 }
 
 function useEditorHandlers(actions: OutlineActions, session: EditorSession): void {
-  useEffect(() => {
+  onSettled(() => {
     session.setKeyHandler(actions.handleKey);
     session.pasteHandler = actions.pasteLines;
     const off = session.onTransaction(actions.syncSlash);
@@ -27,11 +27,11 @@ function useEditorHandlers(actions: OutlineActions, session: EditorSession): voi
       session.pasteHandler = null;
       off();
     };
-  }, [session, actions]);
+  });
 }
 
 function usePageShortcuts(actions: OutlineActions, settings: SettingsStore): void {
-  useEffect(() => {
+  onSettled(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
       if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
@@ -55,12 +55,12 @@ function usePageShortcuts(actions: OutlineActions, settings: SettingsStore): voi
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [actions, settings]);
+  });
 }
 
 /** Ctrl+C / Ctrl+X / Ctrl+V on selected nodes. Nothing is focused then, so the events land on the page. */
 function useSelectionClipboard(actions: OutlineActions): void {
-  useEffect(() => {
+  onSettled(() => {
     const inField = (e: Event) => (e.target as Element | null)?.closest?.('input, textarea, [contenteditable="true"]') != null;
     const onCopy = (cut: boolean) => (e: ClipboardEvent) => {
       if (inField(e) || !e.clipboardData) return;
@@ -80,12 +80,12 @@ function useSelectionClipboard(actions: OutlineActions): void {
       document.removeEventListener('cut', cut);
       document.removeEventListener('paste', onPaste);
     };
-  }, [actions]);
+  });
 }
 
 /** Dragging with the mouse from one row into others selects whole rows, as in WorkFlowy. */
 function useDragSelect(actions: OutlineActions, ui: UiStore): void {
-  useEffect(() => {
+  onSettled(() => {
     let start: string | null = null;
     let active = false;
     const rowAt = (x: number, y: number): string | null => {
@@ -125,5 +125,5 @@ function useDragSelect(actions: OutlineActions, ui: UiStore): void {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
-  }, [actions, ui]);
+  });
 }

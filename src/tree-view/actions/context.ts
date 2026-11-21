@@ -4,15 +4,15 @@ import type { TreeReader } from '@/model';
 import { pageRows, type FilteredRow } from '@/search/filter';
 import type { SettingsStore } from '@/store/settings-store';
 import type { Caret, UiStore } from '@/store/ui-store';
-import type { NavigateFunction } from 'react-router';
+import type { Navigate } from '@/app/routing';
 
 export interface ActionDeps {
   engine: Engine;
   ui: UiStore;
   session: EditorSession;
-  /** The zoomed-in node (null: the top level). */
-  rootId: string | null;
-  navigate: NavigateFunction;
+  /** The zoomed-in node (null: the top level), read when an action runs: the page stays mounted while you zoom. */
+  rootId: () => string | null;
+  navigate: Navigate;
   settings: SettingsStore;
 }
 
@@ -42,7 +42,7 @@ export function createActionContext(deps: ActionDeps): ActionContext {
   const hideCompleted = () => !settings.getState().showCompleted;
   const tree: TreeReader = engine.tree;
 
-  const rowsNow = () => pageRows(tree, rootId, ui.getState().filter, hideCompleted());
+  const rowsNow = () => pageRows(tree, rootId(), ui.getState().filter, hideCompleted());
   const previousVisible = (id: string): string | null => {
     const rows = rowsNow();
     const i = rows.findIndex((r) => r.id === id);
@@ -61,8 +61,8 @@ export function createActionContext(deps: ActionDeps): ActionContext {
     rowsNow,
     previousVisible,
     nextVisible,
-    prevOf: (id) => previousVisible(id) ?? rootId,
-    nextOf: (id) => (id === rootId ? (rowsNow()[0]?.id ?? null) : nextVisible(id)),
+    prevOf: (id) => previousVisible(id) ?? rootId(),
+    nextOf: (id) => (id === rootId() ? (rowsNow()[0]?.id ?? null) : nextVisible(id)),
     applyFocus(outcome, fallback) {
       if (outcome?.ok && outcome.focus) {
         ui.focusNode(outcome.focus.id, fallback ?? { kind: 'offset', offset: outcome.focus.offset });

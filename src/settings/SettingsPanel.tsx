@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { For, onSettled, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import {
   FONTS,
   LIMITS,
   THEMES,
-  useSettings,
   type FontId,
   type Settings,
   type SettingsStore,
@@ -14,6 +14,7 @@ import type { SyncService } from '@/sync/service';
 import { useUiStore, type UiStore } from '@/store/ui-store';
 import { SidebarIcon } from '@/tree-view/OutlineSidebar';
 import { useEscToClose } from '@/ui/hooks';
+import { useStoreValue } from '@/ui/store';
 import { inSandbox } from '@/app/sandbox';
 import { DataSection } from './DataSection';
 import { SandboxSection } from './SandboxSection';
@@ -38,198 +39,198 @@ const THEME_OPTIONS: { id: ThemeId; label: string }[] = [
  * It mirrors the outline sidebar: docked beside the page on wide screens, a
  * drawer over the page on narrow ones. Changes apply live.
  */
-export function SettingsPanel({ settings, ui, sync }: Props) {
-  const open = useUiStore(ui, (st) => st.settingsOpen);
-  const setOpen = (o: boolean) => ui.setSettingsOpen(o);
+export function SettingsPanel(props: Props) {
+  const open = useUiStore(props.ui, (st) => st.settingsOpen);
+  const setOpen = (o: boolean) => props.ui.setSettingsOpen(o);
 
   // Opening a sync link shows the join prompt here.
-  useEffect(() => {
+  onSettled(() => {
+    const sync = props.sync;
     if (!sync) return;
     const check = () => {
-      if (sync.state.getState().pendingJoinKey) ui.setSettingsOpen(true);
+      if (sync.state.getState().pendingJoinKey) props.ui.setSettingsOpen(true);
     };
     check();
     return sync.state.subscribe(check);
-  }, [sync, ui]);
-  const s = useSettings(settings, (st) => st);
-  const panelRef = useRef<HTMLElement>(null);
-  const update = (patch: Partial<Settings>) => s.update(patch);
+  });
+  const s = useStoreValue(props.settings);
+  let panel: HTMLElement | undefined;
+  const update = (patch: Partial<Settings>) => props.settings.getState().update(patch);
   const notesCollapsed = useNotePrefs((n) => n.collapsedByDefault);
   const { actions } = useOutline();
 
-  useEscToClose(open, panelRef, useCallback(() => ui.setSettingsOpen(false), [ui]));
+  useEscToClose(open, () => panel, () => props.ui.setSettingsOpen(false));
 
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(!open)}
-        className={'top-icon fixed top-3 right-3 z-40 rounded-md p-2 hover:bg-hover hover:text-ink ' + (open ? 'bg-active text-ink' : 'text-muted')}
+        onClick={() => setOpen(!open())}
+        class={['top-icon fixed top-3 right-3 z-40 rounded-md p-2 hover:bg-hover hover:text-ink', open() ? 'bg-active text-ink' : 'text-muted']}
         aria-label="Settings"
-        aria-expanded={open}
+        aria-expanded={open() ? 'true' : 'false'}
         title="Settings"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="3" />
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
         </svg>
       </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-50 bg-black/20 lg:hidden" aria-hidden="true" onMouseDown={() => setOpen(false)} />
-          <aside
-            ref={panelRef}
-            aria-label="Settings"
-            data-testid="settings-panel"
-            className="settings-sidebar fixed inset-y-0 right-0 z-50 flex flex-col text-sm text-ink shadow-xl lg:z-30 lg:shadow-none"
-          >
-            <div className="flex items-center justify-between px-4 pt-4 pb-2">
-              <span className="text-xs font-semibold tracking-wider text-muted uppercase">Settings</span>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded p-1 text-muted hover:bg-hover hover:text-ink"
-                aria-label="Hide settings"
-                title="Hide settings (Esc)"
-              >
-                <SidebarIcon side="right" />
+      <Show when={open()}>
+        <div class="fixed inset-0 z-50 bg-black/20 lg:hidden" aria-hidden="true" onMouseDown={() => setOpen(false)} />
+        <aside
+          ref={panel}
+          aria-label="Settings"
+          data-testid="settings-panel"
+          class="settings-sidebar fixed inset-y-0 right-0 z-50 flex flex-col text-sm text-ink shadow-xl lg:z-30 lg:shadow-none"
+        >
+          <div class="flex items-center justify-between px-4 pt-4 pb-2">
+            <span class="text-xs font-semibold tracking-wider text-muted uppercase">Settings</span>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              class="rounded p-1 text-muted hover:bg-hover hover:text-ink"
+              aria-label="Hide settings"
+              title="Hide settings (Esc)"
+            >
+              <SidebarIcon side="right" />
+            </button>
+          </div>
+          <div class="min-h-0 flex-1 overflow-y-auto px-4 pt-2 pb-6">
+            <Show when={props.sync}>
+              <SyncSection sync={props.sync!} />
+            </Show>
+            <Show when={inSandbox}>
+              <SandboxSection class="mb-4 border-b border-line pb-4" />
+            </Show>
+            <div class="mb-3 flex items-center justify-between">
+              <h2 class="font-semibold">Appearance</h2>
+              <button type="button" onClick={() => props.settings.getState().reset()} class="text-xs text-muted underline-offset-2 hover:underline">
+                Reset
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-2 pb-6">
-              {sync && <SyncSection sync={sync} />}
-              {inSandbox && <SandboxSection className="mb-4 border-b border-line pb-4" />}
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="font-semibold">Appearance</h2>
-                <button type="button" onClick={() => s.reset()} className="text-xs text-muted underline-offset-2 hover:underline">
-                  Reset
-                </button>
-              </div>
 
-              <Field label="Theme">
-                <div className="grid grid-cols-5 gap-1">
-                  {THEME_OPTIONS.map((t) => (
+            <Field label="Theme">
+              <div class="grid grid-cols-5 gap-1">
+                <For each={THEME_OPTIONS}>
+                  {(t) => (
                     <button
-                      key={t.id}
                       type="button"
                       onClick={() => update({ theme: t.id })}
-                      className={
-                        'rounded border px-1 py-1 text-xs ' +
-                        (s.theme === t.id
-                          ? 'border-accent bg-selection text-accent'
-                          : 'border-line hover:bg-hover')
-                      }
-                      aria-pressed={s.theme === t.id}
+                      class={['rounded border px-1 py-1 text-xs', s().theme === t.id ? 'border-accent bg-selection text-accent' : 'border-line hover:bg-hover']}
+                      aria-pressed={s().theme === t.id ? 'true' : 'false'}
                     >
                       {t.label}
                     </button>
-                  ))}
-                </div>
-              </Field>
+                  )}
+                </For>
+              </div>
+            </Field>
 
-              {s.theme === 'custom' && (
-                <div className="mb-4 grid grid-cols-4 gap-2">
-                  <ColorInput label="Background" value={s.deskColor} onChange={(v) => update({ deskColor: v })} />
-                  <ColorInput label="Page" value={s.pageColor} onChange={(v) => update({ pageColor: v })} />
-                  <ColorInput label="Text" value={s.textColor} onChange={(v) => update({ textColor: v })} />
-                  <ColorInput label="Accent" value={s.accentColor} onChange={(v) => update({ accentColor: v })} />
-                </div>
-              )}
+            <Show when={s().theme === 'custom'}>
+              <div class="mb-4 grid grid-cols-4 gap-2">
+                <ColorInput label="Background" value={s().deskColor} onChange={(v) => update({ deskColor: v })} />
+                <ColorInput label="Page" value={s().pageColor} onChange={(v) => update({ pageColor: v })} />
+                <ColorInput label="Text" value={s().textColor} onChange={(v) => update({ textColor: v })} />
+                <ColorInput label="Accent" value={s().accentColor} onChange={(v) => update({ accentColor: v })} />
+              </div>
+            </Show>
 
-              <Field label="Font">
-                <select
-                  value={s.font}
-                  onChange={(e) => update({ font: e.target.value as FontId })}
-                  className="w-full rounded border border-line bg-transparent px-2 py-1"
-                  aria-label="Font"
-                >
-                  {Object.entries(FONTS).map(([id, f]) => (
-                    <option key={id} value={id} style={{ fontFamily: f.stack }}>
+            <Field label="Font">
+              <select
+                value={s().font}
+                onChange={(e) => update({ font: e.currentTarget.value as FontId })}
+                class="w-full rounded border border-line bg-transparent px-2 py-1"
+                aria-label="Font"
+              >
+                <For each={Object.entries(FONTS)}>
+                  {([id, f]) => (
+                    <option value={id} style={{ 'font-family': f.stack }}>
                       {f.label}
                     </option>
-                  ))}
-                </select>
-              </Field>
+                  )}
+                </For>
+              </select>
+            </Field>
 
-              <Slider label="Font size" value={s.fontSize} format={(v) => `${v}px`} limits={LIMITS.fontSize} onChange={(v) => update({ fontSize: v })} />
-              <Slider label="Line spacing" value={s.lineHeight} format={(v) => v.toFixed(2)} limits={LIMITS.lineHeight} onChange={(v) => update({ lineHeight: v })} />
-              {/* Narrow screens always use the full width, so the page controls change nothing there. */}
-              <div className="max-sm:hidden">
-                <Field label="Page shape">
-                  <div className="grid grid-cols-2 gap-1">
-                    {(['portrait', 'landscape'] as const).map((shape) => (
+            <Slider label="Font size" value={s().fontSize} format={(v) => `${v}px`} limits={LIMITS.fontSize} onChange={(v) => update({ fontSize: v })} />
+            <Slider label="Line spacing" value={s().lineHeight} format={(v) => v.toFixed(2)} limits={LIMITS.lineHeight} onChange={(v) => update({ lineHeight: v })} />
+            {/* Narrow screens always use the full width, so the page controls change nothing there. */}
+            <div class="max-sm:hidden">
+              <Field label="Page shape">
+                <div class="grid grid-cols-2 gap-1">
+                  <For each={['portrait', 'landscape'] as const}>
+                    {(shape) => (
                       <button
-                        key={shape}
                         type="button"
                         onClick={() => update({ pageShape: shape })}
-                        className={
-                          'flex items-center justify-center gap-2 rounded border px-2 py-1.5 text-xs capitalize ' +
-                          (s.pageShape === shape ? 'border-accent bg-selection text-accent' : 'border-line hover:bg-hover')
-                        }
-                        aria-pressed={s.pageShape === shape}
+                        class={[
+                          'flex items-center justify-center gap-2 rounded border px-2 py-1.5 text-xs capitalize',
+                          s().pageShape === shape ? 'border-accent bg-selection text-accent' : 'border-line hover:bg-hover',
+                        ]}
+                        aria-pressed={s().pageShape === shape ? 'true' : 'false'}
                       >
                         <span
                           aria-hidden="true"
-                          className={'inline-block rounded-[2px] border border-current ' + (shape === 'portrait' ? 'h-3.5 w-2.5' : 'h-2.5 w-3.5')}
+                          class={['inline-block rounded-[2px] border border-current', shape === 'portrait' ? 'h-3.5 w-2.5' : 'h-2.5 w-3.5']}
                         />
                         {shape}
                       </button>
-                    ))}
-                  </div>
-                </Field>
-                {s.pageShape === 'landscape' ? (
-                  <Slider
-                    label="Page width"
-                    value={s.landscapeWidth}
-                    format={(v) => `${v}px`}
-                    limits={LIMITS.landscapeWidth}
-                    onChange={(v) => update({ landscapeWidth: v })}
-                  />
-                ) : (
-                  <Slider label="Page width" value={s.pageWidth} format={(v) => `${v}px`} limits={LIMITS.pageWidth} onChange={(v) => update({ pageWidth: v })} />
-                )}
+                    )}
+                  </For>
+                </div>
+              </Field>
+              <Show
+                when={s().pageShape === 'landscape'}
+                fallback={<Slider label="Page width" value={s().pageWidth} format={(v) => `${v}px`} limits={LIMITS.pageWidth} onChange={(v) => update({ pageWidth: v })} />}
+              >
+                <Slider
+                  label="Page width"
+                  value={s().landscapeWidth}
+                  format={(v) => `${v}px`}
+                  limits={LIMITS.landscapeWidth}
+                  onChange={(v) => update({ landscapeWidth: v })}
+                />
+              </Show>
 
-                <Toggle label="Book page" hint="Show the text on a sheet of paper" checked={s.bookPage} onChange={(v) => update({ bookPage: v })} />
-              </div>
-              <Toggle label="Outline sidebar" hint="Ctrl+\ toggles it" checked={s.sidebarOpen} onChange={(v) => update({ sidebarOpen: v })} />
-              <Slider label="Outline levels shown" value={s.outlineDepth} format={(v) => String(v)} limits={LIMITS.outlineDepth} onChange={(v) => update({ outlineDepth: v })} />
-
-              <Toggle
-                label="Notes start collapsed"
-                hint="Hide notes in the list until you're on their item"
-                checked={notesCollapsed}
-                onChange={(v) => notePrefs.getState().setCollapsedByDefault(v)}
-              />
-              <Toggle label="Inbox dates" hint="Show when each Inbox item was added" checked={s.inboxDates} onChange={(v) => update({ inboxDates: v })} />
-              <Toggle label="Show completed" hint="Done items stay, struck through. Ctrl+O toggles it" checked={s.showCompleted} onChange={() => actions.toggleShowCompleted()} />
-
-              <p className="mt-3 text-xs text-muted">Appearance is saved in this browser only.</p>
-              <DataSection />
-              <TrashSection />
-              {!inSandbox && <SandboxSection className="mt-4 border-t border-line pt-4" />}
+              <Toggle label="Book page" hint="Show the text on a sheet of paper" checked={s().bookPage} onChange={(v) => update({ bookPage: v })} />
             </div>
-          </aside>
-        </>
-      )}
+            <Toggle label="Outline sidebar" hint="Ctrl+\ toggles it" checked={s().sidebarOpen} onChange={(v) => update({ sidebarOpen: v })} />
+            <Slider label="Outline levels shown" value={s().outlineDepth} format={(v) => String(v)} limits={LIMITS.outlineDepth} onChange={(v) => update({ outlineDepth: v })} />
+
+            <Toggle
+              label="Notes start collapsed"
+              hint="Hide notes in the list until you're on their item"
+              checked={notesCollapsed()}
+              onChange={(v) => notePrefs.getState().setCollapsedByDefault(v)}
+            />
+            <Toggle label="Inbox dates" hint="Show when each Inbox item was added" checked={s().inboxDates} onChange={(v) => update({ inboxDates: v })} />
+            <Toggle label="Show completed" hint="Done items stay, struck through. Ctrl+O toggles it" checked={s().showCompleted} onChange={() => actions.toggleShowCompleted()} />
+
+            <p class="mt-3 text-xs text-muted">Appearance is saved in this browser only.</p>
+            <DataSection />
+            <TrashSection />
+            <Show when={!inSandbox}>
+              <SandboxSection class="mt-4 border-t border-line pt-4" />
+            </Show>
+          </div>
+        </aside>
+      </Show>
     </>
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field(props: { label: string; children: JSX.Element }) {
   return (
-    <div className="mb-4">
-      <div className="mb-1.5 text-xs font-medium text-muted">{label}</div>
-      {children}
+    <div class="mb-4">
+      <div class="mb-1.5 text-xs font-medium text-muted">{props.label}</div>
+      {props.children}
     </div>
   );
 }
 
-function Slider({
-  label,
-  value,
-  format,
-  limits,
-  onChange,
-}: {
+// Sliders and colour pickers write on every `input` event, so the page follows the drag; `onChange` fires only on release.
+function Slider(props: {
   label: string;
   value: number;
   format: (v: number) => string;
@@ -237,42 +238,42 @@ function Slider({
   onChange: (v: number) => void;
 }) {
   return (
-    <label className="mb-4 block">
-      <div className="mb-1 flex justify-between text-xs font-medium text-muted">
-        <span>{label}</span>
-        <span className="tabular-nums">{format(value)}</span>
+    <label class="mb-4 block">
+      <div class="mb-1 flex justify-between text-xs font-medium text-muted">
+        <span>{props.label}</span>
+        <span class="tabular-nums">{props.format(props.value)}</span>
       </div>
       <input
         type="range"
-        min={limits.min}
-        max={limits.max}
-        step={limits.step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full accent-accent"
-        aria-label={label}
+        min={props.limits.min}
+        max={props.limits.max}
+        step={props.limits.step}
+        value={props.value}
+        onInput={(e) => props.onChange(Number(e.currentTarget.value))}
+        class="w-full accent-accent"
+        aria-label={props.label}
       />
     </label>
   );
 }
 
-function Toggle({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle(props: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className="mb-3 flex cursor-pointer items-center justify-between gap-3">
+    <label class="mb-3 flex cursor-pointer items-center justify-between gap-3">
       <span>
-        <span className="block">{label}</span>
-        <span className="block text-xs text-muted">{hint}</span>
+        <span class="block">{props.label}</span>
+        <span class="block text-xs text-muted">{props.hint}</span>
       </span>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="size-4 accent-accent" />
+      <input type="checkbox" checked={props.checked} onChange={(e) => props.onChange(e.currentTarget.checked)} class="size-4 accent-accent" />
     </label>
   );
 }
 
-function ColorInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function ColorInput(props: { label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <label className="block text-xs text-muted">
-      <span className="mb-1 block">{label}</span>
-      <input type="color" value={value} onChange={(e) => onChange(e.target.value)} className="h-8 w-full cursor-pointer rounded border border-line" />
+    <label class="block text-xs text-muted">
+      <span class="mb-1 block">{props.label}</span>
+      <input type="color" value={props.value} onInput={(e) => props.onChange(e.currentTarget.value)} class="h-8 w-full cursor-pointer rounded border border-line" />
     </label>
   );
 }

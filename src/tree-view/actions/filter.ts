@@ -23,15 +23,16 @@ export function filterActions(ctx: ActionContext) {
     const { focus } = ui.getState();
     ui.setFilter(null);
     // The edited row may now sit under a collapsed parent: open the way to it, as the search did.
-    if (focus && focus.id !== rootId) {
+    const root = rootId();
+    if (focus && focus.id !== root) {
       const chain = ancestorIds(tree, focus.id);
-      expandCollapsed(rootId === null ? chain : chain.slice(0, Math.max(0, chain.indexOf(rootId))));
+      expandCollapsed(root === null ? chain : chain.slice(0, Math.max(0, chain.indexOf(root))));
     }
   };
 
   const toggleFilterRow = (id: string) => {
     const filter = ui.getState().filter;
-    if (filter) ui.setFilter(toggledFilter(tree, rootId, filter, id, hideCompleted()));
+    if (filter) ui.setFilter(toggledFilter(tree, rootId(), filter, id, hideCompleted()));
   };
 
   return { openFilter, closeFilter, toggleFilterRow };

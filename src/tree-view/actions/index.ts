@@ -13,8 +13,8 @@ import { slashActions } from './slash';
 export type { SelectionAction };
 
 /**
- * Everything the outline page can do, bound to one zoom root. Built once per
- * page (see OutlinePage) and handed to rows through the outline context.
+ * Everything the outline page can do, on whichever node it is zoomed into.
+ * Built once by OutlinePage and handed to rows through the outline context.
  * Each group lives in its own file here; this only puts them together.
  */
 export interface OutlineActions {

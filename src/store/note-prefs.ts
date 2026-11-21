@@ -1,5 +1,6 @@
 import { createStore } from 'zustand/vanilla';
-import { useStore } from 'zustand';
+import type { Accessor } from 'solid-js';
+import { useStoreValue } from '@/ui/store';
 
 /**
  * Per-device note preferences (localStorage, like the other UI settings):
@@ -65,6 +66,7 @@ notePrefs.subscribe((s) => {
   }
 });
 
-export function useNotePrefs<T>(selector: (s: NotePrefs) => T): T {
-  return useStore(notePrefs, selector);
+/** A slice of the note preferences, as an accessor (see `useStoreValue`). */
+export function useNotePrefs<T>(selector: (s: NotePrefs) => T): Accessor<T> {
+  return useStoreValue(notePrefs, selector);
 }

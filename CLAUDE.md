@@ -1,7 +1,7 @@
 # Aletheia: notes for agents
 
-A keyboard-first outliner in the style of WorkFlowy and Dynalist. Notes live
-in the browser (IndexedDB); an optional sync API runs on the same Cloudflare
+A keyboard-first outliner in the style of WorkFlowy and Dynalist, built with
+Solid 2 (not React). Notes live in the browser (IndexedDB); an optional sync API runs on the same Cloudflare
 Worker. Live at https://aletheia.hamzatekin.dev/ (custom domain; the old
 https://aletheia.hmztkn.workers.dev/ still serves the same Worker). Personal project with
 one user, so prefer simple, free-tier designs without accounts.
@@ -49,7 +49,8 @@ src/App.tsx           routes: /, /n/:id (zoom), /share, /capture, /p/:id (a page
 src/model/            Node type, ids, order keys, pure tree helpers, seed tree, tree repair
 src/commands/         typed commands: pure effect functions + the engine (undo/redo, persist)
 src/persistence/      Repository interface; Dexie (IndexedDB) and in-memory implementations
-src/store/            zustand stores: tree (nodes), ui (focus, selection, menus), settings, note prefs
+src/store/            zustand stores: tree (nodes), ui (focus, selection, menus), settings, note prefs;
+                      components read them as Solid accessors (`useUiStore` etc., over ui/store.ts)
 src/editor/           the single Tiptap editor (session.ts), keymap, Markdown dialect, slash menu, note editors
                       (notes render Markdown with task lists, images and bare links: markdown.ts,
                       sanitized in render.ts; the note editor saves untouched blocks verbatim, note-source.ts)
@@ -57,7 +58,8 @@ src/tree-view/        the outline page: rows, bullets, node menu, breadcrumbs, t
                       mobile toolbar, drag and drop; layout.ts has row geometry and long-press timing
 src/tree-view/actions/  everything the page does, one file per group (see index.ts)
 src/ui/               small shared UI: media queries (isWide, useCoarsePointer, isMac), hooks
-                      (useEscToClose, useTick, useKeyboardInset), Spinner, Button, ago()
+                      (useEscToClose, useTick, useKeyboardInset), Spinner, Button, ago(), zustand stores as
+                      Solid accessors (store.ts), the window-scrolled virtual list (virtual.ts)
 src/search/           Ctrl+K palette (MiniSearch) and Ctrl+F in-place filter
 src/io/               Markdown / OPML / JSON import and export, clipboard, WorkFlowy and terminal paste
 src/sync/             opt-in sync client: wire format, outbox, service, tabs, clock, browser triggers
@@ -69,8 +71,9 @@ src/agent/            Ask AI: one chat for the app (sparkle button, right panel)
                       (run on the device), then answers and makes changes (create, move, edit, star; no
                       delete) as one batch with its own Undo; questions start from the row you're on;
                       a personal assistant with a memory: rows under the "AI memory" row (memory.ts)
-src/help/             tutorial dialog (lists every shortcut)
-src/app/              bootstrap, engine context, /share and /capture (share target, Add to Inbox), /p/:id pages, sandbox
+src/help/             tutorial dialog; its text is data in tutorial-content.ts (lists every shortcut)
+src/app/              bootstrap, engine context, routing.ts (appPath, navigate, Back/Forward), /share and /capture
+                      (share target, Add to Inbox), /p/:id pages, sandbox
 worker/               Cloudflare Worker: only /api/* runs it; sync API on D1 (sync.ts), AI proxy (ai.ts: the relay's
                       /v1/complete, or its /v1/chat session endpoint when the app sends `session`;
                       /api/ai/transcribe runs Whisper through the `ai` binding),
@@ -92,10 +95,10 @@ stryker.config.mjs    mutation testing scope and thresholds
    rejection. The engine applies them to the tree store synchronously, then
    writes them to the repository through an ordered queue, and pushes an undo
    entry.
-3. Rows subscribe to their own node (`useNode`), so typing re-renders one row.
+3. Rows subscribe to their own node (`useNode`), so typing updates one row.
 4. Search and sync listen with `engine.onOperation`.
 5. UI state that is not a node (focus, caret, selection, open menus, filter)
-   lives in the ui store, not in React state, so actions can read it outside
+   lives in the ui store, not in component signals, so actions can read it outside
    components.
 
 The editor is one Tiptap instance (`EditorSession`) that moves to whichever
@@ -109,7 +112,7 @@ the tree while a row may be mid-edit; the existing actions show the pattern.
   test it in `commands.test.ts` with the `fixture` helper from `src/test/helpers.ts`.
 - **New page action or shortcut**: add it to the right file in
   `tree-view/actions/`, expose it through `OutlineActions` in `index.ts` if
-  components need it, and list the shortcut in `help/TutorialDialog.tsx`. Ask AI
+  components need it, and list the shortcut in `help/tutorial-content.ts`. Ask AI
   learns the app from that tutorial, so it knows the shortcut once it's listed.
 - **New slash command**: add an entry in `editor/default-slash-commands.ts`.
   The "/" menu only inserts into the text being edited (formats, note blocks,
@@ -153,6 +156,15 @@ the tree while a row may be mid-edit; the existing actions show the pattern.
   and follow them. The owner uses the app on desktop and on an Android phone,
   so check touch layouts too (`useCoarsePointer`).
 - User-facing text is plain and short.
+- The UI is Solid 2 (`solid-js`, `@solidjs/web`, `@solidjs/router`). A
+  component body runs once: read props as `props.x` (never destructure) and
+  signals in JSX, a memo or an effect's first function, or the value never
+  updates. Signal reads lag writes until `flush()` or the next microtask.
+  Dev builds warn in the console (`STRICT_READ_UNTRACKED` and others) where a
+  read won't update; fix the read rather than wrapping it in `untrack`
+  (`node_modules/solid-js/skills/` explains each code). Internal links and
+  navigations go through `appPath()` / `useAppNavigate()` (`app/routing.ts`),
+  which keep them inside /sandbox.
 
 ## Tests
 
@@ -187,6 +199,12 @@ don't.
 
 ## Gotchas
 
+- `@solidjs/router`'s `location.key` is always empty and its `base` doesn't
+  prefix "/" paths: don't key per-visit logic on the key, and build paths
+  with `appPath()`.
+- Solid drops an attribute set to `false`. ARIA states that must read "false"
+  (`aria-pressed`, `aria-expanded`, `aria-selected`) take the strings
+  `'true'`/`'false'`.
 - Don't add a `public/_redirects` catch-all. Workers rejects it as a redirect
   loop; SPA routing comes from `not_found_handling` in `wrangler.jsonc`.
 - Changing the Dexie schema (`persistence/db.ts`) needs a new version, and an
@@ -202,8 +220,8 @@ don't.
   by id.
 - Phones open the keyboard only for a field focused during the tap itself.
   A tap that leads to a new editor must focus it before the handler returns:
-  the + button's `quickAdd` navigates inside `flushSync` and /capture runs in
-  a layout effect, so the title editor has focus when the tap ends (e2e
+  the + button's `quickAdd` navigates and then calls Solid's `flush()`, and
+  /capture runs in `onSettled`, so the title editor has focus when the tap ends (e2e
   `capture.spec.ts` checks this). Don't add a view transition, timer or
   passive effect on that path. A page opened with no tap (the app icon's
   shortcut) can't open the keyboard.

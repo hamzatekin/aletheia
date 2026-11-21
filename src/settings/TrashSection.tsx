@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { createMemo, createSignal, For, Show } from 'solid-js';
 import { useEngine } from '@/app/engine-context';
 import { plainText } from '@/editor/markdown';
 import { deletedItems } from '@/model';
@@ -22,10 +22,13 @@ function deletedWhen(at: number, now = Date.now()): string {
 export function TrashSection() {
   const engine = useEngine();
   const { ui, session, actions } = useOutline();
-  const [open, setOpen] = useState(false);
-  const [restored, setRestored] = useState<{ id: string; title: string } | null>(null);
+  const [open, setOpen] = createSignal(false);
+  const [restored, setRestored] = createSignal<{ id: string; title: string } | null>(null);
   const structureVersion = useTreeStore(engine.store, (s) => s.structureVersion);
-  const items = useMemo(() => (open ? deletedItems(engine.tree) : []), [engine, open, structureVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  const items = createMemo(() => {
+    structureVersion(); // the tree changed: list again
+    return open() ? deletedItems(engine.tree) : [];
+  });
 
   const title = (content: string) => plainText(content).trim() || 'Untitled';
   const restore = (id: string, content: string) => {
@@ -38,57 +41,66 @@ export function TrashSection() {
   };
 
   return (
-    <section data-testid="trash-section" className="mt-4 border-t border-line pt-4">
+    <section data-testid="trash-section" class="mt-4 border-t border-line pt-4">
       <button
         type="button"
-        className="flex w-full items-center justify-between font-semibold"
-        aria-expanded={open}
+        class="flex w-full items-center justify-between font-semibold"
+        aria-expanded={open() ? 'true' : 'false'}
         data-testid="trash-toggle"
-        onClick={() => setOpen(!open)}
+        onClick={() => setOpen(!open())}
       >
         Recently deleted
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" className={'text-faint ' + (open ? '' : '-rotate-90')} aria-hidden="true">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" class={['text-faint', { '-rotate-90': !open() }]} aria-hidden="true">
           <path d="M1.5 3.2 5 6.8l3.5-3.6z" />
         </svg>
       </button>
-      {open && (
-        <>
-          <p className="mt-1 mb-2 text-xs text-muted">Restore puts an item back where it was, with what was deleted along with it.</p>
-          {items.length === 0 ? (
-            <p className="text-xs text-muted" data-testid="trash-empty">
+      <Show when={open()}>
+        <p class="mt-1 mb-2 text-xs text-muted">Restore puts an item back where it was, with what was deleted along with it.</p>
+        <Show
+          when={items().length > 0}
+          fallback={
+            <p class="text-xs text-muted" data-testid="trash-empty">
               Nothing deleted.
             </p>
-          ) : (
-            <ul data-testid="trash-list">
-              {items.map(({ node, inside }) => {
-                const parent = node.parentId === null ? null : engine.tree.get(node.parentId);
-                const where = parent && parent.deletedAt === null ? title(parent.content) : null;
+          }
+        >
+          <ul data-testid="trash-list">
+            <For each={items()} keyed={(item) => item.node.id}>
+              {(item) => {
+                const node = () => item().node;
+                const where = () => {
+                  const parentId = node().parentId;
+                  const parent = parentId === null ? null : engine.tree.get(parentId);
+                  return parent && parent.deletedAt === null ? title(parent.content) : null;
+                };
                 return (
-                  <li key={node.id} className="flex items-center justify-between gap-2 border-b border-line py-1.5 last:border-0" data-testid="trash-item">
-                    <div className="min-w-0">
-                      <div className="truncate">{title(node.content)}</div>
-                      <div className="truncate text-xs text-muted">
-                        {deletedWhen(node.deletedAt!)}
-                        {inside > 0 && ` · ${inside} inside`}
-                        {where && ` · from ${where}`}
+                  <li class="flex items-center justify-between gap-2 border-b border-line py-1.5 last:border-0" data-testid="trash-item">
+                    <div class="min-w-0">
+                      <div class="truncate">{title(node().content)}</div>
+                      <div class="truncate text-xs text-muted">
+                        {deletedWhen(node().deletedAt!)}
+                        {item().inside > 0 && ` · ${item().inside} inside`}
+                        {where() && ` · from ${where()}`}
                       </div>
                     </div>
-                    <Button onClick={() => restore(node.id, node.content)}>Restore</Button>
+                    <Button onClick={() => restore(node().id, node().content)}>Restore</Button>
                   </li>
                 );
-              })}
-            </ul>
-          )}
-        </>
-      )}
-      {restored && (
-        <p role="status" className="mt-2 text-xs text-muted">
-          Restored “{restored.title}”.{' '}
-          <button type="button" className="text-accent hover:underline" onClick={() => show(restored.id)}>
-            Show it
-          </button>
-        </p>
-      )}
+              }}
+            </For>
+          </ul>
+        </Show>
+      </Show>
+      <Show when={restored()}>
+        {(done) => (
+          <p role="status" class="mt-2 text-xs text-muted">
+            Restored “{done().title}”.{' '}
+            <button type="button" class="text-accent hover:underline" onClick={() => show(done().id)}>
+              Show it
+            </button>
+          </p>
+        )}
+      </Show>
     </section>
   );
 }

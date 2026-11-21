@@ -1,5 +1,5 @@
-import { flushSync } from 'react-dom';
-import type { NavigateFunction, NavigateOptions } from 'react-router';
+import { flush } from 'solid-js';
+import type { Navigate } from '@/app/routing';
 import { isSelfOrDescendant, type TreeReader } from '@/model';
 
 type Direction = 'in' | 'out';
@@ -31,16 +31,17 @@ const titleText = () => document.querySelector<HTMLElement>('header[data-title] 
  * Uses the browser's view transitions; without them, or with reduced motion
  * asked for, it just navigates.
  */
-export function zoomingNavigate(navigate: NavigateFunction, tree: TreeReader, rootId: string | null): NavigateFunction {
-  const go = (to: unknown, options?: NavigateOptions) => {
-    const target = typeof to === 'string' ? pageOf(to) : undefined;
+export function zoomingNavigate(navigate: Navigate, tree: TreeReader, currentRoot: () => string | null): Navigate {
+  return (to, options) => {
+    const rootId = currentRoot();
+    const target = pageOf(to);
     const direction = target === undefined ? null : zoomDirection(tree, rootId, target);
     if (
       direction === null ||
       typeof document.startViewTransition !== 'function' ||
       window.matchMedia('(prefers-reduced-motion: reduce)').matches
     ) {
-      return (navigate as (to: unknown, options?: NavigateOptions) => void | Promise<void>)(to, options);
+      return navigate(to, options);
     }
     // The text that moves: the row zoomed into becomes the title; zooming out, the title becomes a row again.
     const before = direction === 'in' ? rowText(target!) : titleText();
@@ -49,8 +50,9 @@ export function zoomingNavigate(navigate: NavigateFunction, tree: TreeReader, ro
     document.documentElement.dataset.zoom = direction;
     let moved: HTMLElement | null = null;
     const transition = document.startViewTransition(() => {
-      // The router updates synchronously (BrowserRouter useTransitions={false}), so the new page is in the DOM after this.
-      flushSync(() => void navigate(to as string, options));
+      // flush() applies the navigation now, so the new page is in the DOM after this.
+      navigate(to, options);
+      flush();
       if (before) before.style.viewTransitionName = '';
       moved = after();
       if (moved) moved.style.viewTransitionName = 'zoom-title';
@@ -60,5 +62,4 @@ export function zoomingNavigate(navigate: NavigateFunction, tree: TreeReader, ro
       delete document.documentElement.dataset.zoom;
     });
   };
-  return go as NavigateFunction;
 }

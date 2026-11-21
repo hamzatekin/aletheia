@@ -1,5 +1,6 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import { useStore } from 'zustand';
+import type { Accessor } from 'solid-js';
+import { useStoreValue } from '@/ui/store';
 import type { Filter } from '@/search/filter';
 
 /** Where the caret should land when a node receives focus. */
@@ -72,7 +73,7 @@ interface UiState {
   setMenu(id: string | null): void;
 }
 
-/** The store plus its actions as direct methods, for non-React callers. */
+/** The store plus its actions as direct methods, for callers outside components. */
 export interface UiStore extends StoreApi<UiState> {
   focusNode(id: string, caret?: Caret, field?: Field): void;
   blur(): void;
@@ -136,6 +137,7 @@ export function createUiStore(): UiStore {
   });
 }
 
-export function useUiStore<T>(store: UiStore, selector: (s: UiState) => T): T {
-  return useStore(store, selector);
+/** A slice of the UI state, as an accessor (see `useStoreValue`). */
+export function useUiStore<T>(store: UiStore, selector: (s: UiState) => T): Accessor<T> {
+  return useStoreValue(store, selector);
 }

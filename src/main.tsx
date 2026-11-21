@@ -1,5 +1,4 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
+import { render } from '@solidjs/web';
 import '@fontsource-variable/inter';
 import '@fontsource-variable/literata';
 import './index.css';
@@ -9,6 +8,7 @@ import { registerAiSlashCommands } from './ai/slash-commands';
 import { createAiService } from './ai/service';
 import { bootstrap } from './app/bootstrap';
 import { inSandbox, mainSyncKey, sandboxDb } from './app/sandbox';
+import { watchNavigations } from './app/routing';
 import { nameAllFromNotes, watchNameFromNote } from './editor/first-line';
 import { localChats } from './agent/chats';
 import { createAgentService } from './agent/service';
@@ -23,6 +23,7 @@ import { tabLock, takeKeyFromLocation, watchBrowser } from './sync/browser';
 import { createClock } from './sync/clock';
 import { connectTabs } from './sync/tabs';
 import { isWide } from './ui/media';
+import { dependOn } from './ui/store';
 import { canRecord, startRecording, toBase64Wav } from './voice/recorder';
 import { createVoiceService } from './voice/service';
 
@@ -62,7 +63,12 @@ watchNameFromNote(engine, ui, session);
 nameAllFromNotes(engine);
 // The sandbox borrows the real notes' sync key for AI (read once; reopen it after turning sync on).
 const sandboxKey = inSandbox ? await mainSyncKey() : null;
-const syncKey = () => (sync ? sync.state.getState().key : sandboxKey);
+// Components showing what AI or voice can do (Ask AI, the mic, the menus) follow sync turning on or off.
+const syncKey = () => {
+  if (!sync) return sandboxKey;
+  dependOn(sync.state);
+  return sync.state.getState().key;
+};
 const complete = httpComplete();
 const ai = createAiService({ engine, session, key: syncKey, complete });
 const agent = createAgentService({ engine, session, search, key: syncKey, step: httpStep(), chats: localChats(inSandbox ? 'aletheia:sandbox-chats' : 'aletheia:chats') });
@@ -85,10 +91,11 @@ if (import.meta.env.DEV) {
   // Test hook: Playwright drives the engine directly to build large trees.
   (window as unknown as { __aletheia: unknown }).__aletheia = { engine, ui, session, search, settings, sync, ai, agent, voice };
 }
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App engine={engine} ui={ui} session={session} search={search} settings={settings} sync={sync} ai={ai} agent={agent} voice={voice} />
-  </StrictMode>,
+// Before the router starts, so the first Back is told apart from a click (Outline.tsx leaves the scroll to the router then).
+watchNavigations();
+render(
+  () => <App engine={engine} ui={ui} session={session} search={search} settings={settings} sync={sync} ai={ai} agent={agent} voice={voice} />,
+  document.getElementById('root')!,
 );
 // Installed app (PWA): lets it open offline. See pwa/sw.js.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {

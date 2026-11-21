@@ -15,7 +15,7 @@ export function selectionActions(ctx: ActionContext) {
   const { selectRange } = ctx;
 
   const selectNode = (id: string) => {
-    if (id === rootId || !tree.get(id)) return;
+    if (id === rootId() || !tree.get(id)) return;
     session.flush();
     ui.blur();
     ui.setMenu(null);
@@ -24,7 +24,7 @@ export function selectionActions(ctx: ActionContext) {
 
   const selectTo = (id: string) => {
     const { focus, selection } = ui.getState();
-    const anchor = selection?.anchor ?? (focus && focus.id !== rootId ? focus.id : null);
+    const anchor = selection?.anchor ?? (focus && focus.id !== rootId() ? focus.id : null);
     if (anchor === null) return selectNode(id);
     session.flush();
     ui.blur();
@@ -33,7 +33,7 @@ export function selectionActions(ctx: ActionContext) {
 
   const toggleSelected = (id: string) => {
     const { focus, selection } = ui.getState();
-    const ids = new Set(selection?.ids ?? (focus && focus.id !== rootId ? [focus.id] : []));
+    const ids = new Set(selection?.ids ?? (focus && focus.id !== rootId() ? [focus.id] : []));
     session.flush();
     ui.blur();
     if (ids.has(id)) ids.delete(id);
@@ -121,7 +121,7 @@ export function selectionActions(ctx: ActionContext) {
         engine.batch(top.map((id): Command => ({ type: 'indent', id })), 'indentSelection');
         return;
       case 'outdent': {
-        const items = [...top].reverse().filter((id) => tree.get(id)?.parentId !== rootId);
+        const items = [...top].reverse().filter((id) => tree.get(id)?.parentId !== rootId());
         engine.batch(items.map((id): Command => ({ type: 'outdent', id })), 'outdentSelection');
         return;
       }

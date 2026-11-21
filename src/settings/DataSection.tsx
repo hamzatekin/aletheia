@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { createSignal, Show } from 'solid-js';
+import { useAppNavigate } from '@/app/routing';
 import { HOME_LABEL } from '@/app/sandbox';
 import { downloadText, pickTextFile, safeFilename } from '@/io/browser';
 import { exportJson, exportMarkdown, exportOpml, parseBackup } from '@/io/export';
@@ -16,8 +16,8 @@ import { Button } from '@/ui/widgets';
  */
 export function DataSection() {
   const { engine, ui, session, search } = useOutline();
-  const navigate = useNavigate();
-  const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
+  const navigate = useAppNavigate();
+  const [message, setMessage] = createSignal<{ text: string; error?: boolean } | null>(null);
 
   /** Show Home with the result; on a phone the drawer would cover it. */
   const showHome = () => {
@@ -65,26 +65,28 @@ export function DataSection() {
   const flushed = <T,>(f: () => T) => () => (session.flush(), f());
 
   return (
-    <section data-testid="data-section" className="mt-4 border-t border-line pt-4">
-      <h2 className="mb-2 font-semibold">Import & export</h2>
-      <p className="mb-1.5 text-xs text-muted">Import a file as a new item at the top of {HOME_LABEL}.</p>
-      <div className="mb-3 flex flex-wrap gap-2">
+    <section data-testid="data-section" class="mt-4 border-t border-line pt-4">
+      <h2 class="mb-2 font-semibold">Import & export</h2>
+      <p class="mb-1.5 text-xs text-muted">Import a file as a new item at the top of {HOME_LABEL}.</p>
+      <div class="mb-3 flex flex-wrap gap-2">
         <Button onClick={() => void importFile('.md,.markdown,.txt,text/markdown,text/plain', parseMarkdownOutline)}>Markdown</Button>
         <Button onClick={() => void importFile('.opml,.xml,text/xml,text/x-opml', parseOpml)}>OPML (WorkFlowy, Dynalist)</Button>
       </div>
-      <p className="mb-1.5 text-xs text-muted">Download everything.</p>
-      <div className="mb-3 flex flex-wrap gap-2">
+      <p class="mb-1.5 text-xs text-muted">Download everything.</p>
+      <div class="mb-3 flex flex-wrap gap-2">
         <Button onClick={flushed(() => downloadText(safeFilename('aletheia', 'md'), exportMarkdown(engine.tree, null), 'text/markdown'))}>Markdown</Button>
         <Button onClick={flushed(() => downloadText(safeFilename('aletheia', 'opml'), exportOpml(engine.tree, null), 'text/xml'))}>OPML</Button>
         <Button onClick={flushed(() => downloadText(safeFilename('aletheia-backup', 'json'), exportJson(engine.tree), 'application/json'))}>JSON backup</Button>
       </div>
-      <p className="mb-1.5 text-xs text-muted">Restoring a JSON backup replaces everything.</p>
+      <p class="mb-1.5 text-xs text-muted">Restoring a JSON backup replaces everything.</p>
       <Button onClick={() => void restore()}>Restore backup</Button>
-      {message && (
-        <p role="status" className={'mt-3 text-xs ' + (message.error ? 'text-danger' : 'text-muted')}>
-          {message.text}
-        </p>
-      )}
+      <Show when={message()}>
+        {(m) => (
+          <p role="status" class={['mt-3 text-xs', m().error ? 'text-danger' : 'text-muted']}>
+            {m().text}
+          </p>
+        )}
+      </Show>
     </section>
   );
 }

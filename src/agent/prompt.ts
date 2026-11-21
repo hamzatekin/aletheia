@@ -1,7 +1,7 @@
 import { findInbox } from '@/app/capture';
 import { plainText } from '@/editor/markdown';
 import { ancestorIds, isLive, type TreeReader } from '@/model';
-import { tutorialText } from '@/help/TutorialDialog';
+import { tutorialText } from '@/help/tutorial-content';
 import type { SearchIndex } from '@/search';
 import { memoryRow } from './memory';
 

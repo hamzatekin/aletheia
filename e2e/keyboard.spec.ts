@@ -406,3 +406,15 @@ test('the copy icon copies a note as Markdown, including edits not saved yet', a
   await expect(editor).toBeFocused();
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('## Plan\n\n- **dig** a hole\n- water it today');
 });
+
+test('a change elsewhere in the outline leaves the caret where you are typing', async ({ page }) => {
+  await edit(page, 'Learn to juggle');
+  await setCaret(page, 'start');
+  await page.keyboard.type('X');
+  // As a change from another tab or a sync would: collapse another row.
+  const other = (await nodeByText(page, 'Projects'))!;
+  await page.evaluate((id) => (window as any).__aletheia.engine.execute({ type: 'toggleCollapse', id }), other.id);
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(r)));
+  await page.keyboard.type('Y');
+  expect(await editorText(page)).toBe('XYLearn to juggle');
+});

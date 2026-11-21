@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
+import type { JSX } from '@solidjs/web';
 
 /** A small spinning ring, sized for a line of text. */
 export function Spinner() {
-  return <span className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-faint border-t-transparent" aria-hidden="true" />;
+  return <span class="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-faint border-t-transparent" aria-hidden="true" />;
 }
 
 /** Classes for the pill at the top centre of the page (AI notices, sync download progress). */
@@ -10,18 +10,18 @@ export const TOP_BANNER =
   'fixed top-[max(0.75rem,env(safe-area-inset-top))] left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-full border border-line bg-surface px-4 py-2 text-sm text-ink shadow-lg';
 
 /** The small bordered button of the settings sections. Without `onClick` it submits its form. */
-export function Button({ primary, disabled, onClick, children }: { primary?: boolean; disabled?: boolean; onClick?: () => void; children: ReactNode }) {
+export function Button(props: { primary?: boolean; disabled?: boolean; onClick?: () => void; children: JSX.Element }) {
   return (
     <button
-      type={onClick ? 'button' : 'submit'}
-      disabled={disabled}
-      onClick={onClick}
-      className={
-        'rounded border px-2.5 py-1 text-xs disabled:opacity-50 ' +
-        (primary ? 'border-accent bg-selection text-accent hover:opacity-90' : 'border-line hover:bg-hover')
-      }
+      type={props.onClick ? 'button' : 'submit'}
+      disabled={props.disabled}
+      onClick={() => props.onClick?.()}
+      class={[
+        'rounded border px-2.5 py-1 text-xs disabled:opacity-50',
+        props.primary ? 'border-accent bg-selection text-accent hover:opacity-90' : 'border-line hover:bg-hover',
+      ]}
     >
-      {children}
+      {props.children}
     </button>
   );
 }

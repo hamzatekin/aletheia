@@ -1,4 +1,4 @@
-import { flushSync } from 'react-dom';
+import { flush } from 'solid-js';
 import { hasOpenParent, setAllCollapsedCommands } from '@/commands';
 import { ancestorIds, newId } from '@/model';
 import type { Caret } from '@/store/ui-store';
@@ -19,15 +19,16 @@ export function navigationActions(ctx: ActionContext) {
 
   const createFirst = () => {
     const id = newId();
-    ctx.applyFocus(engine.execute({ type: 'createNode', id, parentId: rootId, at: 'first' }));
+    ctx.applyFocus(engine.execute({ type: 'createNode', id, parentId: rootId(), at: 'first' }));
   };
 
   const zoomOut = () => {
-    if (rootId === null) return;
+    const id = rootId();
+    if (id === null) return;
     session.flush();
-    const root = tree.get(rootId);
+    const root = tree.get(id);
     navigate(root?.parentId ? `/n/${root.parentId}` : '/');
-    ui.focusNode(rootId, { kind: 'end' });
+    ui.focusNode(id, { kind: 'end' });
   };
 
   const setAllCollapsed = (underId: string | null, collapsed: boolean, includeSelf = false) => {
@@ -37,7 +38,7 @@ export function navigationActions(ctx: ActionContext) {
     engine.batch(commands, collapsed ? 'collapseAll' : 'expandAll');
     // A focused node that just got hidden hands the caret to the ancestor that hides it.
     const focus = ui.getState().focus;
-    if (!collapsed || !focus || focus.id === rootId) return;
+    if (!collapsed || !focus || focus.id === rootId()) return;
     const visible = new Set(ctx.rowsNow().map((r) => r.id));
     if (visible.has(focus.id)) return;
     const holder = ancestorIds(tree, focus.id).find((a) => visible.has(a));
@@ -45,7 +46,10 @@ export function navigationActions(ctx: ActionContext) {
     else ui.blur();
   };
 
-  const toggleAll = () => setAllCollapsed(rootId, hasOpenParent(tree, rootId));
+  const toggleAll = () => {
+    const root = rootId();
+    setAllCollapsed(root, hasOpenParent(tree, root));
+  };
 
   const undoRedo = (which: 'undo' | 'redo') => {
     session.flush();
@@ -74,7 +78,8 @@ export function navigationActions(ctx: ActionContext) {
   const quickAdd = () => {
     session.flush();
     ui.setSelection(null);
-    flushSync(() => void navigate('/capture'));
+    navigate('/capture');
+    flush();
   };
 
   return { focusPrev, focusNext, createFirst, zoomOut, setAllCollapsed, toggleAll, undoRedo, revealNode, quickAdd };

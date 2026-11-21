@@ -65,7 +65,7 @@ export function editorKeyHandler(ctx: ActionContext, parts: Parts): (key: Outlin
     const focus = ui.getState().focus;
     if (!focus || focus.field !== 'content') return false;
     const id = focus.id;
-    const isTitle = id === rootId;
+    const isTitle = id === rootId();
     const node = tree.get(id);
     if (!node) return false;
 
@@ -93,7 +93,7 @@ export function editorKeyHandler(ctx: ActionContext, parts: Parts): (key: Outlin
         engine.execute({ type: 'indent', id });
         return true;
       case 'outdent':
-        if (isTitle || node.parentId === rootId) return true;
+        if (isTitle || node.parentId === rootId()) return true;
         session.flush();
         engine.execute({ type: 'outdent', id });
         return true;

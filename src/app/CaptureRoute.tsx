@@ -1,11 +1,9 @@
-import { useEffect, useLayoutEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { onSettled } from 'solid-js';
+import { useLocation } from '@solidjs/router';
 import { useEngine } from '@/app/engine-context';
+import { useAppNavigate } from '@/app/routing';
 import type { UiStore } from '@/store/ui-store';
 import { addToInbox, sharedItem } from './capture';
-
-// React runs effects twice in development; one visit must add one item.
-const handled = new Set<string>();
 
 /**
  * /share (Android's share sheet, via share_target in the manifest) and
@@ -15,38 +13,29 @@ const handled = new Set<string>();
  * as in WorkFlowy: type the item, then go into its note if you want one.
  * Replacing the URL keeps a reload or Back from adding it again.
  */
-export function CaptureRoute({ ui, mode }: { ui: UiStore; mode: 'share' | 'capture' }) {
+export function CaptureRoute(props: { ui: UiStore; mode: 'share' | 'capture' }) {
   const engine = useEngine();
   const location = useLocation();
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
 
-  const capture = () => {
-    if (handled.has(location.key)) return;
-    handled.add(location.key);
+  // onSettled runs once per visit (this page is replaced right away), inside the
+  // flush that mounts it, so after a tap on a + button the new item's editor has
+  // the focus before the tap ends and the phone opens its keyboard (see quickAdd).
+  // No timer or microtask on this path.
+  onSettled(() => {
     const params = new URLSearchParams(location.search);
     const item =
-      mode === 'share'
+      props.mode === 'share'
         ? sharedItem({ title: params.get('title'), text: params.get('text'), url: params.get('url') })
         : { content: '', note: '' };
-    if (mode === 'share' && item.content === '' && item.note === '') {
-      void navigate('/', { replace: true });
+    if (props.mode === 'share' && item.content === '' && item.note === '') {
+      navigate('/', { replace: true });
       return;
     }
     const { inbox, id } = addToInbox(engine, item);
     // A shared item is done; a new one is for typing.
-    void navigate(`/n/${mode === 'share' ? inbox : id}`, { replace: true });
-    if (mode === 'capture') ui.focusNode(id, { kind: 'end' });
-  };
-  // Opened from inside the app (the + buttons): in a layout effect, so a tap's new
-  // editor has the focus before the tap ends and the phone opens its keyboard (see quickAdd).
-  // Opened from outside (share sheet, app icon): the app's first page, where the router
-  // only listens once its own layout effects have run, so wait for a plain effect.
-  const firstPage = location.key === 'default';
-  useLayoutEffect(() => {
-    if (!firstPage) capture();
-  });
-  useEffect(() => {
-    if (firstPage) capture();
+    navigate(`/n/${props.mode === 'share' ? inbox : id}`, { replace: true });
+    if (props.mode === 'capture') props.ui.focusNode(id, { kind: 'end' });
   });
 
   return null;

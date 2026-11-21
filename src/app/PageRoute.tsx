@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
-import { useStore } from 'zustand';
+import { createEffect, createSignal, Match, Show, Switch } from 'solid-js';
+import { useParams } from '@solidjs/router';
+import { appPath } from '@/app/routing';
 import type { SyncService } from '@/sync/service';
+import { useStoreValue } from '@/ui/store';
 import { Spinner } from '@/ui/widgets';
 import { fetchPage, type SentPage } from './pages';
 
@@ -10,68 +11,84 @@ import { fetchPage, type SentPage } from './pages';
  * is sandboxed without allow-same-origin, so the page's scripts (charts,
  * diagrams) run but can't reach this app's storage or the sync key.
  */
-export function PageRoute({ sync }: { sync: SyncService | undefined }) {
-  return sync ? <SyncedPage sync={sync} /> : <Frame message={NEEDS_SYNC} />;
+export function PageRoute(props: { sync: SyncService | undefined }) {
+  return (
+    <Show when={props.sync} keyed fallback={<Frame message={NEEDS_SYNC} />}>
+      {(sync) => <SyncedPage sync={sync} />}
+    </Show>
+  );
 }
 
 const NEEDS_SYNC = 'This page opens only where sync is on. Turn it on in Settings.';
 
-function SyncedPage({ sync }: { sync: SyncService }) {
-  const { id = '' } = useParams();
-  const key = useStore(sync.state, (s) => s.key);
-  const [page, setPage] = useState<SentPage | null>(null);
-  const [problem, setProblem] = useState<string | null>(null);
+function SyncedPage(props: { sync: SyncService }) {
+  const params = useParams();
+  const key = useStoreValue(props.sync.state, (s) => s.key);
+  const [page, setPage] = createSignal<SentPage | null>(null);
+  const [problem, setProblem] = createSignal<string | null>(null);
 
-  useEffect(() => {
-    if (!key) return;
-    let current = true;
-    setPage(null);
-    setProblem(null);
-    fetchPage(key, id).then(
-      (p) => current && setPage(p),
-      (error: unknown) => current && setProblem(error instanceof TypeError ? 'Could not reach the server. Are you online?' : (error as Error).message),
-    );
-    return () => {
-      current = false;
-    };
-  }, [id, key]);
+  createEffect(
+    () => [params.id ?? '', key()] as const,
+    ([id, key]) => {
+      if (!key) return;
+      let current = true;
+      setPage(null);
+      setProblem(null);
+      fetchPage(key, id).then(
+        (p) => current && setPage(p),
+        (error: unknown) => current && setProblem(error instanceof TypeError ? 'Could not reach the server. Are you online?' : (error as Error).message),
+      );
+      return () => {
+        current = false;
+      };
+    },
+  );
 
-  useEffect(() => {
-    if (page?.title) document.title = page.title;
-  }, [page]);
+  createEffect(page, (p) => {
+    if (p?.title) document.title = p.title;
+  });
 
-  return <Frame page={page} message={key ? problem : NEEDS_SYNC} />;
+  return <Frame page={page()} message={key() ? problem() : NEEDS_SYNC} />;
 }
 
-function Frame({ page = null, message }: { page?: SentPage | null; message: string | null }) {
+function Frame(props: { page?: SentPage | null; message: string | null }) {
   return (
-    <div className="flex h-dvh flex-col bg-desk text-ink">
-      <div className="flex shrink-0 items-center gap-3 border-b border-line px-4 py-2 text-sm">
-        <Link to="/" className="text-muted hover:text-ink">
+    <div class="flex h-dvh flex-col bg-desk text-ink">
+      <div class="flex shrink-0 items-center gap-3 border-b border-line px-4 py-2 text-sm">
+        <a href={appPath('/')} noscroll class="text-muted hover:text-ink">
           ← Aletheia
-        </Link>
-        <span className="min-w-0 truncate font-medium" data-testid="page-title">
-          {page?.title}
+        </a>
+        <span class="min-w-0 truncate font-medium" data-testid="page-title">
+          {props.page?.title}
         </span>
       </div>
-      {message ? (
-        <p role="alert" className="p-6 text-sm text-muted">
-          {message}
-        </p>
-      ) : page ? (
-        <iframe
-          title={page.title || 'Page'}
-          srcDoc={page.html}
-          sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
-          referrerPolicy="no-referrer"
-          className="min-h-0 w-full flex-1 border-0 bg-white"
-          data-testid="page-frame"
-        />
-      ) : (
-        <div className="p-6">
-          <Spinner />
-        </div>
-      )}
+      <Switch
+        fallback={
+          <div class="p-6">
+            <Spinner />
+          </div>
+        }
+      >
+        <Match when={props.message}>
+          {(message) => (
+            <p role="alert" class="p-6 text-sm text-muted">
+              {message()}
+            </p>
+          )}
+        </Match>
+        <Match when={props.page}>
+          {(page) => (
+            <iframe
+              title={page().title || 'Page'}
+              srcdoc={page().html}
+              sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+              referrerpolicy="no-referrer"
+              class="min-h-0 w-full flex-1 border-0 bg-white"
+              data-testid="page-frame"
+            />
+          )}
+        </Match>
+      </Switch>
     </div>
   );
 }

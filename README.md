@@ -8,7 +8,7 @@ content and export format, never the storage format for hierarchy.
 
 ## Stack
 
-Vite · React · TypeScript (strict) · Tailwind · Zustand · Dexie · Vitest
+Vite · Solid 2 · TypeScript (strict) · Tailwind · Zustand · Dexie · Vitest
 
 ## Layout
 
@@ -65,7 +65,8 @@ same `deletedAt`; undo brings the subtree back.
 collapsed nodes. The store keeps a `structureVersion` that only bumps on
 hierarchy, order, collapse or delete changes, so typing never recomputes the
 flattening. The list is virtualized against the window with
-`@tanstack/react-virtual`; each row subscribes to its own node only.
+`@tanstack/virtual-core` (`src/ui/virtual.ts`, a small Solid adapter); each
+row subscribes to its own node only.
 
 Routes: `/` is the top level, `/n/:id` zooms into a node (its content becomes
 the title, its children the list). `/share` (Android's share sheet) and

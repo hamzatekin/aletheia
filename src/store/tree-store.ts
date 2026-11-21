@@ -1,5 +1,6 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import { useStore } from 'zustand';
+import type { Accessor } from 'solid-js';
+import { useStoreValue } from '@/ui/store';
 import { parentKey, type Node, type NodeChange, type TreeReader } from '@/model';
 
 /**
@@ -9,7 +10,7 @@ import { parentKey, type Node, type NodeChange, type TreeReader } from '@/model'
  * "instant"), but every `Node` object and every children array is replaced
  * immutably, and `version` bumps on each change. Selectors such as
  * `s.nodes.get(id)` therefore return stable references and components
- * re-render only when the node they read actually changed.
+ * update only when the node they read actually changed.
  */
 interface TreeState {
   /** Every node, including soft-deleted ones (needed for restore/undo). */
@@ -145,6 +146,7 @@ export function readerOf(store: TreeStore): TreeReader {
   };
 }
 
-export function useTreeStore<T>(store: TreeStore, selector: (s: TreeState) => T): T {
-  return useStore(store, selector);
+/** A slice of the tree, as an accessor (see `useStoreValue`). */
+export function useTreeStore<T>(store: TreeStore, selector: (s: TreeState) => T): Accessor<T> {
+  return useStoreValue(store, selector);
 }

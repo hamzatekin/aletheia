@@ -1,10 +1,10 @@
-import { BrowserRouter, Route, Routes } from 'react-router';
+import { createRouter } from '@solidjs/router';
 import type { AiService } from '@/ai/service';
 import type { Engine } from '@/commands';
 import { CaptureRoute } from '@/app/CaptureRoute';
 import { PageRoute } from '@/app/PageRoute';
 import { inSandbox, SANDBOX_PATH } from '@/app/sandbox';
-import { EngineProvider } from '@/app/engine-context';
+import { EngineContext } from '@/app/engine-context';
 import type { EditorSession } from '@/editor/session';
 import type { AgentService } from '@/agent/service';
 import type { SearchIndex } from '@/search';
@@ -26,21 +26,24 @@ interface Props {
   voice: VoiceService;
 }
 
-export function App({ engine, ui, session, search, settings, sync, ai, agent, voice }: Props) {
-  const page = <OutlinePage ui={ui} session={session} search={search} settings={settings} sync={sync} ai={ai} agent={agent} voice={voice} />;
+export function App(props: Props) {
+  const Page = () => (
+    <OutlinePage ui={props.ui} session={props.session} search={props.search} settings={props.settings} sync={props.sync} ai={props.ai} agent={props.agent} voice={props.voice} />
+  );
+  const Router = createRouter({
+    // In the sandbox every route sits under /sandbox; links and navigate add it through appPath (app/routing.ts).
+    ...(inSandbox ? { base: SANDBOX_PATH } : {}),
+    routes: [
+      // One route for Home and zoomed pages: the page stays mounted while you zoom, as it did before.
+      { path: ['/', '/n/:id'], component: Page },
+      { path: '/share', component: () => <CaptureRoute ui={props.ui} mode="share" /> },
+      { path: '/capture', component: () => <CaptureRoute ui={props.ui} mode="capture" /> },
+      { path: '/p/:id', component: () => <PageRoute sync={props.sync} /> },
+    ],
+  });
   return (
-    <EngineProvider value={engine}>
-      {/* In the sandbox every route sits under /sandbox, so links and navigate('/n/…') stay inside it. */}
-      {/* Page changes render at once (no React transition), so zooming can animate them as a view transition (zoom-transition.ts). */}
-      <BrowserRouter basename={inSandbox ? SANDBOX_PATH : '/'} useTransitions={false}>
-        <Routes>
-          <Route path="/" element={page} />
-          <Route path="/n/:id" element={page} />
-          <Route path="/share" element={<CaptureRoute ui={ui} mode="share" />} />
-          <Route path="/capture" element={<CaptureRoute ui={ui} mode="capture" />} />
-          <Route path="/p/:id" element={<PageRoute sync={sync} />} />
-        </Routes>
-      </BrowserRouter>
-    </EngineProvider>
+    <EngineContext value={props.engine}>
+      <Router>{(router) => router.children}</Router>
+    </EngineContext>
   );
 }
